@@ -4,7 +4,7 @@
 #include "pico/unique_id.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
-#include "mbedtls/aes.h"
+#include "mbedtls/gcm.h"
 #include "mbedtls/sha256.h"
 #include "wifi_config.h"
 
@@ -12,18 +12,23 @@
 #define WIFI_CONFIG_FLASH_OFFSET (PICO_FLASH_SIZE_BYTES - 2 * FLASH_SECTOR_SIZE)
 #define WIFI_CONFIG_MAGIC 0x57494649U  // "WIFI"
 
-// AES-128 block size is 16 bytes. Plaintext: ssid(33) + pass(64) = 97 bytes.
+// AES-128 block size is 16 bytes.  Plaintext: ssid(33) + pass(64) = 97 bytes.
 // Round up to next multiple of 16: 7 * 16 = 112 bytes.
 #define WIFI_PLAINTEXT_PADDED 112
 
-// Padding to fill exactly one flash page (256 bytes):
-// 4 (magic) + 4 (crc) + 16 (iv) + 112 (ciphertext) = 136; pad = 256 - 136 = 120
-#define WIFI_RESERVED_SIZE (FLASH_PAGE_SIZE - 4 - 4 - 16 - WIFI_PLAINTEXT_PADDED)
+// AES-128-GCM parameters
+#define WIFI_GCM_NONCE_LEN 12
+#define WIFI_GCM_TAG_LEN   16
+
+// Flash page layout (must equal FLASH_PAGE_SIZE = 256 bytes):
+//   magic(4) + nonce(12) + tag(16) + ciphertext(112) + reserved(112) = 256
+#define WIFI_RESERVED_SIZE \
+    (FLASH_PAGE_SIZE - 4 - WIFI_GCM_NONCE_LEN - WIFI_GCM_TAG_LEN - WIFI_PLAINTEXT_PADDED)
 
 typedef struct {
 	uint32_t magic;
-	uint32_t crc;
-	uint8_t  iv[16];
+	uint8_t  nonce[WIFI_GCM_NONCE_LEN];
+	uint8_t  tag[WIFI_GCM_TAG_LEN];
 	uint8_t  ciphertext[WIFI_PLAINTEXT_PADDED];
 	uint8_t  reserved[WIFI_RESERVED_SIZE];
 } __attribute__((packed)) wifi_flash_page_t;
@@ -35,13 +40,6 @@ _Static_assert(sizeof(wifi_flash_page_t) == FLASH_PAGE_SIZE,
 static char s_ssid[WIFI_SSID_MAX_LEN + 1];
 static char s_pass[WIFI_PASS_MAX_LEN + 1];
 static bool s_valid = false;
-
-// CRC over a byte range (same algorithm as push_manager.c)
-static uint32_t calc_crc(const uint8_t *data, size_t len) {
-	uint32_t crc = 0;
-	for (size_t i = 0; i < len; i++) crc ^= ((uint32_t)data[i] << (8 * (i % 4)));
-	return crc;
-}
 
 // Derive a 16-byte AES-128 key from the device's unique board ID.
 // Uses SHA-256(board_id || fixed_salt) and takes the first 16 bytes.
@@ -74,26 +72,26 @@ bool wifi_config_load(char *ssid, size_t ssid_len, char *password, size_t pass_l
 
 	if (stored->magic != WIFI_CONFIG_MAGIC) return false;
 
-	// Verify CRC over iv + ciphertext
-	uint32_t expected = calc_crc(stored->iv, sizeof(stored->iv) + sizeof(stored->ciphertext));
-	if (stored->crc != expected) return false;
-
 	// Derive decryption key
 	uint8_t key[16];
 	if (!derive_key(key)) return false;
 
-	// CBC mode modifies the IV in-place, so copy it first
-	uint8_t iv_copy[16];
-	memcpy(iv_copy, stored->iv, sizeof(iv_copy));
+	// Decrypt and authenticate using AES-128-GCM.
+	// Additional data (AD) = magic value, binding the tag to this flash layout.
+	uint8_t ad[4];
+	memcpy(ad, &stored->magic, sizeof(ad));
 
-	// Decrypt
 	uint8_t plaintext[WIFI_PLAINTEXT_PADDED];
-	mbedtls_aes_context aes;
-	mbedtls_aes_init(&aes);
-	bool ok = (mbedtls_aes_setkey_dec(&aes, key, 128) == 0) &&
-	          (mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, WIFI_PLAINTEXT_PADDED,
-	                                  iv_copy, stored->ciphertext, plaintext) == 0);
-	mbedtls_aes_free(&aes);
+
+	mbedtls_gcm_context gcm;
+	mbedtls_gcm_init(&gcm);
+	bool ok = (mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 128) == 0) &&
+	          (mbedtls_gcm_auth_decrypt(&gcm, WIFI_PLAINTEXT_PADDED,
+	                                     stored->nonce, WIFI_GCM_NONCE_LEN,
+	                                     ad, sizeof(ad),
+	                                     stored->tag, WIFI_GCM_TAG_LEN,
+	                                     stored->ciphertext, plaintext) == 0);
+	mbedtls_gcm_free(&gcm);
 	if (!ok) return false;
 
 	// Plaintext layout: ssid[WIFI_SSID_MAX_LEN+1] || pass[WIFI_PASS_MAX_LEN+1]
@@ -102,6 +100,7 @@ bool wifi_config_load(char *ssid, size_t ssid_len, char *password, size_t pass_l
 
 	// Enforce null-termination within their respective fields
 	if (pt_ssid[WIFI_SSID_MAX_LEN] != '\0' || pt_ssid[0] == '\0') return false;
+	if (pt_pass[WIFI_PASS_MAX_LEN] != '\0') return false;
 
 	snprintf(ssid, ssid_len, "%.*s", WIFI_SSID_MAX_LEN, pt_ssid);
 	snprintf(password, pass_len, "%.*s", WIFI_PASS_MAX_LEN, pt_pass);
@@ -127,27 +126,35 @@ bool wifi_config_save(const char *ssid, const char *password) {
 		         WIFI_PASS_MAX_LEN + 1, "%s", password);
 	}
 
-	// Generate IV from current timestamp (different on every save)
-	uint8_t iv[16];
+	// Generate GCM nonce: 8 bytes from timestamp + 4 bytes from board ID
+	// Ensures uniqueness per-device and per-save.
+	uint8_t nonce[WIFI_GCM_NONCE_LEN];
 	uint64_t t = time_us_64();
-	memcpy(iv,     &t, 8);
-	memcpy(iv + 8, &t, 8);
+	pico_unique_board_id_t uid;
+	pico_get_unique_board_id(&uid);
+	memcpy(nonce, &t, 8);
+	memcpy(nonce + 8, uid.id, 4);
 
 	// Derive encryption key
 	uint8_t key[16];
 	if (!derive_key(key)) return false;
 
-	// Encrypt
+	// Encrypt + authenticate using AES-128-GCM
 	uint8_t ciphertext[WIFI_PLAINTEXT_PADDED];
-	uint8_t iv_copy[16];
-	memcpy(iv_copy, iv, sizeof(iv_copy));
+	uint8_t tag[WIFI_GCM_TAG_LEN];
+	uint32_t magic = WIFI_CONFIG_MAGIC;
+	uint8_t ad[4];
+	memcpy(ad, &magic, sizeof(ad));
 
-	mbedtls_aes_context aes;
-	mbedtls_aes_init(&aes);
-	bool ok = (mbedtls_aes_setkey_enc(&aes, key, 128) == 0) &&
-	          (mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, WIFI_PLAINTEXT_PADDED,
-	                                  iv_copy, plaintext, ciphertext) == 0);
-	mbedtls_aes_free(&aes);
+	mbedtls_gcm_context gcm;
+	mbedtls_gcm_init(&gcm);
+	bool ok = (mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 128) == 0) &&
+	          (mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT, WIFI_PLAINTEXT_PADDED,
+	                                      nonce, WIFI_GCM_NONCE_LEN,
+	                                      ad, sizeof(ad),
+	                                      plaintext, ciphertext,
+	                                      WIFI_GCM_TAG_LEN, tag) == 0);
+	mbedtls_gcm_free(&gcm);
 	if (!ok) return false;
 
 	// Build 256-byte flash page
@@ -156,9 +163,9 @@ bool wifi_config_save(const char *ssid, const char *password) {
 
 	wifi_flash_page_t *page = (wifi_flash_page_t *)buf;
 	page->magic = WIFI_CONFIG_MAGIC;
-	memcpy(page->iv, iv, sizeof(iv));
+	memcpy(page->nonce, nonce, sizeof(nonce));
+	memcpy(page->tag, tag, sizeof(tag));
 	memcpy(page->ciphertext, ciphertext, sizeof(ciphertext));
-	page->crc = calc_crc(page->iv, sizeof(page->iv) + sizeof(page->ciphertext));
 
 	// Write to flash (interrupts must be disabled during flash operations)
 	uint32_t ints = save_and_disable_interrupts();
@@ -171,7 +178,7 @@ bool wifi_config_save(const char *ssid, const char *password) {
 	snprintf(s_pass, sizeof(s_pass), "%s", password ? password : "");
 	s_valid = true;
 
-	printf("wifi_config: credentials saved to flash (AES-128 encrypted)\n");
+	printf("wifi_config: credentials saved to flash (AES-128-GCM)\n");
 	return true;
 }
 
@@ -193,3 +200,4 @@ void wifi_config_clear(void) {
 bool wifi_config_is_valid(void) {
 	return s_valid;
 }
+

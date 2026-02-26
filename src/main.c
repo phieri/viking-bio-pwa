@@ -27,6 +27,9 @@ volatile uint32_t event_flags = 0;
 // Watchdog timeout: 8 seconds
 #define WATCHDOG_TIMEOUT_MS 8000
 
+// Watchdog-based software reboot delay (milliseconds)
+#define WATCHDOG_REBOOT_MS 1
+
 // --- LED state ---
 static absolute_time_t s_led_blink_time;   // Next 2 Hz toggle when disconnected
 static absolute_time_t s_serial_blink_end; // Serial-data short-blink deadline
@@ -168,7 +171,7 @@ static void mdns_setup(void) {
 	         uid.id[6], uid.id[7]);
 
 	mdns_resp_add_netif(netif_default, hostname);
-	mdns_resp_add_service(netif_default, "Viking Bio 20", "_http",
+	mdns_resp_add_service(netif_default, "Viking-Bio-20", "_http",
 	                      DNSSD_PROTO_TCP, HTTP_SERVER_PORT, NULL, NULL);
 	printf("mDNS: %s.local registered (_http._tcp port %d)\n",
 	       hostname, HTTP_SERVER_PORT);
@@ -217,7 +220,7 @@ int main(void) {
 	char password[WIFI_PASS_MAX_LEN + 1] = {0};
 	bool have_creds = wifi_config_load(ssid, sizeof(ssid), password, sizeof(password));
 
-#if defined(WIFI_SSID) && (WIFI_SSID[0] != '\0')
+#if WIFI_COMPILE_CREDS_VALID
 	if (!have_creds) {
 		snprintf(ssid, sizeof(ssid), "%s", WIFI_SSID);
 		snprintf(password, sizeof(password), "%s", WIFI_PASSWORD);
@@ -276,7 +279,7 @@ int main(void) {
 		if (process_usb_commands()) {
 			// New credentials saved – reboot to apply
 			sleep_ms(100);
-			watchdog_enable(1, false);
+			watchdog_enable(WATCHDOG_REBOOT_MS, false);
 			while (1) {}  // Wait for watchdog reset
 		}
 

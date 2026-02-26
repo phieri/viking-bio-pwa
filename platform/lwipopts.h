@@ -56,7 +56,7 @@
 #define DNS_MAX_SERVERS 2
 #define DNS_TABLE_SIZE 4
 
-// Timers (increased for mDNS)
+// Timers (increased from 4 to 8 to accommodate mDNS responder)
 #define MEMP_NUM_SYS_TIMEOUT 8
 
 // ARP (unused with IPv6 only, kept harmless)
