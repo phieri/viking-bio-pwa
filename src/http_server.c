@@ -148,8 +148,7 @@ static int fs_open_dynamic(struct fs_file *file, const char *src, size_t src_siz
 	memcpy(buf, src, len + 1);
 	file->data = buf;
 	file->len = (int)len;
-	file->pextension = buf;
-	file->is_custom_file = 1;
+	file->state = buf;
 	(void)src_size;
 	return 1;
 }
@@ -162,19 +161,16 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 	    strcmp(name, "/index.shtml") == 0) {
 		file->data = INDEX_HTML;
 		file->len = (int)strlen(INDEX_HTML);
-		file->is_custom_file = 1;
 		return 1;
 	}
 	if (strcmp(name, "/sw.js") == 0) {
 		file->data = SW_JS;
 		file->len = (int)strlen(SW_JS);
-		file->is_custom_file = 1;
 		return 1;
 	}
 	if (strcmp(name, "/manifest.json") == 0) {
 		file->data = MANIFEST_JSON;
 		file->len = (int)strlen(MANIFEST_JSON);
-		file->is_custom_file = 1;
 		return 1;
 	}
 
@@ -190,19 +186,16 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 	if (strcmp(name, "/api_ok.json") == 0) {
 		file->data = s_ok_json;
 		file->len = (int)strlen(s_ok_json);
-		file->is_custom_file = 1;
 		return 1;
 	}
 	if (strcmp(name, "/api_full.json") == 0) {
 		file->data = s_full_json;
 		file->len = (int)strlen(s_full_json);
-		file->is_custom_file = 1;
 		return 1;
 	}
 	if (strcmp(name, "/api_error.json") == 0) {
 		file->data = s_error_json;
 		file->len = (int)strlen(s_error_json);
-		file->is_custom_file = 1;
 		return 1;
 	}
 
@@ -210,9 +203,9 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 }
 
 void fs_close_custom(struct fs_file *file) {
-	if (file && file->pextension) {
-		free(file->pextension);
-		file->pextension = NULL;
+	if (file && file->state) {
+		free(file->state);
+		file->state = NULL;
 	}
 }
 
