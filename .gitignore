@@ -1,0 +1,38 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+
+# Pico SDK
+pico-sdk/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Compiled Object files
+*.o
+*.obj
+*.elf
+
+# Firmware files
+*.bin
+*.hex
+*.uf2
+*.map
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CodeQL
+_codeql_detected_source_root
