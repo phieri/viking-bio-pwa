@@ -11,12 +11,13 @@
 #include "wifi_config.h"
 #include "version.h"
 #include "web_content.h"
+#include "flame_counter.h"
 
 // --- Cached data for API responses ---
 static viking_bio_data_t s_cached_data = {0};
 
 // Dynamic response buffers (allocated per-connection in fs_open_custom)
-static char s_data_json[128];
+static char s_data_json[160];
 static char s_vapid_json[128];
 static char s_country_json[32];
 
@@ -84,12 +85,13 @@ static bool json_extract_string(const char *json, const char *key,
 // --- Update cached data for the /api/data JSON response ---
 static void update_data_json(void) {
 	snprintf(s_data_json, sizeof(s_data_json),
-	         "{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
+	         "{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s,\"flame_secs\":%u}",
 	         s_cached_data.flame_detected ? "true" : "false",
 	         s_cached_data.fan_speed,
 	         s_cached_data.temperature,
 	         s_cached_data.error_code,
-	         s_cached_data.valid ? "true" : "false");
+	         s_cached_data.valid ? "true" : "false",
+	         flame_counter_get_seconds());
 }
 
 static void update_vapid_json(void) {

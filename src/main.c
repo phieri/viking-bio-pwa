@@ -14,6 +14,7 @@
 #include "push_manager.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
+#include "flame_counter.h"
 #include "version.h"
 
 // Event flags (modified from interrupt context)
@@ -223,6 +224,10 @@ int main(void) {
 		printf("WARNING: LittleFS initialization failed\n");
 	}
 
+	// Initialize flame hours counter
+	printf("Initializing flame counter...\n");
+	flame_counter_init();
+
 	// Initialize WiFi credential store
 	wifi_config_init();
 
@@ -371,6 +376,10 @@ int main(void) {
 
 		if (event_flags & EVENT_BROADCAST) {
 			event_flags &= ~EVENT_BROADCAST;
+
+			// Update flame hours counter
+			bool flame_on = !timeout_triggered && viking_data.valid && viking_data.flame_detected;
+			flame_counter_update(flame_on, BROADCAST_INTERVAL_MS);
 
 			if (http_started && !timeout_triggered) {
 				viking_bio_data_t current;

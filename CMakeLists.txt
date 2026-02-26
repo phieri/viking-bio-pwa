@@ -146,6 +146,7 @@ set(SOURCES
     src/push_manager.c
     src/wifi_config.c
     src/lfs_hal.c
+    src/flame_counter.c
     ${littlefs_SOURCE_DIR}/lfs.c
     ${littlefs_SOURCE_DIR}/lfs_util.c
 )
