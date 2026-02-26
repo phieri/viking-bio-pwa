@@ -12,7 +12,8 @@
 #include "mbedtls/ecp.h"
 #include "mbedtls/ecdh.h"
 #include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/hmac_drbg.h"
+#include "mbedtls/md.h"
 #include "mbedtls/sha256.h"
 #include "mbedtls/base64.h"
 #include "push_manager.h"
@@ -48,7 +49,7 @@ static int subscription_count = 0;
 
 // mbedTLS context
 static mbedtls_entropy_context entropy;
-static mbedtls_ctr_drbg_context ctr_drbg;
+static mbedtls_hmac_drbg_context hmac_drbg;
 
 // Simple CRC
 static uint32_t calc_crc(const uint8_t *data, size_t len) {
@@ -95,7 +96,7 @@ static bool generate_vapid_keys(void) {
 	mbedtls_ecp_keypair_init(&keypair);
 
 	int ret = mbedtls_ecp_gen_key(MBEDTLS_ECP_DP_SECP256R1, &keypair,
-	                               mbedtls_ctr_drbg_random, &ctr_drbg);
+	                               mbedtls_hmac_drbg_random, &hmac_drbg);
 	if (ret != 0) {
 		mbedtls_ecp_keypair_free(&keypair);
 		return false;
@@ -124,15 +125,17 @@ bool push_manager_init(void) {
 	memset(subscriptions, 0, sizeof(subscriptions));
 	subscription_count = 0;
 
-	// Initialize mbedTLS RNG
+	// Initialize mbedTLS RNG (HMAC_DRBG instead of CTR_DRBG for SDK compatibility)
 	mbedtls_entropy_init(&entropy);
-	mbedtls_ctr_drbg_init(&ctr_drbg);
+	mbedtls_hmac_drbg_init(&hmac_drbg);
 
 	// Seed with Pico W unique ID
 	pico_unique_board_id_t uid;
 	pico_get_unique_board_id(&uid);
-	int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-	                                  uid.id, PICO_UNIQUE_BOARD_ID_SIZE_BYTES);
+	int ret = mbedtls_hmac_drbg_seed(&hmac_drbg,
+	                                   mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),
+	                                   mbedtls_entropy_func, &entropy,
+	                                   uid.id, PICO_UNIQUE_BOARD_ID_SIZE_BYTES);
 	if (ret != 0) {
 		printf("push_manager: failed to seed RNG (%d)\n", ret);
 		// Continue anyway - use hardware entropy directly

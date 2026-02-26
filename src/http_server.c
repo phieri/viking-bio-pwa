@@ -224,6 +224,44 @@ static size_t base64url_encode(const uint8_t *data, size_t len, char *out, size_
 	return out_len;
 }
 
+/**
+ * Extract a JSON string value for the given key from a JSON object string.
+ * Finds the first occurrence of "key":"value" and copies value into out[0..out_size-1].
+ * Returns true on success, false if key not found or value too long.
+ * All strchr return values are checked before dereferencing.
+ */
+static bool json_extract_string(const char *json, const char *key,
+                                 char *out, size_t out_size) {
+	if (!json || !key || !out || out_size == 0) return false;
+	out[0] = '\0';
+
+	char search[64];
+	snprintf(search, sizeof(search), "\"%s\":", key);
+	const char *p = strstr(json, search);
+	if (!p) return false;
+
+	// Advance past the key and colon
+	p += strlen(search);
+
+	// Skip whitespace
+	while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+
+	// Expect opening quote
+	if (*p != '"') return false;
+	p++;  // skip opening quote
+
+	// Find closing quote (not preceded by backslash)
+	const char *end = strchr(p, '"');
+	if (!end) return false;
+
+	size_t val_len = (size_t)(end - p);
+	if (val_len >= out_size) return false;
+
+	memcpy(out, p, val_len);
+	out[val_len] = '\0';
+	return true;
+}
+
 // --- HTTP helpers ---
 static void close_conn(http_conn_t *conn) {
 	if (!conn) return;
@@ -356,55 +394,13 @@ static void handle_request(http_conn_t *conn) {
 		char *body_start = strstr(req, "\r\n\r\n");
 		if (body_start) {
 			body_start += 4;
-			// Parse endpoint, p256dh, auth from JSON
 			char endpoint[PUSH_MAX_ENDPOINT_LEN] = {0};
 			char p256dh[PUSH_MAX_KEY_LEN] = {0};
 			char auth[PUSH_MAX_AUTH_LEN] = {0};
 
-			// Extract endpoint
-			char *ep = strstr(body_start, "\"endpoint\":");
-			if (ep) {
-				ep = strchr(ep, '"'); ep++;  // opening quote of key
-				ep = strchr(ep, '"'); ep++;  // opening quote of value
-				char *ep_end = strchr(ep, '"');
-				if (ep_end) {
-					size_t ep_len = ep_end - ep;
-					if (ep_len < PUSH_MAX_ENDPOINT_LEN) {
-						memcpy(endpoint, ep, ep_len);
-						endpoint[ep_len] = '\0';
-					}
-				}
-			}
-
-			// Extract p256dh from keys.p256dh
-			char *k = strstr(body_start, "\"p256dh\":");
-			if (k) {
-				k = strchr(k, '"'); k++;
-				k = strchr(k, '"'); k++;
-				char *k_end = strchr(k, '"');
-				if (k_end) {
-					size_t k_len = k_end - k;
-					if (k_len < PUSH_MAX_KEY_LEN) {
-						memcpy(p256dh, k, k_len);
-						p256dh[k_len] = '\0';
-					}
-				}
-			}
-
-			// Extract auth from keys.auth
-			char *a = strstr(body_start, "\"auth\":");
-			if (a) {
-				a = strchr(a, '"'); a++;
-				a = strchr(a, '"'); a++;
-				char *a_end = strchr(a, '"');
-				if (a_end) {
-					size_t a_len = a_end - a;
-					if (a_len < PUSH_MAX_AUTH_LEN) {
-						memcpy(auth, a, a_len);
-						auth[a_len] = '\0';
-					}
-				}
-			}
+			json_extract_string(body_start, "endpoint", endpoint, sizeof(endpoint));
+			json_extract_string(body_start, "p256dh", p256dh, sizeof(p256dh));
+			json_extract_string(body_start, "auth", auth, sizeof(auth));
 
 			if (endpoint[0]) {
 				bool ok = push_manager_add_subscription(endpoint, p256dh, auth);
@@ -429,20 +425,9 @@ static void handle_request(http_conn_t *conn) {
 		if (body_start) {
 			body_start += 4;
 			char endpoint[PUSH_MAX_ENDPOINT_LEN] = {0};
-			char *ep = strstr(body_start, "\"endpoint\":");
-			if (ep) {
-				ep = strchr(ep, '"'); ep++;
-				ep = strchr(ep, '"'); ep++;
-				char *ep_end = strchr(ep, '"');
-				if (ep_end) {
-					size_t ep_len = ep_end - ep;
-					if (ep_len < PUSH_MAX_ENDPOINT_LEN) {
-						memcpy(endpoint, ep, ep_len);
-						endpoint[ep_len] = '\0';
-					}
-				}
+			if (json_extract_string(body_start, "endpoint", endpoint, sizeof(endpoint))) {
+				push_manager_remove_subscription(endpoint);
 			}
-			if (endpoint[0]) push_manager_remove_subscription(endpoint);
 		}
 		send_http_response(conn->pcb, 200, "application/json; charset=utf-8",
 		                   "{\"status\":\"ok\"}", 15);

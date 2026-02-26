@@ -22,6 +22,9 @@ volatile uint32_t event_flags = 0;
 // Broadcast interval: 2 seconds
 #define BROADCAST_INTERVAL_MS 2000
 
+// Watchdog timeout: 8 seconds
+#define WATCHDOG_TIMEOUT_MS 8000
+
 bool periodic_timer_callback(struct repeating_timer *t) {
 	(void)t;
 	event_flags |= EVENT_TIMEOUT_CHECK | EVENT_BROADCAST;
@@ -87,7 +90,7 @@ int main(void) {
 	}
 
 	// Enable watchdog (8 second timeout)
-	watchdog_enable(8000, false);
+	watchdog_enable(WATCHDOG_TIMEOUT_MS, false);
 	printf("Watchdog enabled (8s timeout)\n");
 
 	// Periodic timer (every 2 seconds)
