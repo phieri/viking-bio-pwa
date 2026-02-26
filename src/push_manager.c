@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "pico/stdlib.h"
-#include "hardware/flash.h"
-#include "hardware/sync.h"
 #include "pico/unique_id.h"
 #include "lwip/tcp.h"
 #include "lwip/dns.h"
@@ -17,26 +15,14 @@
 #include "mbedtls/sha256.h"
 #include "mbedtls/base64.h"
 #include "push_manager.h"
+#include "lfs_hal.h"
 
-// VAPID key storage in flash (last 4KB sector)
-// Flash size is 2MB for Pico W; last sector at 0x1FF000
-#define FLASH_TARGET_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
-#define VAPID_MAGIC 0x56415049  // "VAPI"
+// VAPID key storage in LittleFS
+#define VAPID_FILE   "/vapid.dat"
+#define VAPID_MAGIC  0x56415049  // "VAPI"
 
-// Padding: FLASH_PAGE_SIZE(256) - magic(4) - private_key(32) - public_key(65) - crc(4) = 151 bytes
-#define VAPID_RESERVED_SIZE (FLASH_PAGE_SIZE - 4 - 32 - 65 - 4)
-
-typedef struct {
-	uint32_t magic;
-	uint8_t private_key[32];             // P-256 private key (raw 32 bytes)
-	uint8_t public_key[65];              // P-256 public key (uncompressed, 65 bytes)
-	uint8_t reserved[VAPID_RESERVED_SIZE]; // Padding to reach FLASH_PAGE_SIZE
-	uint32_t crc;                        // Simple XOR checksum
-} vapid_flash_t;
-
-// Verify the struct fits in one flash page at compile time
-_Static_assert(sizeof(vapid_flash_t) == FLASH_PAGE_SIZE,
-               "vapid_flash_t must be exactly FLASH_PAGE_SIZE bytes");
+// Storage layout: magic(4) + private_key(32) + public_key(65) + crc(4) = 105 bytes
+#define VAPID_STORED_SIZE (4 + 32 + 65 + 4)
 
 // VAPID keys (in RAM after loaded/generated)
 static uint8_t vapid_private_key[32];
@@ -58,37 +44,39 @@ static uint32_t calc_crc(const uint8_t *data, size_t len) {
 	return crc;
 }
 
-static bool load_vapid_keys_from_flash(void) {
-	const vapid_flash_t *stored = (const vapid_flash_t *)(XIP_BASE + FLASH_TARGET_OFFSET);
-	if (stored->magic != VAPID_MAGIC) return false;
+static bool load_vapid_keys(void) {
+	uint8_t buf[VAPID_STORED_SIZE];
+	int n = lfs_hal_read_file(VAPID_FILE, buf, sizeof(buf));
+	if (n < (int)sizeof(buf)) return false;
 
-	// Verify CRC
-	uint32_t expected_crc = calc_crc((const uint8_t *)stored, offsetof(vapid_flash_t, crc));
-	if (stored->crc != expected_crc) return false;
+	// Check magic
+	uint32_t magic;
+	memcpy(&magic, buf, sizeof(magic));
+	if (magic != VAPID_MAGIC) return false;
 
-	memcpy(vapid_private_key, stored->private_key, 32);
-	memcpy(vapid_public_key, stored->public_key, 65);
+	// Verify CRC (covers magic + private + public = 101 bytes)
+	uint32_t stored_crc;
+	memcpy(&stored_crc, buf + 4 + 32 + 65, sizeof(stored_crc));
+	uint32_t expected_crc = calc_crc(buf, 4 + 32 + 65);
+	if (stored_crc != expected_crc) return false;
+
+	memcpy(vapid_private_key, buf + 4, 32);
+	memcpy(vapid_public_key, buf + 4 + 32, 65);
 	return true;
 }
 
-static bool save_vapid_keys_to_flash(void) {
-	// Build flash data (must be multiple of FLASH_PAGE_SIZE = 256)
-	uint8_t buf[FLASH_PAGE_SIZE];
-	memset(buf, 0xFF, sizeof(buf));
+static bool save_vapid_keys(void) {
+	uint8_t buf[VAPID_STORED_SIZE];
+	uint32_t magic = VAPID_MAGIC;
 
-	vapid_flash_t *data = (vapid_flash_t *)buf;
-	data->magic = VAPID_MAGIC;
-	memcpy(data->private_key, vapid_private_key, 32);
-	memcpy(data->public_key, vapid_public_key, 65);
-	data->crc = calc_crc(buf, offsetof(vapid_flash_t, crc));
+	memcpy(buf, &magic, 4);
+	memcpy(buf + 4, vapid_private_key, 32);
+	memcpy(buf + 4 + 32, vapid_public_key, 65);
 
-	// Write to flash (must disable interrupts)
-	uint32_t ints = save_and_disable_interrupts();
-	flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
-	flash_range_program(FLASH_TARGET_OFFSET, buf, FLASH_PAGE_SIZE);
-	restore_interrupts(ints);
+	uint32_t crc = calc_crc(buf, 4 + 32 + 65);
+	memcpy(buf + 4 + 32 + 65, &crc, 4);
 
-	return true;
+	return lfs_hal_write_file(VAPID_FILE, buf, sizeof(buf));
 }
 
 static bool generate_vapid_keys(void) {
@@ -141,9 +129,9 @@ bool push_manager_init(void) {
 		// Continue anyway - use hardware entropy directly
 	}
 
-	// Try to load VAPID keys from flash
-	if (load_vapid_keys_from_flash()) {
-		printf("push_manager: loaded VAPID keys from flash\n");
+	// Try to load VAPID keys from LittleFS
+	if (load_vapid_keys()) {
+		printf("push_manager: loaded VAPID keys from storage\n");
 		vapid_keys_valid = true;
 		return true;
 	}
@@ -155,9 +143,9 @@ bool push_manager_init(void) {
 		return false;
 	}
 
-	// Save to flash
-	if (!save_vapid_keys_to_flash()) {
-		printf("push_manager: WARNING: failed to save VAPID keys to flash\n");
+	// Save to LittleFS
+	if (!save_vapid_keys()) {
+		printf("push_manager: WARNING: failed to save VAPID keys\n");
 	}
 
 	vapid_keys_valid = true;

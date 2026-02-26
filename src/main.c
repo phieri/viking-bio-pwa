@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "pico/unique_id.h"
@@ -12,6 +13,7 @@
 #include "http_server.h"
 #include "push_manager.h"
 #include "wifi_config.h"
+#include "lfs_hal.h"
 #include "version.h"
 
 // Event flags (modified from interrupt context)
@@ -19,7 +21,7 @@ volatile uint32_t event_flags = 0;
 
 #define EVENT_SERIAL_DATA   (1 << 0)
 #define EVENT_TIMEOUT_CHECK (1 << 2)
-#define EVENT_BROADCAST     (1 << 4)  // Periodic SSE broadcast
+#define EVENT_BROADCAST     (1 << 4)  // Periodic data update
 
 // Broadcast interval: 2 seconds
 #define BROADCAST_INTERVAL_MS 2000
@@ -65,7 +67,7 @@ static size_t s_usb_buf_len = 0;
 static char s_pending_ssid[WIFI_SSID_MAX_LEN + 1];
 static bool s_has_pending_ssid = false;
 
-// Returns true when new credentials have been saved to flash (caller should reboot).
+// Returns true when new credentials have been saved (caller should reboot).
 static bool process_usb_commands(void) {
 	int c;
 	while ((c = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
@@ -94,6 +96,20 @@ static bool process_usb_commands(void) {
 					}
 				}
 
+			} else if (strncmp(s_usb_buf, "COUNTRY=", 8) == 0) {
+				const char *code = s_usb_buf + 8;
+				if (strlen(code) == 2 &&
+				    isupper((unsigned char)code[0]) &&
+				    isupper((unsigned char)code[1])) {
+					if (wifi_config_save_country(code)) {
+						printf("wifi: country set to %s – reboot to apply\n", code);
+					} else {
+						printf("wifi: ERROR saving country\n");
+					}
+				} else {
+					printf("wifi: country must be 2 uppercase letters (e.g. SE, US, GB)\n");
+				}
+
 			} else if (strcmp(s_usb_buf, "STATUS") == 0) {
 				bool up = (netif_default != NULL) &&
 				          netif_is_up(netif_default) &&
@@ -107,6 +123,9 @@ static bool process_usb_commands(void) {
 						}
 					}
 				}
+				char cc[3] = "XX";
+				wifi_config_load_country(cc, sizeof(cc));
+				printf("  country: %s\n", cc);
 
 			} else if (strcmp(s_usb_buf, "CLEAR") == 0) {
 				wifi_config_clear();
@@ -115,10 +134,11 @@ static bool process_usb_commands(void) {
 
 			} else if (s_usb_buf[0] != '\0') {
 				printf("wifi: unknown command '%s'\n", s_usb_buf);
-				printf("  SSID=<ssid>  – set SSID\n");
-				printf("  PASS=<pass>  – set password and save\n");
-				printf("  STATUS       – show WiFi status\n");
-				printf("  CLEAR        – erase stored credentials\n");
+				printf("  SSID=<ssid>      – set SSID\n");
+				printf("  PASS=<pass>      – set password and save\n");
+				printf("  COUNTRY=<CC>     – set Wi-Fi country (e.g. SE, US)\n");
+				printf("  STATUS           – show WiFi status\n");
+				printf("  CLEAR            – erase stored credentials\n");
 			}
 		} else {
 			s_usb_buf[s_usb_buf_len++] = (char)c;
@@ -197,13 +217,25 @@ int main(void) {
 	printf("Initializing serial handler...\n");
 	serial_handler_init();
 
+	// Initialize LittleFS filesystem (must be before wifi_config and push_manager)
+	printf("Initializing LittleFS...\n");
+	if (!lfs_hal_init()) {
+		printf("WARNING: LittleFS initialization failed\n");
+	}
+
 	// Initialize WiFi credential store
 	wifi_config_init();
 
-	// Initialize CYW43 / WiFi
+	// Load WiFi country code (default: worldwide)
+	char country[3] = "XX";
+	wifi_config_load_country(country, sizeof(country));
+	printf("WiFi country: %s\n", country);
+
+	// Initialize CYW43 / WiFi with country setting
 	printf("Initializing WiFi...\n");
-	if (cyw43_arch_init()) {
-		printf("FATAL: cyw43_arch_init() failed\n");
+	uint32_t cyw43_country = wifi_config_country_to_cyw43(country);
+	if (cyw43_arch_init_with_country(cyw43_country)) {
+		printf("FATAL: cyw43_arch_init_with_country() failed\n");
 		return 1;
 	}
 	cyw43_arch_enable_sta_mode();
@@ -215,7 +247,7 @@ int main(void) {
 	// Initialize mDNS responder (must be before any mdns_resp_add_netif call)
 	mdns_resp_init();
 
-	// Load WiFi credentials: flash-stored takes precedence, then compile-time fallback
+	// Load WiFi credentials: stored takes precedence, then compile-time fallback
 	char ssid[WIFI_SSID_MAX_LEN + 1] = {0};
 	char password[WIFI_PASS_MAX_LEN + 1] = {0};
 	bool have_creds = wifi_config_load(ssid, sizeof(ssid), password, sizeof(password));
@@ -297,8 +329,8 @@ int main(void) {
 					timeout_triggered = false;
 
 					if (http_started) {
-						// Broadcast new data via SSE
-						http_server_broadcast_data(&viking_data);
+						// Update cached data for polling
+						http_server_update_data(&viking_data);
 
 						// Send push notification on first error detection
 						if (viking_data.error_code != 0 && !error_notified) {
@@ -332,7 +364,7 @@ int main(void) {
 						.error_code = 0,
 						.valid = false
 					};
-					http_server_broadcast_data(&stale);
+					http_server_update_data(&stale);
 				}
 			}
 		}
@@ -344,7 +376,7 @@ int main(void) {
 				viking_bio_data_t current;
 				viking_bio_get_current_data(&current);
 				if (current.valid) {
-					http_server_broadcast_data(&current);
+					http_server_update_data(&current);
 				}
 			}
 
@@ -358,4 +390,3 @@ int main(void) {
 
 	return 0;
 }
-

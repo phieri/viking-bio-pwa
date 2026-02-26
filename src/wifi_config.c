@@ -1,15 +1,17 @@
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
-#include "hardware/flash.h"
-#include "hardware/sync.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/sha256.h"
 #include "wifi_config.h"
+#include "lfs_hal.h"
 
-// Use the second-to-last flash sector (last sector is used by push_manager for VAPID keys)
-#define WIFI_CONFIG_FLASH_OFFSET (PICO_FLASH_SIZE_BYTES - 2 * FLASH_SECTOR_SIZE)
+// LittleFS file paths
+#define WIFI_CONFIG_FILE   "/wifi.dat"
+#define WIFI_COUNTRY_FILE  "/country.dat"
+
 #define WIFI_CONFIG_MAGIC 0x57494649U  // "WIFI"
 
 // AES-128 block size is 16 bytes.  Plaintext: ssid(33) + pass(64) = 97 bytes.
@@ -20,21 +22,9 @@
 #define WIFI_GCM_NONCE_LEN 12
 #define WIFI_GCM_TAG_LEN   16
 
-// Flash page layout (must equal FLASH_PAGE_SIZE = 256 bytes):
-//   magic(4) + nonce(12) + tag(16) + ciphertext(112) + reserved(112) = 256
-#define WIFI_RESERVED_SIZE \
-    (FLASH_PAGE_SIZE - 4 - WIFI_GCM_NONCE_LEN - WIFI_GCM_TAG_LEN - WIFI_PLAINTEXT_PADDED)
-
-typedef struct {
-	uint32_t magic;
-	uint8_t  nonce[WIFI_GCM_NONCE_LEN];
-	uint8_t  tag[WIFI_GCM_TAG_LEN];
-	uint8_t  ciphertext[WIFI_PLAINTEXT_PADDED];
-	uint8_t  reserved[WIFI_RESERVED_SIZE];
-} __attribute__((packed)) wifi_flash_page_t;
-
-_Static_assert(sizeof(wifi_flash_page_t) == FLASH_PAGE_SIZE,
-               "wifi_flash_page_t must be exactly FLASH_PAGE_SIZE bytes");
+// Storage layout:
+//   magic(4) + nonce(12) + tag(16) + ciphertext(112) = 144 bytes
+#define WIFI_STORED_SIZE (4 + WIFI_GCM_NONCE_LEN + WIFI_GCM_TAG_LEN + WIFI_PLAINTEXT_PADDED)
 
 // In-memory cached credentials
 static char s_ssid[WIFI_SSID_MAX_LEN + 1];
@@ -67,19 +57,27 @@ void wifi_config_init(void) {
 bool wifi_config_load(char *ssid, size_t ssid_len, char *password, size_t pass_len) {
 	if (!ssid || !password || ssid_len == 0 || pass_len == 0) return false;
 
-	const wifi_flash_page_t *stored =
-		(const wifi_flash_page_t *)(XIP_BASE + WIFI_CONFIG_FLASH_OFFSET);
+	uint8_t stored[WIFI_STORED_SIZE];
+	int n = lfs_hal_read_file(WIFI_CONFIG_FILE, stored, sizeof(stored));
+	if (n < (int)sizeof(stored)) return false;
 
-	if (stored->magic != WIFI_CONFIG_MAGIC) return false;
+	// Check magic
+	uint32_t magic;
+	memcpy(&magic, stored, sizeof(magic));
+	if (magic != WIFI_CONFIG_MAGIC) return false;
+
+	const uint8_t *nonce      = stored + 4;
+	const uint8_t *tag        = stored + 4 + WIFI_GCM_NONCE_LEN;
+	const uint8_t *ciphertext = stored + 4 + WIFI_GCM_NONCE_LEN + WIFI_GCM_TAG_LEN;
 
 	// Derive decryption key
 	uint8_t key[16];
 	if (!derive_key(key)) return false;
 
 	// Decrypt and authenticate using AES-128-GCM.
-	// Additional data (AD) = magic value, binding the tag to this flash layout.
+	// Additional data (AD) = magic value, binding the tag to this layout.
 	uint8_t ad[4];
-	memcpy(ad, &stored->magic, sizeof(ad));
+	memcpy(ad, &magic, sizeof(ad));
 
 	uint8_t plaintext[WIFI_PLAINTEXT_PADDED];
 
@@ -87,10 +85,10 @@ bool wifi_config_load(char *ssid, size_t ssid_len, char *password, size_t pass_l
 	mbedtls_gcm_init(&gcm);
 	bool ok = (mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 128) == 0) &&
 	          (mbedtls_gcm_auth_decrypt(&gcm, WIFI_PLAINTEXT_PADDED,
-	                                     stored->nonce, WIFI_GCM_NONCE_LEN,
+	                                     nonce, WIFI_GCM_NONCE_LEN,
 	                                     ad, sizeof(ad),
-	                                     stored->tag, WIFI_GCM_TAG_LEN,
-	                                     stored->ciphertext, plaintext) == 0);
+	                                     tag, WIFI_GCM_TAG_LEN,
+	                                     ciphertext, plaintext) == 0);
 	mbedtls_gcm_free(&gcm);
 	if (!ok) return false;
 
@@ -127,7 +125,6 @@ bool wifi_config_save(const char *ssid, const char *password) {
 	}
 
 	// Generate GCM nonce: 8 bytes from timestamp + 4 bytes from board ID
-	// Ensures uniqueness per-device and per-save.
 	uint8_t nonce[WIFI_GCM_NONCE_LEN];
 	uint64_t t = time_us_64();
 	pico_unique_board_id_t uid;
@@ -157,39 +154,30 @@ bool wifi_config_save(const char *ssid, const char *password) {
 	mbedtls_gcm_free(&gcm);
 	if (!ok) return false;
 
-	// Build 256-byte flash page
-	uint8_t buf[FLASH_PAGE_SIZE];
-	memset(buf, 0xFF, sizeof(buf));
+	// Build storage buffer: magic + nonce + tag + ciphertext
+	uint8_t stored[WIFI_STORED_SIZE];
+	size_t off = 0;
+	memcpy(stored + off, &magic, 4);                off += 4;
+	memcpy(stored + off, nonce, sizeof(nonce));      off += sizeof(nonce);
+	memcpy(stored + off, tag, sizeof(tag));           off += sizeof(tag);
+	memcpy(stored + off, ciphertext, sizeof(ciphertext));
 
-	wifi_flash_page_t *page = (wifi_flash_page_t *)buf;
-	page->magic = WIFI_CONFIG_MAGIC;
-	memcpy(page->nonce, nonce, sizeof(nonce));
-	memcpy(page->tag, tag, sizeof(tag));
-	memcpy(page->ciphertext, ciphertext, sizeof(ciphertext));
-
-	// Write to flash (interrupts must be disabled during flash operations)
-	uint32_t ints = save_and_disable_interrupts();
-	flash_range_erase(WIFI_CONFIG_FLASH_OFFSET, FLASH_SECTOR_SIZE);
-	flash_range_program(WIFI_CONFIG_FLASH_OFFSET, buf, FLASH_PAGE_SIZE);
-	restore_interrupts(ints);
+	if (!lfs_hal_write_file(WIFI_CONFIG_FILE, stored, sizeof(stored))) {
+		printf("wifi_config: ERROR writing to LittleFS\n");
+		return false;
+	}
 
 	// Update cache
 	snprintf(s_ssid, sizeof(s_ssid), "%s", ssid);
 	snprintf(s_pass, sizeof(s_pass), "%s", password ? password : "");
 	s_valid = true;
 
-	printf("wifi_config: credentials saved to flash (AES-128-GCM)\n");
+	printf("wifi_config: credentials saved (AES-128-GCM, LittleFS)\n");
 	return true;
 }
 
 void wifi_config_clear(void) {
-	uint8_t buf[FLASH_PAGE_SIZE];
-	memset(buf, 0xFF, sizeof(buf));
-
-	uint32_t ints = save_and_disable_interrupts();
-	flash_range_erase(WIFI_CONFIG_FLASH_OFFSET, FLASH_SECTOR_SIZE);
-	flash_range_program(WIFI_CONFIG_FLASH_OFFSET, buf, FLASH_PAGE_SIZE);
-	restore_interrupts(ints);
+	lfs_hal_delete_file(WIFI_CONFIG_FILE);
 
 	memset(s_ssid, 0, sizeof(s_ssid));
 	memset(s_pass, 0, sizeof(s_pass));
@@ -201,3 +189,39 @@ bool wifi_config_is_valid(void) {
 	return s_valid;
 }
 
+bool wifi_config_load_country(char *country, size_t len) {
+	if (!country || len < 3) return false;
+
+	char buf[WIFI_COUNTRY_LEN];
+	int n = lfs_hal_read_file(WIFI_COUNTRY_FILE, buf, sizeof(buf));
+	if (n != WIFI_COUNTRY_LEN) return false;
+
+	// Validate: must be two uppercase ASCII letters
+	if (!isupper((unsigned char)buf[0]) || !isupper((unsigned char)buf[1])) return false;
+
+	country[0] = buf[0];
+	country[1] = buf[1];
+	country[2] = '\0';
+	return true;
+}
+
+bool wifi_config_save_country(const char *country) {
+	if (!country || strlen(country) != WIFI_COUNTRY_LEN) return false;
+	if (!isupper((unsigned char)country[0]) || !isupper((unsigned char)country[1])) return false;
+
+	if (!lfs_hal_write_file(WIFI_COUNTRY_FILE, country, WIFI_COUNTRY_LEN)) {
+		printf("wifi_config: ERROR saving country code\n");
+		return false;
+	}
+	printf("wifi_config: country set to %c%c\n", country[0], country[1]);
+	return true;
+}
+
+uint32_t wifi_config_country_to_cyw43(const char *country) {
+	if (!country || strlen(country) < WIFI_COUNTRY_LEN) {
+		// Default: worldwide
+		return ((uint32_t)'X') | ((uint32_t)'X' << 8);
+	}
+	return ((uint32_t)(unsigned char)country[0]) |
+	       ((uint32_t)(unsigned char)country[1] << 8);
+}

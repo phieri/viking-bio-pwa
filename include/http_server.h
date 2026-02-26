@@ -5,34 +5,25 @@
 #include <stdbool.h>
 #include "viking_bio_protocol.h"
 
-// HTTP server port
+// HTTP server port (configured via HTTPD_SERVER_PORT in lwipopts.h)
 #define HTTP_SERVER_PORT 80
 
-// Maximum number of simultaneous SSE connections
-#define HTTP_MAX_SSE_CONNECTIONS 4
-
 /**
- * Initialize the HTTP server
- * Call after WiFi is connected
+ * Initialize the HTTP server (lwIP httpd with CGI/POST handlers).
+ * Call after WiFi is connected.
  * @return true on success, false on failure
  */
 bool http_server_init(void);
 
 /**
- * Poll the HTTP server (call from main loop)
- * Processes pending connections and sends SSE data
- */
-void http_server_poll(void);
-
-/**
- * Broadcast Viking Bio data to all active SSE connections
- * Call whenever new data is available or periodically for keep-alive
+ * Update cached Viking Bio data for API responses.
+ * Call whenever new data is available from the serial protocol.
  * @param data Pointer to current Viking Bio data
  */
-void http_server_broadcast_data(const viking_bio_data_t *data);
+void http_server_update_data(const viking_bio_data_t *data);
 
 /**
- * Get the VAPID public key in base64url format
+ * Get the VAPID public key in base64url format.
  * @param buf Output buffer
  * @param buf_size Size of output buffer (needs at least 88 bytes for uncompressed P-256 key)
  * @return Length of key string written, 0 on error
