@@ -96,6 +96,32 @@ add_compile_options(
     -O2
 )
 
+# Generate web_content.h from web source files
+find_program(PYTHON3_EXECUTABLE python3)
+if(NOT PYTHON3_EXECUTABLE)
+    find_program(PYTHON3_EXECUTABLE python)
+endif()
+if(NOT PYTHON3_EXECUTABLE)
+    message(FATAL_ERROR "Python 3 is required to generate web_content.h")
+endif()
+
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/web_content.h
+    COMMAND ${PYTHON3_EXECUTABLE}
+        ${CMAKE_SOURCE_DIR}/cmake/gen_web_content.py
+        ${CMAKE_BINARY_DIR}/web_content.h
+        ${CMAKE_SOURCE_DIR}/src/web/index.html INDEX_HTML
+        ${CMAKE_SOURCE_DIR}/src/web/sw.js SW_JS
+        ${CMAKE_SOURCE_DIR}/src/web/manifest.json MANIFEST_JSON
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/src/web/index.html
+        ${CMAKE_SOURCE_DIR}/src/web/sw.js
+        ${CMAKE_SOURCE_DIR}/src/web/manifest.json
+        ${CMAKE_SOURCE_DIR}/cmake/gen_web_content.py
+    COMMENT "Generating web_content.h from web source files"
+)
+add_custom_target(web_content DEPENDS ${CMAKE_BINARY_DIR}/web_content.h)
+
 # Define source files
 set(SOURCES
     src/main.c
@@ -108,10 +134,12 @@ set(SOURCES
 )
 
 add_executable(viking_bio_pwa ${SOURCES})
+add_dependencies(viking_bio_pwa web_content)
 
 target_include_directories(viking_bio_pwa PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/platform
+    ${CMAKE_BINARY_DIR}
 )
 
 # Pull in dependencies

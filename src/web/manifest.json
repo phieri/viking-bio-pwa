@@ -1,0 +1,12 @@
+{
+  "name": "Viking Bio 20 Dashboard",
+  "short_name": "VikingBio",
+  "description": "Real-time dashboard for Viking Bio 20 burner",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {"src": "/icon.png", "sizes": "192x192", "type": "image/png"}
+  ]
+}
