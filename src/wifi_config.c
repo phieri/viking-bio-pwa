@@ -156,11 +156,11 @@ bool wifi_config_save(const char *ssid, const char *password) {
 
 	// Build storage buffer: magic + nonce + tag + ciphertext
 	uint8_t stored[WIFI_STORED_SIZE];
-	uint8_t *p = stored;
-	memcpy(p, &magic, 4);        p += 4;
-	memcpy(p, nonce, sizeof(nonce));   p += sizeof(nonce);
-	memcpy(p, tag, sizeof(tag));       p += sizeof(tag);
-	memcpy(p, ciphertext, sizeof(ciphertext));
+	size_t off = 0;
+	memcpy(stored + off, &magic, 4);                off += 4;
+	memcpy(stored + off, nonce, sizeof(nonce));      off += sizeof(nonce);
+	memcpy(stored + off, tag, sizeof(tag));           off += sizeof(tag);
+	memcpy(stored + off, ciphertext, sizeof(ciphertext));
 
 	if (!lfs_hal_write_file(WIFI_CONFIG_FILE, stored, sizeof(stored))) {
 		printf("wifi_config: ERROR writing to LittleFS\n");

@@ -5,10 +5,12 @@ A Progressive Web App (PWA) dashboard and Web Push notification system for the V
 ## Features
 
 - **Real-time Dashboard**: Web-based dashboard showing live burner data (flame status, fan speed, temperature, error codes)
-- **Server-Sent Events (SSE)**: Automatic data streaming — the dashboard updates in real-time without polling
+- **AJAX Polling**: Dashboard polls for data every 2 seconds via the lwIP httpd server
 - **Web Push Notifications**: Browser push notifications when errors are detected
 - **PWA**: Installable on mobile/desktop, works offline (cached service worker)
 - **Viking Bio 20 Protocol**: Reads TTL serial data at 9600 baud from the burner's serial port
+- **LittleFS Storage**: Wear-leveled flash storage for configuration (WiFi credentials, VAPID keys, country code)
+- **Wi-Fi Country Setting**: Configurable Wi-Fi regulatory domain via USB serial or web UI
 
 ## Hardware
 
@@ -21,14 +23,16 @@ A Progressive Web App (PWA) dashboard and Web Push notification system for the V
 ```
 Viking Bio 20 ──UART──► Pico W ──WiFi──► Browser
                           │
-                    HTTP Server (port 80)
-                    ├── GET /             Dashboard PWA
-                    ├── GET /sw.js        Service Worker
-                    ├── GET /manifest.json PWA Manifest
-                    ├── GET /data         SSE Stream
-                    ├── GET /vapid-public-key  VAPID Key
-                    ├── POST /subscribe   Push Subscription
-                    └── POST /unsubscribe Remove Subscription
+                    HTTP Server (lwIP httpd, port 80)
+                    ├── GET /                  Dashboard PWA
+                    ├── GET /sw.js             Service Worker
+                    ├── GET /manifest.json     PWA Manifest
+                    ├── GET /api/data          Burner data (JSON)
+                    ├── GET /api/vapid-public-key  VAPID Key
+                    ├── GET /api/country       Wi-Fi country code
+                    ├── POST /api/subscribe    Push Subscription
+                    ├── POST /api/unsubscribe  Remove Subscription
+                    └── POST /api/country      Set Wi-Fi country
 ```
 
 ## Building
@@ -55,9 +59,32 @@ make -j$(nproc)
 
 The firmware will be built as `viking_bio_pwa-<version>.uf2`.
 
+LittleFS is fetched automatically via CMake FetchContent during configuration.
+
 ### Flash
 
 Hold BOOTSEL while plugging in the Pico W, then copy the `.uf2` file to the mounted drive.
+
+## Configuration
+
+### USB Serial Commands
+
+Connect via USB serial (115200 baud) to configure:
+
+| Command | Description |
+|---------|-------------|
+| `SSID=<ssid>` | Set WiFi SSID (stage for saving) |
+| `PASS=<password>` | Set password and save credentials (reboots) |
+| `COUNTRY=<CC>` | Set Wi-Fi country code (e.g. SE, US, GB) |
+| `STATUS` | Show WiFi status and current country |
+| `CLEAR` | Erase stored credentials (reboots) |
+
+### Wi-Fi Country
+
+The Wi-Fi country code controls regulatory settings (available channels, transmit power). Set via:
+- USB serial: `COUNTRY=SE`
+- Web UI: Country selector dropdown on the dashboard
+- Reboot required after changing country
 
 ## Web Push
 
@@ -67,7 +94,7 @@ Hold BOOTSEL while plugging in the Pico W, then copy the `.uf2` file to the moun
 4. The browser is now registered for push notifications
 5. When the Viking Bio 20 reports an error (non-zero error code), a push notification is sent
 
-VAPID keys are generated on first boot and stored in the last flash sector. They persist across reboots.
+VAPID keys are generated on first boot and stored in LittleFS. They persist across reboots.
 
 ## Data Format
 

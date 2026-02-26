@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "pico/stdlib.h"
 #include "lwip/apps/httpd.h"
 #include "lwip/apps/fs.h"
@@ -137,6 +138,20 @@ static const tCGI s_cgi_handlers[] = {
 
 // --- Custom filesystem (serves embedded web content + dynamic JSON) ---
 
+// Helper: allocate a copy of a static buffer for a per-connection dynamic response
+static int fs_open_dynamic(struct fs_file *file, const char *src, size_t src_size) {
+	size_t len = strlen(src);
+	char *buf = (char *)malloc(len + 1);
+	if (!buf) return 0;
+	memcpy(buf, src, len + 1);
+	file->data = buf;
+	file->len = (int)len;
+	file->pextension = buf;
+	file->is_custom_file = 1;
+	(void)src_size;
+	return 1;
+}
+
 int fs_open_custom(struct fs_file *file, const char *name) {
 	memset(file, 0, sizeof(struct fs_file));
 
@@ -162,36 +177,12 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 	}
 
 	// Dynamic JSON responses (served after CGI handler updates the buffer)
-	if (strcmp(name, "/api_data.json") == 0) {
-		char *buf = (char *)malloc(sizeof(s_data_json));
-		if (!buf) return 0;
-		memcpy(buf, s_data_json, sizeof(s_data_json));
-		file->data = buf;
-		file->len = (int)strlen(buf);
-		file->pextension = buf;
-		file->is_custom_file = 1;
-		return 1;
-	}
-	if (strcmp(name, "/api_vapid.json") == 0) {
-		char *buf = (char *)malloc(sizeof(s_vapid_json));
-		if (!buf) return 0;
-		memcpy(buf, s_vapid_json, sizeof(s_vapid_json));
-		file->data = buf;
-		file->len = (int)strlen(buf);
-		file->pextension = buf;
-		file->is_custom_file = 1;
-		return 1;
-	}
-	if (strcmp(name, "/api_country.json") == 0) {
-		char *buf = (char *)malloc(sizeof(s_country_json));
-		if (!buf) return 0;
-		memcpy(buf, s_country_json, sizeof(s_country_json));
-		file->data = buf;
-		file->len = (int)strlen(buf);
-		file->pextension = buf;
-		file->is_custom_file = 1;
-		return 1;
-	}
+	if (strcmp(name, "/api_data.json") == 0)
+		return fs_open_dynamic(file, s_data_json, sizeof(s_data_json));
+	if (strcmp(name, "/api_vapid.json") == 0)
+		return fs_open_dynamic(file, s_vapid_json, sizeof(s_vapid_json));
+	if (strcmp(name, "/api_country.json") == 0)
+		return fs_open_dynamic(file, s_country_json, sizeof(s_country_json));
 
 	// POST response files
 	if (strcmp(name, "/api_ok.json") == 0) {
@@ -341,11 +332,8 @@ void httpd_post_finished(void *connection, char *response_uri, u16_t response_ur
 		char country[4] = {0};
 		if (json_extract_string(state->body, "country", country, sizeof(country)) &&
 		    strlen(country) == 2) {
-			// Convert to uppercase
-			country[0] = (char)((country[0] >= 'a' && country[0] <= 'z') ?
-			              country[0] - 32 : country[0]);
-			country[1] = (char)((country[1] >= 'a' && country[1] <= 'z') ?
-			              country[1] - 32 : country[1]);
+			country[0] = (char)toupper((unsigned char)country[0]);
+			country[1] = (char)toupper((unsigned char)country[1]);
 			wifi_config_save_country(country);
 		}
 		snprintf(response_uri, response_uri_len, "/api_ok.json");

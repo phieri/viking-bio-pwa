@@ -19,15 +19,6 @@ set(PICO_MBEDTLS_CONFIG_HEADER "${CMAKE_CURRENT_LIST_DIR}/platform/mbedtls_confi
 # Initialize the Pico SDK
 include(pico_sdk_import.cmake)
 
-# Fetch LittleFS source for flash wear leveling
-FetchContent_Declare(
-    littlefs
-    GIT_REPOSITORY https://github.com/littlefs-project/littlefs.git
-    GIT_TAG        v2.9.3
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(littlefs)
-
 project(viking_bio_pwa C CXX ASM)
 
 set(CMAKE_C_STANDARD 11)
@@ -101,6 +92,18 @@ add_compile_definitions(
 
 # Initialize the Pico SDK
 pico_sdk_init()
+
+# Fetch LittleFS source for flash wear leveling (after project/pico_sdk_init)
+FetchContent_Declare(
+    littlefs
+    GIT_REPOSITORY https://github.com/littlefs-project/littlefs.git
+    GIT_TAG        v2.9.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_GetProperties(littlefs)
+if(NOT littlefs_POPULATED)
+    FetchContent_Populate(littlefs)
+endif()
 
 # Compiler optimizations
 add_compile_options(
