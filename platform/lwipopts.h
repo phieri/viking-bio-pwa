@@ -71,6 +71,20 @@
 // Keep-alive for persistent SSE connections
 #define LWIP_TCP_KEEPALIVE 1
 
+// HTTP server (lwIP httpd)
+#define LWIP_HTTPD_CGI              1
+#define LWIP_HTTPD_CGI_SSI          0
+#define LWIP_HTTPD_SSI              0
+#define LWIP_HTTPD_SUPPORT_POST     1
+#define LWIP_HTTPD_CUSTOM_FILES     1
+#define LWIP_HTTPD_DYNAMIC_HEADERS  1
+#define HTTPD_USE_CUSTOM_FSDATA     1
+#define HTTPD_SERVER_PORT           80
+#define LWIP_HTTPD_SUPPORT_V09      0
+#define LWIP_HTTPD_SUPPORT_11_KEEPALIVE 0
+#define LWIP_HTTPD_MAX_REQUEST_URI_LEN  128
+#define LWIP_HTTPD_POST_MAX_RESPONSE_URI_LEN 64
+
 // Checksums (use hardware acceleration where available)
 #define LWIP_CHKSUM_ALGORITHM 3
 

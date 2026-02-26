@@ -2,36 +2,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "pico/stdlib.h"
-#include "lwip/tcp.h"
+#include "lwip/apps/httpd.h"
+#include "lwip/apps/fs.h"
 #include "lwip/pbuf.h"
 #include "http_server.h"
 #include "push_manager.h"
+#include "wifi_config.h"
 #include "version.h"
 #include "web_content.h"
 
-// --- HTTP connection state ---
-typedef enum {
-	CONN_IDLE,
-	CONN_HTTP,
-	CONN_SSE,
-} conn_type_t;
+// --- Cached data for API responses ---
+static viking_bio_data_t s_cached_data = {0};
 
-typedef struct http_conn {
-	struct tcp_pcb *pcb;
-	conn_type_t type;
-	uint8_t req_buf[512];
-	size_t req_len;
-	bool headers_sent;
-	struct http_conn *next;
-} http_conn_t;
+// Dynamic response buffers (allocated per-connection in fs_open_custom)
+static char s_data_json[128];
+static char s_vapid_json[128];
+static char s_country_json[32];
 
-// SSE connections list
-static http_conn_t *sse_connections = NULL;
-static http_conn_t *all_connections = NULL;
-static struct tcp_pcb *server_pcb = NULL;
-
-// Last broadcast data for new SSE connections
-static char last_sse_event[128] = "";
+// POST response buffers
+static const char s_ok_json[]    = "{\"status\":\"ok\"}";
+static const char s_full_json[]  = "{\"status\":\"full\"}";
+static const char s_error_json[] = "{\"error\":\"bad request\"}";
 
 // --- Base64url encoding ---
 static const char b64url_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -62,9 +53,6 @@ static size_t base64url_encode(const uint8_t *data, size_t len, char *out, size_
 
 /**
  * Extract a JSON string value for the given key from a JSON object string.
- * Finds the first occurrence of "key":"value" and copies value into out[0..out_size-1].
- * Returns true on success, false if key not found or value too long.
- * All strchr return values are checked before dereferencing.
  */
 static bool json_extract_string(const char *json, const char *key,
                                  char *out, size_t out_size) {
@@ -76,17 +64,11 @@ static bool json_extract_string(const char *json, const char *key,
 	const char *p = strstr(json, search);
 	if (!p) return false;
 
-	// Advance past the key and colon
 	p += strlen(search);
-
-	// Skip whitespace
 	while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-
-	// Expect opening quote
 	if (*p != '"') return false;
-	p++;  // skip opening quote
+	p++;
 
-	// Find closing quote (not preceded by backslash)
 	const char *end = strchr(p, '"');
 	if (!end) return false;
 
@@ -98,302 +80,307 @@ static bool json_extract_string(const char *json, const char *key,
 	return true;
 }
 
-// --- HTTP helpers ---
-static void close_conn(http_conn_t *conn) {
-	if (!conn) return;
-	// Remove from SSE list
-	http_conn_t **prev = &sse_connections;
-	while (*prev) {
-		if (*prev == conn) { *prev = conn->next; break; }
-		prev = &(*prev)->next;
-	}
-	// Remove from all connections list
-	prev = &all_connections;
-	while (*prev) {
-		if (*prev == conn) { *prev = conn->next; break; }
-		prev = &(*prev)->next;
-	}
-	if (conn->pcb) {
-		tcp_arg(conn->pcb, NULL);
-		tcp_close(conn->pcb);
-		conn->pcb = NULL;
-	}
-	free(conn);
+// --- Update cached data for the /api/data JSON response ---
+static void update_data_json(void) {
+	snprintf(s_data_json, sizeof(s_data_json),
+	         "{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
+	         s_cached_data.flame_detected ? "true" : "false",
+	         s_cached_data.fan_speed,
+	         s_cached_data.temperature,
+	         s_cached_data.error_code,
+	         s_cached_data.valid ? "true" : "false");
 }
 
-static err_t send_string(struct tcp_pcb *pcb, const char *str) {
-	if (!pcb || !str) return ERR_ARG;
-	size_t len = strlen(str);
-	if (len == 0) return ERR_OK;
-	// Check send buffer
-	if (tcp_sndbuf(pcb) < len) return ERR_MEM;
-	return tcp_write(pcb, str, (u16_t)len, TCP_WRITE_FLAG_COPY);
+static void update_vapid_json(void) {
+	char key_b64[96] = {0};
+	uint8_t key_raw[65];
+	if (push_manager_get_vapid_public_key(key_raw)) {
+		base64url_encode(key_raw, 65, key_b64, sizeof(key_b64));
+	}
+	snprintf(s_vapid_json, sizeof(s_vapid_json), "{\"key\":\"%s\"}", key_b64);
 }
 
-static void send_http_response(struct tcp_pcb *pcb, int code, const char *content_type,
-                                const char *body, size_t body_len) {
-	char header[256];
-	const char *code_str = (code == 200) ? "200 OK" :
-	                       (code == 404) ? "404 Not Found" :
-	                       (code == 400) ? "400 Bad Request" :
-	                       (code == 405) ? "405 Method Not Allowed" : "500 Internal Server Error";
-	snprintf(header, sizeof(header),
-	         "HTTP/1.1 %s\r\n"
-	         "Content-Type: %s\r\n"
-	         "Content-Length: %zu\r\n"
-	         "Connection: close\r\n"
-	         "Access-Control-Allow-Origin: *\r\n"
-	         "\r\n",
-	         code_str, content_type, body_len);
-	send_string(pcb, header);
-	if (body && body_len > 0) {
-		tcp_write(pcb, body, (u16_t)body_len, TCP_WRITE_FLAG_COPY);
-	}
-	tcp_output(pcb);
+static void update_country_json(void) {
+	char cc[3] = "XX";
+	wifi_config_load_country(cc, sizeof(cc));
+	snprintf(s_country_json, sizeof(s_country_json), "{\"country\":\"%s\"}", cc);
 }
 
-// --- Parse HTTP request line ---
-static void handle_request(http_conn_t *conn) {
-	char *req = (char *)conn->req_buf;
-	req[conn->req_len < 511 ? conn->req_len : 511] = '\0';
+// --- CGI handlers ---
 
-	// Extract method and path
-	char method[8] = {0};
-	char path[256] = {0};
-	sscanf(req, "%7s %255s", method, path);
+static const char *cgi_data_handler(int iIndex, int iNumParams,
+                                     char *pcParam[], char *pcValue[]) {
+	(void)iIndex; (void)iNumParams; (void)pcParam; (void)pcValue;
+	update_data_json();
+	return "/api_data.json";
+}
 
-	// Strip query string
-	char *q = strchr(path, '?');
-	if (q) *q = '\0';
+static const char *cgi_vapid_handler(int iIndex, int iNumParams,
+                                      char *pcParam[], char *pcValue[]) {
+	(void)iIndex; (void)iNumParams; (void)pcParam; (void)pcValue;
+	update_vapid_json();
+	return "/api_vapid.json";
+}
 
-	// GET /
-	if (strcmp(method, "GET") == 0 && strcmp(path, "/") == 0) {
-		send_http_response(conn->pcb, 200, "text/html; charset=utf-8",
-		                   INDEX_HTML, strlen(INDEX_HTML));
-		close_conn(conn);
-		return;
+static const char *cgi_country_handler(int iIndex, int iNumParams,
+                                        char *pcParam[], char *pcValue[]) {
+	(void)iIndex; (void)iNumParams; (void)pcParam; (void)pcValue;
+	update_country_json();
+	return "/api_country.json";
+}
+
+static const tCGI s_cgi_handlers[] = {
+	{"/api/data",            cgi_data_handler},
+	{"/api/vapid-public-key", cgi_vapid_handler},
+	{"/api/country",         cgi_country_handler},
+};
+
+// --- Custom filesystem (serves embedded web content + dynamic JSON) ---
+
+int fs_open_custom(struct fs_file *file, const char *name) {
+	memset(file, 0, sizeof(struct fs_file));
+
+	// Static web content
+	if (strcmp(name, "/index.html") == 0 || strcmp(name, "/") == 0 ||
+	    strcmp(name, "/index.shtml") == 0) {
+		file->data = INDEX_HTML;
+		file->len = (int)strlen(INDEX_HTML);
+		file->is_custom_file = 1;
+		return 1;
+	}
+	if (strcmp(name, "/sw.js") == 0) {
+		file->data = SW_JS;
+		file->len = (int)strlen(SW_JS);
+		file->is_custom_file = 1;
+		return 1;
+	}
+	if (strcmp(name, "/manifest.json") == 0) {
+		file->data = MANIFEST_JSON;
+		file->len = (int)strlen(MANIFEST_JSON);
+		file->is_custom_file = 1;
+		return 1;
 	}
 
-	// GET /sw.js
-	if (strcmp(method, "GET") == 0 && strcmp(path, "/sw.js") == 0) {
-		send_http_response(conn->pcb, 200, "application/javascript; charset=utf-8",
-		                   SW_JS, strlen(SW_JS));
-		close_conn(conn);
-		return;
+	// Dynamic JSON responses (served after CGI handler updates the buffer)
+	if (strcmp(name, "/api_data.json") == 0) {
+		char *buf = (char *)malloc(sizeof(s_data_json));
+		if (!buf) return 0;
+		memcpy(buf, s_data_json, sizeof(s_data_json));
+		file->data = buf;
+		file->len = (int)strlen(buf);
+		file->pextension = buf;
+		file->is_custom_file = 1;
+		return 1;
+	}
+	if (strcmp(name, "/api_vapid.json") == 0) {
+		char *buf = (char *)malloc(sizeof(s_vapid_json));
+		if (!buf) return 0;
+		memcpy(buf, s_vapid_json, sizeof(s_vapid_json));
+		file->data = buf;
+		file->len = (int)strlen(buf);
+		file->pextension = buf;
+		file->is_custom_file = 1;
+		return 1;
+	}
+	if (strcmp(name, "/api_country.json") == 0) {
+		char *buf = (char *)malloc(sizeof(s_country_json));
+		if (!buf) return 0;
+		memcpy(buf, s_country_json, sizeof(s_country_json));
+		file->data = buf;
+		file->len = (int)strlen(buf);
+		file->pextension = buf;
+		file->is_custom_file = 1;
+		return 1;
 	}
 
-	// GET /manifest.json
-	if (strcmp(method, "GET") == 0 && strcmp(path, "/manifest.json") == 0) {
-		send_http_response(conn->pcb, 200, "application/manifest+json; charset=utf-8",
-		                   MANIFEST_JSON, strlen(MANIFEST_JSON));
-		close_conn(conn);
-		return;
+	// POST response files
+	if (strcmp(name, "/api_ok.json") == 0) {
+		file->data = s_ok_json;
+		file->len = (int)strlen(s_ok_json);
+		file->is_custom_file = 1;
+		return 1;
+	}
+	if (strcmp(name, "/api_full.json") == 0) {
+		file->data = s_full_json;
+		file->len = (int)strlen(s_full_json);
+		file->is_custom_file = 1;
+		return 1;
+	}
+	if (strcmp(name, "/api_error.json") == 0) {
+		file->data = s_error_json;
+		file->len = (int)strlen(s_error_json);
+		file->is_custom_file = 1;
+		return 1;
 	}
 
-	// GET /vapid-public-key
-	if (strcmp(method, "GET") == 0 && strcmp(path, "/vapid-public-key") == 0) {
-		char key_b64[96] = {0};
-		http_server_get_vapid_public_key(key_b64, sizeof(key_b64));
-		char body[128];
-		snprintf(body, sizeof(body), "{\"key\":\"%s\"}", key_b64);
-		send_http_response(conn->pcb, 200, "application/json; charset=utf-8",
-		                   body, strlen(body));
-		close_conn(conn);
-		return;
-	}
+	return 0;  // Not found
+}
 
-	// GET /data - SSE endpoint
-	if (strcmp(method, "GET") == 0 && strcmp(path, "/data") == 0) {
-		const char *sse_headers =
-			"HTTP/1.1 200 OK\r\n"
-			"Content-Type: text/event-stream\r\n"
-			"Cache-Control: no-cache\r\n"
-			"Connection: keep-alive\r\n"
-			"Access-Control-Allow-Origin: *\r\n"
-			"\r\n";
-		send_string(conn->pcb, sse_headers);
-		// Send last known data immediately
-		if (last_sse_event[0]) {
-			send_string(conn->pcb, last_sse_event);
+void fs_close_custom(struct fs_file *file) {
+	if (file && file->pextension) {
+		free(file->pextension);
+		file->pextension = NULL;
+	}
+}
+
+#if LWIP_HTTPD_DYNAMIC_FILE_READ
+int fs_read_custom(struct fs_file *file, char *buffer, int count) {
+	(void)file; (void)buffer; (void)count;
+	return FS_READ_EOF;
+}
+#endif
+
+// --- POST handler state ---
+#define MAX_POST_CONNS 4
+#define POST_BODY_MAX  512
+
+typedef struct {
+	void *connection;
+	char uri[32];
+	char body[POST_BODY_MAX];
+	size_t body_len;
+	bool active;
+} post_state_t;
+
+static post_state_t s_post_states[MAX_POST_CONNS];
+
+static post_state_t *find_post_state(void *connection) {
+	for (int i = 0; i < MAX_POST_CONNS; i++) {
+		if (s_post_states[i].active && s_post_states[i].connection == connection)
+			return &s_post_states[i];
+	}
+	return NULL;
+}
+
+static post_state_t *alloc_post_state(void *connection) {
+	for (int i = 0; i < MAX_POST_CONNS; i++) {
+		if (!s_post_states[i].active) {
+			memset(&s_post_states[i], 0, sizeof(post_state_t));
+			s_post_states[i].connection = connection;
+			s_post_states[i].active = true;
+			return &s_post_states[i];
 		}
-		tcp_output(conn->pcb);
-		conn->type = CONN_SSE;
-		// Add to SSE connections
-		conn->next = sse_connections;
-		sse_connections = conn;
-		return;  // Don't close - keep alive for SSE
 	}
-
-	// POST /subscribe
-	if (strcmp(method, "POST") == 0 && strcmp(path, "/subscribe") == 0) {
-		// Find JSON body after headers
-		char *body_start = strstr(req, "\r\n\r\n");
-		if (body_start) {
-			body_start += 4;
-			char endpoint[PUSH_MAX_ENDPOINT_LEN] = {0};
-			char p256dh[PUSH_MAX_KEY_LEN] = {0};
-			char auth[PUSH_MAX_AUTH_LEN] = {0};
-
-			json_extract_string(body_start, "endpoint", endpoint, sizeof(endpoint));
-			json_extract_string(body_start, "p256dh", p256dh, sizeof(p256dh));
-			json_extract_string(body_start, "auth", auth, sizeof(auth));
-
-			if (endpoint[0]) {
-				bool ok = push_manager_add_subscription(endpoint, p256dh, auth);
-				const char *resp = ok ? "{\"status\":\"ok\"}" : "{\"status\":\"full\"}";
-				send_http_response(conn->pcb, 200, "application/json; charset=utf-8",
-				                   resp, strlen(resp));
-			} else {
-				send_http_response(conn->pcb, 400, "application/json; charset=utf-8",
-				                   "{\"error\":\"missing endpoint\"}", 26);
-			}
-		} else {
-			send_http_response(conn->pcb, 400, "application/json; charset=utf-8",
-			                   "{\"error\":\"no body\"}", 19);
-		}
-		close_conn(conn);
-		return;
-	}
-
-	// POST /unsubscribe
-	if (strcmp(method, "POST") == 0 && strcmp(path, "/unsubscribe") == 0) {
-		char *body_start = strstr(req, "\r\n\r\n");
-		if (body_start) {
-			body_start += 4;
-			char endpoint[PUSH_MAX_ENDPOINT_LEN] = {0};
-			if (json_extract_string(body_start, "endpoint", endpoint, sizeof(endpoint))) {
-				push_manager_remove_subscription(endpoint);
-			}
-		}
-		send_http_response(conn->pcb, 200, "application/json; charset=utf-8",
-		                   "{\"status\":\"ok\"}", 15);
-		close_conn(conn);
-		return;
-	}
-
-	// 404
-	send_http_response(conn->pcb, 404, "text/plain", "Not Found", 9);
-	close_conn(conn);
+	return NULL;
 }
 
-// --- lwIP callbacks ---
-static err_t conn_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
-	http_conn_t *conn = (http_conn_t *)arg;
-	if (!conn) return ERR_OK;
+err_t httpd_post_begin(void *connection, const char *uri,
+                       const char *http_request, u16_t http_request_len,
+                       int content_len, char *response_uri,
+                       u16_t response_uri_len, u8_t *post_auto_wnd) {
+	(void)http_request; (void)http_request_len; (void)content_len;
+	(void)response_uri; (void)response_uri_len;
 
-	if (p == NULL || err != ERR_OK) {
-		// Connection closed by client
-		close_conn(conn);
+	if (strcmp(uri, "/api/subscribe") == 0 ||
+	    strcmp(uri, "/api/unsubscribe") == 0 ||
+	    strcmp(uri, "/api/country") == 0) {
+		post_state_t *state = alloc_post_state(connection);
+		if (!state) return ERR_MEM;
+		snprintf(state->uri, sizeof(state->uri), "%s", uri);
+		*post_auto_wnd = 1;
 		return ERR_OK;
 	}
 
-	// Accumulate request data
+	return ERR_VAL;
+}
+
+err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
+	post_state_t *state = find_post_state(connection);
+	if (!state) {
+		pbuf_free(p);
+		return ERR_VAL;
+	}
+
 	size_t to_copy = p->tot_len;
-	if (conn->req_len + to_copy > sizeof(conn->req_buf) - 1) {
-		to_copy = sizeof(conn->req_buf) - 1 - conn->req_len;
+	if (state->body_len + to_copy >= POST_BODY_MAX - 1) {
+		to_copy = POST_BODY_MAX - 1 - state->body_len;
 	}
-	pbuf_copy_partial(p, conn->req_buf + conn->req_len, (u16_t)to_copy, 0);
-	conn->req_len += to_copy;
-	tcp_recved(pcb, p->tot_len);
+	if (to_copy > 0) {
+		pbuf_copy_partial(p, state->body + state->body_len, (u16_t)to_copy, 0);
+		state->body_len += to_copy;
+		state->body[state->body_len] = '\0';
+	}
+
 	pbuf_free(p);
-
-	// Check if we have a complete HTTP request (ends with \r\n\r\n)
-	conn->req_buf[conn->req_len] = '\0';
-	if (strstr((char *)conn->req_buf, "\r\n\r\n")) {
-		handle_request(conn);
-	}
-
 	return ERR_OK;
 }
 
-static void conn_err(void *arg, err_t err) {
-	(void)err;
-	http_conn_t *conn = (http_conn_t *)arg;
-	if (!conn) return;
-	conn->pcb = NULL;  // PCB already freed by lwIP
-	close_conn(conn);
-}
-
-static err_t conn_accept(void *arg, struct tcp_pcb *new_pcb, err_t err) {
-	(void)arg;
-	if (err != ERR_OK || !new_pcb) return ERR_VAL;
-
-	http_conn_t *conn = (http_conn_t *)calloc(1, sizeof(http_conn_t));
-	if (!conn) {
-		tcp_abort(new_pcb);
-		return ERR_MEM;
+void httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len) {
+	post_state_t *state = find_post_state(connection);
+	if (!state) {
+		snprintf(response_uri, response_uri_len, "/api_error.json");
+		return;
 	}
 
-	conn->pcb = new_pcb;
-	conn->type = CONN_HTTP;
-	conn->req_len = 0;
+	if (strcmp(state->uri, "/api/subscribe") == 0) {
+		char endpoint[PUSH_MAX_ENDPOINT_LEN] = {0};
+		char p256dh[PUSH_MAX_KEY_LEN] = {0};
+		char auth[PUSH_MAX_AUTH_LEN] = {0};
 
-	// Add to all connections
-	conn->next = all_connections;
-	all_connections = conn;
+		json_extract_string(state->body, "endpoint", endpoint, sizeof(endpoint));
+		json_extract_string(state->body, "p256dh", p256dh, sizeof(p256dh));
+		json_extract_string(state->body, "auth", auth, sizeof(auth));
 
-	tcp_arg(new_pcb, conn);
-	tcp_recv(new_pcb, conn_recv);
-	tcp_err(new_pcb, conn_err);
-	tcp_setprio(new_pcb, TCP_PRIO_MIN);
+		if (endpoint[0]) {
+			bool ok = push_manager_add_subscription(endpoint, p256dh, auth);
+			snprintf(response_uri, response_uri_len,
+			         ok ? "/api_ok.json" : "/api_full.json");
+		} else {
+			snprintf(response_uri, response_uri_len, "/api_error.json");
+		}
 
-	return ERR_OK;
+	} else if (strcmp(state->uri, "/api/unsubscribe") == 0) {
+		char endpoint[PUSH_MAX_ENDPOINT_LEN] = {0};
+		json_extract_string(state->body, "endpoint", endpoint, sizeof(endpoint));
+		if (endpoint[0]) {
+			push_manager_remove_subscription(endpoint);
+		}
+		snprintf(response_uri, response_uri_len, "/api_ok.json");
+
+	} else if (strcmp(state->uri, "/api/country") == 0) {
+		char country[4] = {0};
+		if (json_extract_string(state->body, "country", country, sizeof(country)) &&
+		    strlen(country) == 2) {
+			// Convert to uppercase
+			country[0] = (char)((country[0] >= 'a' && country[0] <= 'z') ?
+			              country[0] - 32 : country[0]);
+			country[1] = (char)((country[1] >= 'a' && country[1] <= 'z') ?
+			              country[1] - 32 : country[1]);
+			wifi_config_save_country(country);
+		}
+		snprintf(response_uri, response_uri_len, "/api_ok.json");
+
+	} else {
+		snprintf(response_uri, response_uri_len, "/api_error.json");
+	}
+
+	state->active = false;
 }
 
 // --- Public API ---
+
 bool http_server_init(void) {
-	server_pcb = tcp_new_ip_type(IPADDR_TYPE_ANY);
-	if (!server_pcb) return false;
+	// Initialize the VAPID JSON once at startup
+	update_vapid_json();
+	update_data_json();
+	update_country_json();
 
-	err_t err = tcp_bind(server_pcb, IP_ANY_TYPE, HTTP_SERVER_PORT);
-	if (err != ERR_OK) {
-		tcp_close(server_pcb);
-		server_pcb = NULL;
-		return false;
-	}
+	// Clear POST states
+	memset(s_post_states, 0, sizeof(s_post_states));
 
-	server_pcb = tcp_listen_with_backlog(server_pcb, 4);
-	if (!server_pcb) return false;
+	// Register CGI handlers
+	http_set_cgi_handlers(s_cgi_handlers,
+	                       sizeof(s_cgi_handlers) / sizeof(s_cgi_handlers[0]));
 
-	tcp_accept(server_pcb, conn_accept);
-	printf("HTTP server listening on port %d\n", HTTP_SERVER_PORT);
+	// Start the lwIP httpd server
+	httpd_init();
+	printf("HTTP server listening on port %d (lwIP httpd)\n", HTTP_SERVER_PORT);
 	return true;
 }
 
-void http_server_poll(void) {
-	// lwIP polling is handled by cyw43_arch_poll() in main loop
-}
-
-void http_server_broadcast_data(const viking_bio_data_t *data) {
+void http_server_update_data(const viking_bio_data_t *data) {
 	if (!data) return;
-
-	// Build SSE event
-	char event[128];
-	int len = snprintf(event, sizeof(event),
-	                   "data:{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}\n\n",
-	                   data->flame_detected ? "true" : "false",
-	                   data->fan_speed,
-	                   data->temperature,
-	                   data->error_code,
-	                   data->valid ? "true" : "false");
-	if (len <= 0 || len >= (int)sizeof(event)) return;
-
-	// Cache for new connections
-	memcpy(last_sse_event, event, len + 1);
-
-	// Send to all SSE connections
-	http_conn_t *conn = sse_connections;
-	http_conn_t *next;
-	while (conn) {
-		next = conn->next;
-		if (conn->pcb && tcp_sndbuf(conn->pcb) >= (size_t)len) {
-			err_t err = tcp_write(conn->pcb, event, (u16_t)len, TCP_WRITE_FLAG_COPY);
-			if (err == ERR_OK) {
-				tcp_output(conn->pcb);
-			}
-		}
-		conn = next;
-	}
+	memcpy(&s_cached_data, data, sizeof(s_cached_data));
 }
 
 size_t http_server_get_vapid_public_key(char *buf, size_t buf_size) {

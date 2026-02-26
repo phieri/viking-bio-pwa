@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.17)
 
+include(FetchContent)
+
 # This firmware requires Pico W for WiFi support
 if(NOT DEFINED PICO_BOARD OR PICO_BOARD STREQUAL "")
     set(PICO_BOARD pico_w CACHE STRING "Board type" FORCE)
@@ -16,6 +18,15 @@ set(PICO_MBEDTLS_CONFIG_HEADER "${CMAKE_CURRENT_LIST_DIR}/platform/mbedtls_confi
 
 # Initialize the Pico SDK
 include(pico_sdk_import.cmake)
+
+# Fetch LittleFS source for flash wear leveling
+FetchContent_Declare(
+    littlefs
+    GIT_REPOSITORY https://github.com/littlefs-project/littlefs.git
+    GIT_TAG        v2.9.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(littlefs)
 
 project(viking_bio_pwa C CXX ASM)
 
@@ -131,6 +142,9 @@ set(SOURCES
     src/http_server.c
     src/push_manager.c
     src/wifi_config.c
+    src/lfs_hal.c
+    ${littlefs_SOURCE_DIR}/lfs.c
+    ${littlefs_SOURCE_DIR}/lfs_util.c
 )
 
 add_executable(viking_bio_pwa ${SOURCES})
@@ -140,6 +154,7 @@ target_include_directories(viking_bio_pwa PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/platform
     ${CMAKE_BINARY_DIR}
+    ${littlefs_SOURCE_DIR}
 )
 
 # Pull in dependencies
@@ -154,6 +169,7 @@ target_link_libraries(viking_bio_pwa
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
     pico_lwip_mdns
+    pico_lwip_http
 )
 
 # Enable USB output, disable UART output
