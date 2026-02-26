@@ -7,27 +7,34 @@
 #define LWIP_NETCONN 0
 #define MEM_LIBC_MALLOC 0
 
-// IPv4 support
-#define LWIP_IPV4 1
-#define LWIP_IPV6 0
+// IPv6 only (IPv4 disabled)
+#define LWIP_IPV4 0
+#define LWIP_IPV6 1
+#define LWIP_IPV6_AUTOCONFIG 1      // Stateless Address Autoconfiguration (SLAAC)
+#define LWIP_IPV6_ND 1              // Neighbor Discovery Protocol
+#define LWIP_IPV6_MLD 1             // Multicast Listener Discovery (required for mDNS)
+#define LWIP_IPV6_NUM_ADDRESSES 3   // Max IPv6 addresses per interface
 
 // Protocol support
 #define LWIP_TCP 1
 #define LWIP_UDP 1
 #define LWIP_DNS 1
-#define LWIP_DHCP 1
 #define LWIP_AUTOIP 0
 #define LWIP_IGMP 0
 #define LWIP_ICMP 1
 #define LWIP_RAW 0
+
+// mDNS / DNS-SD
+#define LWIP_MDNS_RESPONDER 1
+#define MDNS_MAX_SERVICES 2
 
 // AltCP (needed for TLS)
 #define LWIP_ALTCP 1
 #define LWIP_ALTCP_TLS 1
 #define LWIP_ALTCP_TLS_MBEDTLS 1
 
-// Memory configuration
-#define MEM_SIZE (24 * 1024)
+// Memory configuration (increased for IPv6 headers and mDNS)
+#define MEM_SIZE (32 * 1024)
 
 // TCP
 #define TCP_MSS 1460
@@ -38,30 +45,33 @@
 #define MEMP_NUM_TCP_PCB_LISTEN 2
 #define MEMP_NUM_TCP_SEG ((2 * TCP_SND_BUF) / TCP_MSS)
 
-// Pbufs
+// Pbufs (increased for IPv6 headers)
 #define MEMP_NUM_PBUF 24
-#define PBUF_POOL_SIZE 24
+#define PBUF_POOL_SIZE 32
 
 // UDP
-#define MEMP_NUM_UDP_PCB 4
+#define MEMP_NUM_UDP_PCB 6
 
 // DNS
 #define DNS_MAX_SERVERS 2
 #define DNS_TABLE_SIZE 4
 
-// ARP
+// Timers (increased from 4 to 8 to accommodate mDNS responder)
+#define MEMP_NUM_SYS_TIMEOUT 8
+
+// ARP (unused with IPv6 only, kept harmless)
 #define ARP_TABLE_SIZE 4
 #define ARP_QUEUEING 1
 #define ETHARP_SUPPORT_STATIC_ENTRIES 0
+
+// Netif client data (mDNS responder needs 1 slot)
+#define LWIP_NUM_NETIF_CLIENT_DATA 1
 
 // Keep-alive for persistent SSE connections
 #define LWIP_TCP_KEEPALIVE 1
 
 // Checksums (use hardware acceleration where available)
 #define LWIP_CHKSUM_ALGORITHM 3
-
-// Netif client data (1 slot minimum)
-#define LWIP_NUM_NETIF_CLIENT_DATA 1
 
 // Timers
 #define LWIP_TIMERS 1

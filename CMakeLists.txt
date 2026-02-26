@@ -61,7 +61,7 @@ add_compile_definitions(
 )
 # ============================================
 
-# WiFi credentials - must be set at build time
+# WiFi credentials - optional at build time (primary configuration is via USB serial)
 # Set via: cmake -DWIFI_SSID="your_ssid" -DWIFI_PASSWORD="your_password" ..
 # Or via environment variables WIFI_SSID and WIFI_PASSWORD
 if(DEFINED ENV{WIFI_SSID} AND NOT DEFINED WIFI_SSID)
@@ -71,21 +71,22 @@ if(DEFINED ENV{WIFI_PASSWORD} AND NOT DEFINED WIFI_PASSWORD)
     set(WIFI_PASSWORD "$ENV{WIFI_PASSWORD}")
 endif()
 
-if(NOT DEFINED WIFI_SSID OR WIFI_SSID STREQUAL "")
-    set(WIFI_SSID "viking_bio_network")
-    message(WARNING "WIFI_SSID not set, using placeholder '${WIFI_SSID}'")
-endif()
-if(NOT DEFINED WIFI_PASSWORD OR WIFI_PASSWORD STREQUAL "")
+# Determine whether real compile-time credentials were supplied
+set(WIFI_COMPILE_CREDS_VALID 0)
+if(DEFINED WIFI_SSID AND NOT WIFI_SSID STREQUAL "")
+    set(WIFI_COMPILE_CREDS_VALID 1)
+    message(STATUS "WiFi SSID: ${WIFI_SSID} (compile-time fallback enabled)")
+else()
+    set(WIFI_SSID "")
     set(WIFI_PASSWORD "")
-    message(WARNING "WIFI_PASSWORD not set, WiFi will be open")
+    message(STATUS "WiFi SSID: not set (configure via USB serial at runtime)")
 endif()
 
 add_compile_definitions(
     WIFI_SSID="${WIFI_SSID}"
     WIFI_PASSWORD="${WIFI_PASSWORD}"
+    WIFI_COMPILE_CREDS_VALID=${WIFI_COMPILE_CREDS_VALID}
 )
-
-message(STATUS "WiFi SSID: ${WIFI_SSID}")
 
 # Initialize the Pico SDK
 pico_sdk_init()
@@ -103,6 +104,7 @@ set(SOURCES
     src/viking_bio_protocol.c
     src/http_server.c
     src/push_manager.c
+    src/wifi_config.c
 )
 
 add_executable(viking_bio_pwa ${SOURCES})
@@ -123,6 +125,7 @@ target_link_libraries(viking_bio_pwa
     pico_unique_id
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
+    pico_lwip_mdns
 )
 
 # Enable USB output, disable UART output
