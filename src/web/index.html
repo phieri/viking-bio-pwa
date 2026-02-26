@@ -57,6 +57,11 @@ h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
 <div class="value" id="err">--</div>
 <div class="unit">code</div>
 </div>
+<div class="card">
+<div class="label">Flame Hours</div>
+<div class="value" id="flame-hours">--</div>
+<div class="unit">hours</div>
+</div>
 </div>
 <div class="actions">
 <button class="btn btn-push" id="pushBtn" onclick="togglePush()">Enable Push Notifications</button>
@@ -89,6 +94,7 @@ function poll(){
     document.getElementById('fan').textContent=d.fan;
     document.getElementById('temp').textContent=d.temp;
     document.getElementById('err').textContent=d.err;
+    document.getElementById('flame-hours').textContent=(d.flame_secs/3600).toFixed(1);
     if(d.err>0){setStatus('Error detected: code '+d.err,'error')}
     else if(!d.valid){setStatus('No data from burner','stale')}
     else{setStatus('Live \u2014 last update: '+new Date().toLocaleTimeString(),'ok')}
