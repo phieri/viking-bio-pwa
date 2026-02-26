@@ -1,0 +1,96 @@
+name: Build Raspberry Pi Pico W Firmware
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+env:
+  PICO_SDK_VERSION: 2.2.0
+
+jobs:
+  build-pwa:
+    name: Build PWA Firmware
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get -qq update
+        sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
+
+    - name: Cache Pico SDK
+      id: cache-pico-sdk
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}/pico-sdk
+        key: pico-sdk-${{ env.PICO_SDK_VERSION }}
+
+    - name: Checkout Pico SDK
+      if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
+      uses: actions/checkout@v4
+      with:
+        repository: raspberrypi/pico-sdk
+        ref: ${{ env.PICO_SDK_VERSION }}
+        path: pico-sdk
+        submodules: recursive
+
+    - name: Set Pico SDK path
+      run: echo "PICO_SDK_PATH=${{ github.workspace }}/pico-sdk" >> $GITHUB_ENV
+
+    - name: Create build directory
+      run: mkdir -p build-pwa
+
+    - name: Configure CMake
+      working-directory: build-pwa
+      run: cmake .. -DCMAKE_BUILD_TYPE=Release -DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"
+
+    - name: Build firmware
+      working-directory: build-pwa
+      run: make -j$(nproc)
+
+    - name: List build artifacts
+      working-directory: build-pwa
+      run: |
+        echo "Build artifacts:"
+        ls -lh *.uf2 *.elf *.bin 2>/dev/null || echo "No artifacts found"
+
+    - name: Upload firmware artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: viking-bio-pwa-firmware
+        path: |
+          build-pwa/*.uf2
+          build-pwa/*.elf
+          build-pwa/*.bin
+          build-pwa/*.hex
+        if-no-files-found: warn
+
+    - name: Create release info
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        echo "## Build Information" > build-info.txt
+        echo "Commit: ${{ github.sha }}" >> build-info.txt
+        echo "Date: $(date)" >> build-info.txt
+        echo "Pico SDK Version: ${{ env.PICO_SDK_VERSION }}" >> build-info.txt
+        echo "Target: Raspberry Pi Pico W - PWA Web Server" >> build-info.txt
+
+    - name: Upload build info
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-info
+        path: build-info.txt
