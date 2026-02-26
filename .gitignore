@@ -34,7 +34,5 @@ Makefile
 .DS_Store
 Thumbs.db
 
-# Temporary files
-*.log
-*.tmp
-/tmp/
+# CodeQL
+_codeql_detected_source_root
