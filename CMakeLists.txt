@@ -103,6 +103,7 @@ set(SOURCES
     src/viking_bio_protocol.c
     src/http_server.c
     src/push_manager.c
+    src/wifi_config.c
 )
 
 add_executable(viking_bio_pwa ${SOURCES})
@@ -123,6 +124,7 @@ target_link_libraries(viking_bio_pwa
     pico_unique_id
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
+    pico_lwip_mdns
 )
 
 # Enable USB output, disable UART output
