@@ -6,3 +6,14 @@
 
 #define FS_ROOT  NULL
 #define FS_NUMFILES 0
+
+#if LWIP_HTTPD_FILE_STATE
+void *fs_state_init(struct fs_file *file, const char *name) {
+	(void)file; (void)name;
+	return NULL;
+}
+
+void fs_state_free(struct fs_file *file, void *state) {
+	(void)file; (void)state;
+}
+#endif /* LWIP_HTTPD_FILE_STATE */
