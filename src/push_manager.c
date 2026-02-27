@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
-#include "hardware/rosc.h"
+#include "pico/rand.h"
 #include "lwip/tcp.h"
 #include "lwip/dns.h"
 #include "lwip/altcp.h"
@@ -58,32 +58,6 @@ static uint32_t calc_crc(const uint8_t *data, size_t len) {
 	uint32_t crc = 0;
 	for (size_t i = 0; i < len; i++) crc ^= ((uint32_t)data[i] << (8 * (i % 4)));
 	return crc;
-}
-
-/* mbedTLS entropy source callback for Pico W using ROSC */
-static int pico_entropy_source(void *data, unsigned char *output, size_t len, size_t *olen) {
-	size_t got = 0;
-    (void)data;
-
-    while (got < len) {
-        uint32_t r = rosc_random(); /* Pico SDK: ROSC-based random word */
-        size_t copy = (len - got) < sizeof(r) ? (len - got) : sizeof(r);
-        memcpy(output + got, &r, copy);
-        got += copy;
-    }
-
-    *olen = got;
-    return 0; /* success */
-}
-
-/* Helper to register the pico entropy source */
-static void pico_register_entropy(mbedtls_entropy_context *entropy) {
-    /* threshold chosen as sizeof(uint32_t); use STRONG for hardware source */
-    mbedtls_entropy_add_source(entropy,
-                               pico_entropy_source,
-                               NULL,
-                               sizeof(uint32_t),
-                               MBEDTLS_ENTROPY_SOURCE_STRONG);
 }
 
 static bool load_vapid_keys(void) {
@@ -789,8 +763,9 @@ bool push_manager_init(void) {
 	// Initialize mbedTLS RNG (HMAC_DRBG instead of CTR_DRBG for SDK compatibility)
 	mbedtls_entropy_init(&entropy);
 	mbedtls_hmac_drbg_init(&hmac_drbg);
-	
+
 	/* Register Pico hardware entropy source (ROSC) */
+	pico_rand_init();
     pico_register_entropy(&entropy);
 
 	// Seed with Pico W unique ID
