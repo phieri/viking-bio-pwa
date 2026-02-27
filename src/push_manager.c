@@ -204,9 +204,9 @@ static bool parse_push_url(const char *url,
 		// Explicit port: https://hostname:port/path
 		host_end = colon;
 		char *end_ptr = NULL;
-		unsigned long p = strtoul(colon + 1, &end_ptr, 10);
-		if (end_ptr == colon + 1 || p == 0 || p > 65535U) return false;
-		*port = (uint16_t)p;
+		unsigned long port_val = strtoul(colon + 1, &end_ptr, 10);
+		if (end_ptr == colon + 1 || port_val == 0 || port_val > 65535U) return false;
+		*port = (uint16_t)port_val;
 		if (!slash) slash = strchr(colon + 1, '/');
 	} else {
 		host_end = slash ? slash : (p + strlen(p));
