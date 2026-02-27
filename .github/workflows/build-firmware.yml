@@ -34,7 +34,7 @@ jobs:
 
     - name: Cache Pico SDK
       id: cache-pico-sdk
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ github.workspace }}/pico-sdk
         key: pico-sdk-${{ env.PICO_SDK_VERSION }}
