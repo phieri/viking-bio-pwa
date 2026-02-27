@@ -8,6 +8,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/"
@@ -17,6 +21,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/"
@@ -26,6 +34,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "pip"
     directory: "/"
@@ -35,6 +47,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "maven"
     directory: "/"
@@ -44,6 +60,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "gradle"
     directory: "/"
@@ -53,6 +73,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "nuget"
     directory: "/"
@@ -62,6 +86,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "composer"
     directory: "/"
@@ -71,6 +99,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "bundler"
     directory: "/"
@@ -80,6 +112,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "cargo"
     directory: "/"
@@ -89,6 +125,10 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "terraform"
     directory: "/"
@@ -98,3 +138,7 @@ updates:
     labels:
       - "dependencies"
       - "dependabot"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
