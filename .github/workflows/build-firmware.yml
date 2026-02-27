@@ -25,7 +25,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Install dependencies
       run: |
@@ -34,14 +34,14 @@ jobs:
 
     - name: Cache Pico SDK
       id: cache-pico-sdk
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ github.workspace }}/pico-sdk
         key: pico-sdk-${{ env.PICO_SDK_VERSION }}
 
     - name: Checkout Pico SDK
       if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: raspberrypi/pico-sdk
         ref: ${{ env.PICO_SDK_VERSION }}
@@ -69,7 +69,7 @@ jobs:
         ls -lh *.uf2 *.elf *.bin 2>/dev/null || echo "No artifacts found"
 
     - name: Upload firmware artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: viking-bio-pwa-firmware
         path: |
@@ -90,7 +90,7 @@ jobs:
 
     - name: Upload build info
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: build-info
         path: build-info.txt
