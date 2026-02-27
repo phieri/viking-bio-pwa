@@ -25,7 +25,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Install dependencies
       run: |
@@ -41,7 +41,7 @@ jobs:
 
     - name: Checkout Pico SDK
       if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: raspberrypi/pico-sdk
         ref: ${{ env.PICO_SDK_VERSION }}
