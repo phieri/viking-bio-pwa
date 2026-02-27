@@ -166,6 +166,7 @@ set(SOURCES
     src/flame_counter.c
     ${littlefs_SOURCE_DIR}/lfs.c
     ${littlefs_SOURCE_DIR}/lfs_util.c
+    platform/mbedtls_time.c
 )
 
 add_executable(viking_bio_pwa ${SOURCES})
