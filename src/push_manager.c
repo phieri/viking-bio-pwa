@@ -60,6 +60,23 @@ static uint32_t calc_crc(const uint8_t *data, size_t len) {
 	return crc;
 }
 
+/* Entropy source callback for mbedTLS using pico_rand (unconditionally) */
+static int pico_entropy_source(void *data, unsigned char *output, size_t len, size_t *olen) {
+    (void)data;
+    /* pico_rand_get_bytes fills the buffer with len bytes */
+    pico_rand_get_bytes(output, len);
+    *olen = len;
+    return 0;
+}
+
+static void pico_register_entropy(mbedtls_entropy_context *entropy) {
+    mbedtls_entropy_add_source(entropy,
+                               pico_entropy_source,
+                               NULL,
+                               sizeof(uint32_t),
+                               MBEDTLS_ENTROPY_SOURCE_STRONG);
+}
+
 static bool load_vapid_keys(void) {
 	uint8_t buf[VAPID_STORED_SIZE];
 	int n = lfs_hal_read_file(VAPID_FILE, buf, sizeof(buf));
