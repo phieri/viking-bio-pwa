@@ -26,6 +26,9 @@
 // No platform entropy (RP2040 uses hardware RNG directly)
 #define MBEDTLS_NO_PLATFORM_ENTROPY
 
+#define MBEDTLS_ENTROPY_C
+#define MBEDTLS_CTR_DRBG_C
+
 // Core crypto modules
 #define MBEDTLS_AES_C
 #define MBEDTLS_ASN1_PARSE_C
