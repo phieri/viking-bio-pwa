@@ -110,7 +110,7 @@ pico_sdk_init()
 FetchContent_Declare(
     littlefs
     GIT_REPOSITORY https://github.com/littlefs-project/littlefs.git
-    GIT_TAG        v2.9.3
+    GIT_TAG        v2.11.2
     GIT_SHALLOW    TRUE
 )
 FetchContent_GetProperties(littlefs)
