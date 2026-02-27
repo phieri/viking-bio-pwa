@@ -562,7 +562,7 @@ static err_t push_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err) {
 
 	// Send HTTP headers
 	err_t werr = altcp_write(pcb, s_push.req_buf, (u16_t)s_push.req_len,
-	                          ALTCP_WRITE_FLAG_COPY);
+	                          TCP_WRITE_FLAG_COPY);
 	if (werr != ERR_OK) {
 		printf("push_manager: write headers failed (%d)\n", werr);
 		s_push.state = PUSH_ERROR;
@@ -572,7 +572,7 @@ static err_t push_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err) {
 	// Send encrypted payload
 	if (s_push.payload_len > 0) {
 		werr = altcp_write(pcb, s_push.payload, (u16_t)s_push.payload_len,
-		                   ALTCP_WRITE_FLAG_COPY);
+		                   TCP_WRITE_FLAG_COPY);
 		if (werr != ERR_OK) {
 			printf("push_manager: write payload failed (%d)\n", werr);
 			s_push.state = PUSH_ERROR;
