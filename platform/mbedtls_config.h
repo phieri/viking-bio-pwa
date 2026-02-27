@@ -18,8 +18,16 @@
 #define MBEDTLS_PLATFORM_FREE_MACRO     free
 #define MBEDTLS_PLATFORM_CALLOC_MACRO   calloc
 
+// Enable time support (required by pico_lwip altcp_tls_mbedtls; Pico SDK provides mbedtls_time())
+#define MBEDTLS_HAVE_TIME
+
+#define MBEDTLS_PLATFORM_MS_TIME_ALT
+
 // No platform entropy (RP2040 uses hardware RNG directly)
 #define MBEDTLS_NO_PLATFORM_ENTROPY
+
+#define MBEDTLS_ENTROPY_C
+#define MBEDTLS_CTR_DRBG_C
 
 // Core crypto modules
 #define MBEDTLS_AES_C
