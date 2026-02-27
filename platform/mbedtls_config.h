@@ -58,5 +58,17 @@
 
 // Key exchange
 #define MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
+#define MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
+
+// SSL/TLS client support (for outbound HTTPS push notifications)
+#define MBEDTLS_SSL_TLS_C
+#define MBEDTLS_SSL_CLI_C
+#define MBEDTLS_SSL_PROTO_TLS1_2
+#define MBEDTLS_X509_CRT_PARSE_C
+#define MBEDTLS_X509_USE_C
+
+// Reduce TLS I/O buffer sizes to conserve RAM on RP2040 (264 KB total)
+#define MBEDTLS_SSL_IN_CONTENT_LEN  4096
+#define MBEDTLS_SSL_OUT_CONTENT_LEN 2048
 
 #endif /* MBEDTLS_CONFIG_H */

@@ -61,6 +61,19 @@ add_compile_definitions(
     BUILD_TIMESTAMP="${BUILD_TIMESTAMP}"
     GIT_COMMIT_HASH="${GIT_VERSION}"
 )
+
+# Unix timestamp at build time – used by push_manager.c as the approximate
+# base epoch for VAPID JWT expiry (no NTP on RP2040).
+execute_process(
+    COMMAND python3 -c "import time; print(int(time.time()))"
+    OUTPUT_VARIABLE BUILD_UNIX_TIME
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(NOT BUILD_UNIX_TIME OR BUILD_UNIX_TIME STREQUAL "")
+    set(BUILD_UNIX_TIME 1740614400)  # 2026-02-27 fallback
+endif()
+add_compile_definitions(BUILD_UNIX_TIME=${BUILD_UNIX_TIME})
 # ============================================
 
 # WiFi credentials - optional at build time (primary configuration is via USB serial)
@@ -176,6 +189,7 @@ target_link_libraries(viking_bio_pwa
     pico_unique_id
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
+    pico_lwip_mbedtls
     pico_lwip_mdns
     pico_lwip_http
 )
