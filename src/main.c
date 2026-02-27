@@ -159,7 +159,7 @@ static bool wifi_connect(const char *ssid, const char *password) {
 	printf("Connecting to WiFi SSID: %s\n", ssid);
 
 	if (cyw43_arch_wifi_connect_timeout_ms(ssid, password,
-	                                        CYW43_AUTH_WPA2_AES_PSK, 30000) != 0) {
+	                                        CYW43_AUTH_WPA3_WPA2_AES_PSK, 30000) != 0) {
 		printf("WiFi connection failed\n");
 		return false;
 	}
