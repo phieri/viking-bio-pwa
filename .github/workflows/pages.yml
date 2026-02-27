@@ -36,6 +36,8 @@ jobs:
           python3 cmake/gen_demo_page.py src/web/index.html _site/index.html
           cp src/web/sw.js _site/sw.js
           cp src/web/manifest.json _site/manifest.json
+          cp src/web/app.js _site/app.js
+          cp src/web/style.css _site/style.css
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

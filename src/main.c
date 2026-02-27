@@ -200,7 +200,7 @@ static void mdns_setup(void) {
 
 int main(void) {
 	stdio_init_all();
-	sleep_ms(2000);
+	sleep_ms(5000);
 
 	printf("\n");
 	version_print_info();
