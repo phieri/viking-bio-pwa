@@ -188,6 +188,7 @@ target_link_libraries(viking_bio_pwa
     hardware_flash
     hardware_watchdog
     pico_unique_id
+    pico_rand
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
     pico_lwip_mbedtls
