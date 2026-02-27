@@ -173,6 +173,16 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 		file->len = (int)strlen(MANIFEST_JSON);
 		return 1;
 	}
+	if (strcmp(name, "/style.css") == 0) {
+		file->data = STYLE_CSS;
+		file->len = (int)strlen(STYLE_CSS);
+		return 1;
+	}
+	if (strcmp(name, "/app.js") == 0) {
+		file->data = APP_JS;
+		file->len = (int)strlen(APP_JS);
+		return 1;
+	}
 
 	// Dynamic JSON responses (served after CGI handler updates the buffer)
 	if (strcmp(name, "/api_data.json") == 0)
@@ -258,8 +268,7 @@ err_t httpd_post_begin(void *connection, const char *uri,
 	(void)response_uri; (void)response_uri_len;
 
 	if (strcmp(uri, "/api/subscribe") == 0 ||
-	    strcmp(uri, "/api/unsubscribe") == 0 ||
-	    strcmp(uri, "/api/country") == 0) {
+	    strcmp(uri, "/api/unsubscribe") == 0) {
 		post_state_t *state = alloc_post_state(connection);
 		if (!state) return ERR_MEM;
 		snprintf(state->uri, sizeof(state->uri), "%s", uri);
@@ -320,16 +329,6 @@ void httpd_post_finished(void *connection, char *response_uri, u16_t response_ur
 		json_extract_string(state->body, "endpoint", endpoint, sizeof(endpoint));
 		if (endpoint[0]) {
 			push_manager_remove_subscription(endpoint);
-		}
-		snprintf(response_uri, response_uri_len, "/api_ok.json");
-
-	} else if (strcmp(state->uri, "/api/country") == 0) {
-		char country[4] = {0};
-		if (json_extract_string(state->body, "country", country, sizeof(country)) &&
-		    strlen(country) == 2) {
-			country[0] = (char)toupper((unsigned char)country[0]);
-			country[1] = (char)toupper((unsigned char)country[1]);
-			wifi_config_save_country(country);
 		}
 		snprintf(response_uri, response_uri_len, "/api_ok.json");
 

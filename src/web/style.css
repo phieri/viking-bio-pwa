@@ -1,0 +1,24 @@
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;padding:20px}
+h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;max-width:800px;margin:0 auto}
+.card{background:#16213e;border-radius:12px;padding:24px;text-align:center;border:1px solid #0f3460}
+.card .label{font-size:.8em;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.card .value{font-size:2em;font-weight:bold;color:#e94560}
+.card .unit{font-size:.9em;color:#888;margin-top:4px}
+.status{text-align:center;margin:16px auto;max-width:800px;padding:12px;border-radius:8px;font-size:.9em}
+.status.ok{background:#0f3460;color:#4ecdc4}
+.status.error{background:#3d0000;color:#ff6b6b}
+.status.stale{background:#2d2d00;color:#ffd93d}
+.status.connecting{background:#1a1a2e;color:#aaa}
+.btn{display:inline-block;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:.9em;margin:4px}
+.btn-push{background:#0f3460;color:#e94560;border:1px solid #e94560}
+.btn-push:hover{background:#1a3a6e}
+.btn-push.subscribed{background:#0d3d2e;color:#4ecdc4;border-color:#4ecdc4}
+.actions{text-align:center;margin:16px auto;max-width:800px}
+.settings{text-align:center;margin:16px auto;max-width:800px;padding:16px;background:#16213e;border-radius:12px;border:1px solid #0f3460}
+.settings .label{font-size:.8em;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.settings .value{font-size:1.2em;font-weight:bold;color:#e94560}
+.settings .note{font-size:.75em;color:#888;margin-top:8px}
+.flame-on .value{color:#ff6b35}
+.flame-off .value{color:#555}
