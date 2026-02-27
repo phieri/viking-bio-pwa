@@ -127,10 +127,14 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/src/web/index.html INDEX_HTML
         ${CMAKE_SOURCE_DIR}/src/web/sw.js SW_JS
         ${CMAKE_SOURCE_DIR}/src/web/manifest.json MANIFEST_JSON
+        ${CMAKE_SOURCE_DIR}/src/web/style.css STYLE_CSS
+        ${CMAKE_SOURCE_DIR}/src/web/app.js APP_JS
     DEPENDS
         ${CMAKE_SOURCE_DIR}/src/web/index.html
         ${CMAKE_SOURCE_DIR}/src/web/sw.js
         ${CMAKE_SOURCE_DIR}/src/web/manifest.json
+        ${CMAKE_SOURCE_DIR}/src/web/style.css
+        ${CMAKE_SOURCE_DIR}/src/web/app.js
         ${CMAKE_SOURCE_DIR}/cmake/gen_web_content.py
     COMMENT "Generating web_content.h from web source files"
 )
