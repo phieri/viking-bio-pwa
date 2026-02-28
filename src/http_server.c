@@ -83,6 +83,19 @@ static bool json_extract_string(const char *json, const char *key,
 	return true;
 }
 
+static bool json_extract_bool(const char *json, const char *key, bool *out) {
+	if (!json || !key || !out) return false;
+	char search[64];
+	snprintf(search, sizeof(search), "\"%s\":", key);
+	const char *p = strstr(json, search);
+	if (!p) return false;
+	p += strlen(search);
+	while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+	if (strncmp(p, "true", 4) == 0) { *out = true; return true; }
+	if (strncmp(p, "false", 5) == 0) { *out = false; return true; }
+	return false;
+}
+
 // --- Update cached data for the /api/data JSON response ---
 static void update_data_json(void) {
 	snprintf(s_data_json, sizeof(s_data_json),
@@ -332,8 +345,14 @@ void httpd_post_finished(void *connection, char *response_uri, u16_t response_ur
 		json_extract_string(state->body, "p256dh", p256dh, sizeof(p256dh));
 		json_extract_string(state->body, "auth", auth, sizeof(auth));
 
+		// Preferences (optional)
+		bool pref_flame = false, pref_error = false, pref_clean = false;
+		json_extract_bool(state->body, "flame", &pref_flame);
+		json_extract_bool(state->body, "error", &pref_error);
+		json_extract_bool(state->body, "clean", &pref_clean);
+
 		if (endpoint[0]) {
-			bool ok = push_manager_add_subscription(endpoint, p256dh, auth);
+			bool ok = push_manager_add_subscription(endpoint, p256dh, auth, pref_flame, pref_error, pref_clean);
 			snprintf(response_uri, response_uri_len,
 			         ok ? "/api_ok.json" : "/api_full.json");
 		} else {

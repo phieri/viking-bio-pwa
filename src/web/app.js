@@ -10,6 +10,7 @@ function poll(){
     document.getElementById('flame-hours').textContent=(d.flame_secs/3600).toFixed(1);
     const flameCheckbox = document.getElementById("flameSub");
     const errorCheckbox = document.getElementById("errorSub");
+    const cleanCheckbox = document.getElementById("cleanSub");
     const pushBtn = document.getElementById("pushBtn");
     fetch('/api/subscribers').then(function(r){return r.json()}).then(function(s){
       if(typeof s.count !== 'undefined') document.getElementById('subscribers').textContent = s.count;
@@ -64,7 +65,7 @@ async function togglePush(){
       endpoint: subJson.endpoint || "",
       p256dh: (subJson.keys && subJson.keys.p256dh) ? subJson.keys.p256dh : "",
       auth:  (subJson.keys && subJson.keys.auth) ? subJson.keys.auth : "",
-      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked }
+      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked, clean: !!cleanCheckbox.checked }
     };
     await fetch('/api/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     document.getElementById('pushBtn').textContent='Push Notifications ON';
@@ -79,6 +80,7 @@ async function togglePush(){
 async function updateSubscription(){
   const flameCheckbox = document.getElementById("flameSub");
   const errorCheckbox = document.getElementById("errorSub");
+  const cleanCheckbox = document.getElementById("cleanSub");
   if(!('serviceWorker' in navigator)||!('PushManager' in window)){
     alert('Push notifications not supported in this browser.');
     return;
@@ -94,7 +96,7 @@ async function updateSubscription(){
       endpoint: subJson.endpoint || "",
       p256dh: (subJson.keys && subJson.keys.p256dh) ? subJson.keys.p256dh : "",
       auth:  (subJson.keys && subJson.keys.auth) ? subJson.keys.auth : "",
-      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked }
+      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked, clean: !!cleanCheckbox.checked }
     };
     await fetch('/api/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     document.getElementById('pushBtn').textContent='Push Preferences Updated';

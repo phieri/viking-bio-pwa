@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
 #include "pico/rand.h"
@@ -33,7 +34,7 @@
  * magic (4) + count (1) + entries[PUSH_MAX_SUBSCRIPTIONS]
  * entry = active(1) + endpoint(PUSH_MAX_ENDPOINT_LEN) + p256dh(PUSH_MAX_KEY_LEN) + auth(PUSH_MAX_AUTH_LEN)
  */
-#define SUBS_ENTRY_SIZE (1 + PUSH_MAX_ENDPOINT_LEN + PUSH_MAX_KEY_LEN + PUSH_MAX_AUTH_LEN)
+#define SUBS_ENTRY_SIZE (1 + PUSH_MAX_ENDPOINT_LEN + PUSH_MAX_KEY_LEN + PUSH_MAX_AUTH_LEN + 1)
 #define SUBS_STORED_SIZE (4 + 1 + (PUSH_MAX_SUBSCRIPTIONS * SUBS_ENTRY_SIZE))
 
 // Storage layout: magic(4) + private_key(32) + public_key(65) + crc(4) = 105 bytes
@@ -147,6 +148,9 @@ static bool load_subscriptions(void) {
 		subscriptions[i].endpoint[0] = '\0';
 		subscriptions[i].p256dh[0] = '\0';
 		subscriptions[i].auth[0] = '\0';
+        subscriptions[i].pref_flame = false;
+        subscriptions[i].pref_error = false;
+        subscriptions[i].pref_clean = false;
 	}
 
 	size_t offset = 5;
@@ -172,9 +176,17 @@ static bool load_subscriptions(void) {
 			memcpy(subscriptions[i].auth, buf + offset, PUSH_MAX_AUTH_LEN);
 			subscriptions[i].auth[PUSH_MAX_AUTH_LEN - 1] = '\0';
 			subscriptions[i].active = true;
+			// read prefs byte
+			uint8_t flags = 0;
+			if ((int)offset + PUSH_MAX_AUTH_LEN < n) {
+				flags = buf[offset + PUSH_MAX_AUTH_LEN];
+			}
+			subscriptions[i].pref_flame = (flags & 0x01) != 0;
+			subscriptions[i].pref_error = (flags & 0x02) != 0;
+			subscriptions[i].pref_clean = (flags & 0x04) != 0;
 			loaded++;
 		}
-		offset += PUSH_MAX_AUTH_LEN;
+		offset += PUSH_MAX_AUTH_LEN + 1; /* prefs byte */
 	}
 
 	subscription_count = loaded;
@@ -213,6 +225,13 @@ static bool save_subscriptions(void) {
 			strncpy((char *)(buf + offset), subscriptions[i].auth, PUSH_MAX_AUTH_LEN - 1);
 		}
 		offset += PUSH_MAX_AUTH_LEN;
+        /* prefs byte */
+        uint8_t flags = 0;
+        if (subscriptions[i].pref_flame) flags |= 0x01;
+        if (subscriptions[i].pref_error) flags |= 0x02;
+        if (subscriptions[i].pref_clean) flags |= 0x04;
+        buf[offset] = flags;
+        offset += 1;
 	}
 
 	return lfs_hal_write_file(SUBSCRIBERS_FILE, buf, sizeof(buf));
@@ -621,6 +640,21 @@ typedef struct {
 	uint8_t error_code;
 } push_notify_t;
 
+typedef enum {
+	NOTIF_ONOFF = 0,
+	NOTIF_ERROR = 1,
+	NOTIF_CLEAN = 2,
+} notif_type_t;
+
+// Extend pending notification with explicit type
+typedef struct {
+	bool pending;
+	char title[64];
+	char body[128];
+	uint8_t error_code;
+	uint8_t type; // notif_type_t
+} push_notify_t_ext;
+
 // Per-attempt send context
 typedef struct {
 	push_state_t state;
@@ -637,8 +671,10 @@ typedef struct {
 	size_t payload_len;
 } push_ctx_t;
 
-static push_notify_t s_notify;
+static push_notify_t_ext s_notify;
 static push_ctx_t    s_push;
+// Track last sent clean reminder date (YYYYMMDD) to avoid duplicate sends
+static int s_last_clean_ymd = 0;
 
 // Forward declarations for callbacks
 static err_t push_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err);
@@ -821,8 +857,18 @@ static void start_push_for_sub(int sub_idx) {
 	json_escape(s_notify.title, esc_title, sizeof(esc_title));
 	json_escape(s_notify.body,  esc_body,  sizeof(esc_body));
 
-	const char *priority = s_notify.error_code ? "high" : "low";
-	const char *type = s_notify.error_code ? "error" : "onoff";
+	const char *priority = "low";
+	const char *type = "onoff";
+	if (s_notify.type == NOTIF_ERROR) {
+		priority = "high";
+		type = "error";
+	} else if (s_notify.type == NOTIF_CLEAN) {
+		priority = "very-low";
+		type = "clean";
+	} else {
+		priority = "low";
+		type = "onoff";
+	}
 
 	int json_len = snprintf(json, sizeof(json),
 		"{\"title\":\"%s\",\"body\":\"%s\",\"icon\":\"/icon.png\",\"code\":%u,\"priority\":\"%s\",\"type\":\"%s\"}",
@@ -1002,14 +1048,53 @@ void push_manager_poll(void) {
 	switch (s_push.state) {
 
 	case PUSH_IDLE:
+		// Schedule: check for weekly clean reminder when idle and nothing pending
+		if (!s_notify.pending && subscription_count > 0) {
+			// Only proceed if at least one subscriber has clean preference
+			bool any_clean = false;
+			for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
+				if (subscriptions[i].active && subscriptions[i].pref_clean) { any_clean = true; break; }
+			}
+			if (any_clean) {
+				time_t t = time(NULL);
+				struct tm tm;
+				if (gmtime_r(&t, &tm)) {
+					// Months: 11,12,1,2,3 allowed
+					int mon = tm.tm_mon + 1; // tm_mon 0-11
+					if (mon == 11 || mon == 12 || mon == 1 || mon == 2 || mon == 3) {
+						// Saturday: tm_wday == 6 (Sunday=0)
+						if (tm.tm_wday == 6 && tm.tm_hour == 7 && tm.tm_min == 0) {
+							// Build YYYYMMDD to avoid double-send
+							int y = tm.tm_year + 1900;
+							int m = mon;
+							int d = tm.tm_mday;
+							int ymd = y * 10000 + m * 100 + d;
+							if (s_last_clean_ymd != ymd) {
+								// Queue clean reminder
+								char title[] = "Time to clean burner";
+								char body[] = "Weekly reminder: clean the Viking Bio burner.";
+								push_manager_notify_type(title, body, NOTIF_CLEAN, 0);
+								s_last_clean_ymd = ymd;
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// Start processing when there is a pending notification
 		if (!s_notify.pending || subscription_count == 0) return;
 		for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
-			if (subscriptions[i].active) {
+				if (!subscriptions[i].active) continue;
+				// Respect subscriber preferences
+				bool ok = false;
+				if (s_notify.type == NOTIF_CLEAN) ok = subscriptions[i].pref_clean;
+				else if (s_notify.type == NOTIF_ERROR) ok = subscriptions[i].pref_error;
+				else ok = subscriptions[i].pref_flame;
+				if (!ok) continue;
 				start_push_for_sub(i);
 				return;
 			}
-		}
 		// No active subscriptions (subscription_count was stale)
 		s_notify.pending = false;
 		break;
@@ -1059,16 +1144,20 @@ bool push_manager_get_vapid_public_key(uint8_t *key_buf) {
 	return true;
 }
 
-bool push_manager_add_subscription(const char *endpoint, const char *p256dh, const char *auth) {
+bool push_manager_add_subscription(const char *endpoint, const char *p256dh, const char *auth,
+                                   bool pref_flame, bool pref_error, bool pref_clean) {
 	if (!endpoint) return false;
 
 	// Check if already exists
 	for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
 		if (subscriptions[i].active &&
 		    strncmp(subscriptions[i].endpoint, endpoint, PUSH_MAX_ENDPOINT_LEN) == 0) {
-			// Update existing
+			// Update existing (keys and prefs)
 			if (p256dh) strncpy(subscriptions[i].p256dh, p256dh, PUSH_MAX_KEY_LEN - 1);
 			if (auth) strncpy(subscriptions[i].auth, auth, PUSH_MAX_AUTH_LEN - 1);
+			subscriptions[i].pref_flame = pref_flame;
+			subscriptions[i].pref_error = pref_error;
+			subscriptions[i].pref_clean = pref_clean;
 			save_subscriptions();
 			return true;
 		}
@@ -1088,6 +1177,9 @@ bool push_manager_add_subscription(const char *endpoint, const char *p256dh, con
 				strncpy(subscriptions[i].auth, auth, PUSH_MAX_AUTH_LEN - 1);
 				subscriptions[i].auth[PUSH_MAX_AUTH_LEN - 1] = '\0';
 			}
+			subscriptions[i].pref_flame = pref_flame;
+			subscriptions[i].pref_error = pref_error;
+			subscriptions[i].pref_clean = pref_clean;
 			subscription_count++;
 			printf("push_manager: added subscription (%d active)\n", subscription_count);
 			save_subscriptions();
@@ -1120,13 +1212,24 @@ void push_manager_notify_all(const char *title, const char *body, uint8_t error_
 		printf("push_manager: VAPID keys not ready\n");
 		return;
 	}
+	// Default type: error if non-zero error_code, otherwise onoff
+	uint8_t type = error_code ? NOTIF_ERROR : NOTIF_ONOFF;
+	push_manager_notify_type(title, body, type, error_code);
+}
 
-	printf("push_manager: queuing notification (%d subs) – %s: %s (err=%d)\n",
-	       subscription_count, title, body, error_code);
+void push_manager_notify_type(const char *title, const char *body, uint8_t type, uint8_t error_code) {
+	if (subscription_count == 0) return;
+	if (!vapid_keys_valid) {
+		printf("push_manager: VAPID keys not ready\n");
+		return;
+	}
+	printf("push_manager: queuing notification (%d subs) – %s: %s (type=%u err=%d)\n",
+		   subscription_count, title, body, (unsigned)type, error_code);
 
 	// Store in single-slot queue (overwrites any previously pending notification)
 	s_notify.pending    = true;
 	s_notify.error_code = error_code;
+	s_notify.type = type;
 	strncpy(s_notify.title, title ? title : "", sizeof(s_notify.title) - 1);
 	s_notify.title[sizeof(s_notify.title) - 1] = '\0';
 	strncpy(s_notify.body, body ? body : "", sizeof(s_notify.body) - 1);
