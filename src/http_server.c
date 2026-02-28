@@ -61,8 +61,9 @@ static bool json_extract_string(const char *json, const char *key,
                                  char *out, size_t out_size) {
 	if (!json || !key || !out || out_size == 0) return false;
 	out[0] = '\0';
-
 	char search[64];
+	/* Guard against overly long key names to avoid truncation in `search` */
+	if (strlen(key) + 4 >= sizeof(search)) return false;
 	snprintf(search, sizeof(search), "\"%s\":", key);
 	const char *p = strstr(json, search);
 	if (!p) return false;
@@ -245,6 +246,9 @@ void fs_close_custom(struct fs_file *file) {
 	if (file && file->state) {
 		free(file->state);
 		file->state = NULL;
+		/* Ensure data/len do not reference freed memory */
+		file->data = NULL;
+		file->len = 0;
 	}
 }
 

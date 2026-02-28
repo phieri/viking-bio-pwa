@@ -407,9 +407,10 @@ static bool make_vapid_jwt(const char *audience, char *jwt_out, size_t jwt_out_s
 	                               (uint32_t)(time_us_64() / 1000000ULL) +
 	                               VAPID_JWT_EXPIRY_SECS);
 	char payload_json[200];
-	snprintf(payload_json, sizeof(payload_json),
+	int pl_len = snprintf(payload_json, sizeof(payload_json),
 	         "{\"aud\":\"%s\",\"exp\":%u,\"sub\":\"" VAPID_SUB "\"}",
 	         audience, (unsigned)exp_time);
+	if (pl_len < 0 || pl_len >= (int)sizeof(payload_json)) return false;
 	char b64_payload[300] = {0};
 	base64url_encode((const uint8_t *)payload_json, strlen(payload_json),
 	                 b64_payload, sizeof(b64_payload));
@@ -898,8 +899,14 @@ static void start_push_for_sub(int sub_idx) {
 
 	// Build VAPID JWT (audience = https://hostname)
 	char audience[160];
-	snprintf(audience, sizeof(audience), "https://%s", s_push.hostname);
+	int ar = snprintf(audience, sizeof(audience), "https://%s", s_push.hostname);
+	if (ar < 0 || ar >= (int)sizeof(audience)) {
+		printf("push_manager: audience buffer overflow\n");
+		s_push.state = PUSH_ERROR;
+		return;
+	}
 	char jwt[512];
+
 	if (!make_vapid_jwt(audience, jwt, sizeof(jwt))) {
 		printf("push_manager: JWT generation failed\n");
 		s_push.state = PUSH_ERROR;

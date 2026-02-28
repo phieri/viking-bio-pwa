@@ -100,12 +100,17 @@ bool wifi_config_load(char *ssid, size_t ssid_len, char *password, size_t pass_l
 	if (pt_ssid[WIFI_SSID_MAX_LEN] != '\0' || pt_ssid[0] == '\0') return false;
 	if (pt_pass[WIFI_PASS_MAX_LEN] != '\0') return false;
 
-	snprintf(ssid, ssid_len, "%.*s", WIFI_SSID_MAX_LEN, pt_ssid);
-	snprintf(password, pass_len, "%.*s", WIFI_PASS_MAX_LEN, pt_pass);
+	int r;
+	r = snprintf(ssid, ssid_len, "%.*s", WIFI_SSID_MAX_LEN, pt_ssid);
+	if (r < 0 || (size_t)r >= ssid_len) return false;
+	r = snprintf(password, pass_len, "%.*s", WIFI_PASS_MAX_LEN, pt_pass);
+	if (r < 0 || (size_t)r >= pass_len) return false;
 
 	// Update cache
-	snprintf(s_ssid, sizeof(s_ssid), "%.*s", WIFI_SSID_MAX_LEN, pt_ssid);
-	snprintf(s_pass, sizeof(s_pass), "%.*s", WIFI_PASS_MAX_LEN, pt_pass);
+	r = snprintf(s_ssid, sizeof(s_ssid), "%.*s", WIFI_SSID_MAX_LEN, pt_ssid);
+	if (r < 0 || r >= (int)sizeof(s_ssid)) return false;
+	r = snprintf(s_pass, sizeof(s_pass), "%.*s", WIFI_PASS_MAX_LEN, pt_pass);
+	if (r < 0 || r >= (int)sizeof(s_pass)) return false;
 	s_valid = true;
 	return true;
 }
@@ -118,10 +123,12 @@ bool wifi_config_save(const char *ssid, const char *password) {
 	// Build zero-padded plaintext: ssid[33] || pass[64]
 	uint8_t plaintext[WIFI_PLAINTEXT_PADDED];
 	memset(plaintext, 0, sizeof(plaintext));
-	snprintf((char *)plaintext, WIFI_SSID_MAX_LEN + 1, "%s", ssid);
+	int r = snprintf((char *)plaintext, WIFI_SSID_MAX_LEN + 1, "%s", ssid);
+	if (r < 0 || r >= WIFI_SSID_MAX_LEN + 1) return false;
 	if (password) {
-		snprintf((char *)(plaintext + WIFI_SSID_MAX_LEN + 1),
-		         WIFI_PASS_MAX_LEN + 1, "%s", password);
+		r = snprintf((char *)(plaintext + WIFI_SSID_MAX_LEN + 1),
+					 WIFI_PASS_MAX_LEN + 1, "%s", password);
+		if (r < 0 || r >= WIFI_PASS_MAX_LEN + 1) return false;
 	}
 
 	// Generate GCM nonce: 8 bytes from timestamp + 4 bytes from board ID
@@ -168,8 +175,10 @@ bool wifi_config_save(const char *ssid, const char *password) {
 	}
 
 	// Update cache
-	snprintf(s_ssid, sizeof(s_ssid), "%s", ssid);
-	snprintf(s_pass, sizeof(s_pass), "%s", password ? password : "");
+	r = snprintf(s_ssid, sizeof(s_ssid), "%s", ssid);
+	if (r < 0 || r >= (int)sizeof(s_ssid)) return false;
+	r = snprintf(s_pass, sizeof(s_pass), "%s", password ? password : "");
+	if (r < 0 || r >= (int)sizeof(s_pass)) return false;
 	s_valid = true;
 
 	printf("wifi_config: credentials saved (AES-128-GCM, LittleFS)\n");
