@@ -85,9 +85,20 @@ static int pico_entropy_source(void *data, unsigned char *output, size_t len, si
 	*olen = len;
 	return 0;
 }
+
 // JSON-escape a C string into dst (NUL-terminated). Returns number of bytes written (excl NUL).
 // Ensures no buffer overflow; truncates if necessary.
 static size_t json_escape(const char *src, char *dst, size_t dst_size) {
+    size_t n = 0;
+    for (; *src && n + 2 < dst_size; ++src) {
+        if (*src == '\"' || *src == '\\') {
+            dst[n++] = '\\';
+        }
+        dst[n++] = *src;
+    }
+    dst[n] = '\0';
+    return n;
+}
 
 static void pico_register_entropy(mbedtls_entropy_context *entropy) {
     mbedtls_entropy_add_source(entropy,
