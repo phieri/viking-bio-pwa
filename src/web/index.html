@@ -48,6 +48,13 @@
 <div class="value" id="subscribers">--</div>
 <div class="unit">count</div>
 </div>
+<!-- Wi-Fi country moved into its own card for consistency -->
+<div class="card" id="country-card">
+	<div class="label">Wi-Fi Country</div>
+	<div class="value" id="countryDisplay">--</div>
+	<div class="unit">code</div>
+	<div class="note">Use USB console to change (COUNTRY=XX)</div>
+</div>
 </div>
 <div class="actions">
 	<div class="subscription">
@@ -57,11 +64,6 @@
 		</div>
 		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Update subscription</button>
 	</div>
-</div>
-<div class="settings">
-<div class="label">Wi-Fi Country</div>
-<div class="value" id="countryDisplay">--</div>
-<div class="note">Use USB console to change (COUNTRY=XX)</div>
 </div>
 </body>
 </html>
