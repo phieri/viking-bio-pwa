@@ -80,8 +80,8 @@ def main():
     # 1. Inject demo banner after <body>
     html = re.sub(r'(<body>)', r'\1\n' + _DEMO_BANNER, html, count=1, flags=re.IGNORECASE)
 
-    # 2. Inject mock fetch interceptor before the first <script> tag
-    html = re.sub(r'(<script>)', _MOCK_SCRIPT + r'\1', html, count=1, flags=re.IGNORECASE)
+    # 2. Inject mock fetch interceptor before the first <script> tag (match tags with attributes)
+    html = re.sub(r'(<script\b[^>]*>)', _MOCK_SCRIPT + r'\1', html, count=1, flags=re.IGNORECASE)
 
     # 3. Append push-notification override after the last </script>
     m = None
