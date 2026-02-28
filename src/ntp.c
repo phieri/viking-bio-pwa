@@ -40,6 +40,37 @@ static void print_time_now(const char *prefix) {
     }
 }
 
+typedef struct {
+    volatile int resolved;
+    ip_addr_t addr;
+} dns_ctx_t;
+
+typedef struct {
+    volatile int got;
+    uint8_t buf[512];
+    int len;
+} resp_t;
+
+static void ntp_dns_cb(const char *name, const ip_addr_t *ipaddr, void *arg) {
+    (void)name;
+    if (ipaddr == NULL || arg == NULL) return;
+    dns_ctx_t *ctx = (dns_ctx_t *)arg;
+    ctx->addr = *ipaddr;
+    ctx->resolved = 1;
+}
+
+static void ntp_udp_recv_cb(void *arg, struct udp_pcb *upcb, struct pbuf *p,
+                           const ip_addr_t *addr, u16_t port) {
+    (void)upcb; (void)addr; (void)port;
+    resp_t *r = (resp_t *)arg;
+    if (!p || !r) return;
+    int copy_len = p->tot_len > (int)sizeof(r->buf) ? (int)sizeof(r->buf) : p->tot_len;
+    pbuf_copy_partial(p, r->buf, copy_len, 0);
+    r->len = copy_len;
+    r->got = 1;
+    pbuf_free(p);
+}
+
 bool ntp_sync_time_for_country(const char *country) {
     const char *server = "pool.ntp.org";
     if (country && strcmp(country, "SE") == 0) {
@@ -50,22 +81,10 @@ bool ntp_sync_time_for_country(const char *country) {
 
     /* Resolve hostname via lwIP DNS (ip_addr_t supports v6 when enabled).
        We'll perform a short synchronous wait for the callback. */
-    struct {
-        volatile int resolved;
-        ip_addr_t addr;
-    } dns_ctx = { .resolved = 0 };
-
-    /* DNS callback stores result into dns_ctx */
-    void dns_cb_wrapper(const char *name, const ip_addr_t *ipaddr, void *arg) {
-        (void)name;
-        if (ipaddr == NULL) return;
-        struct { volatile int *resolved; ip_addr_t *addr; } *ctx = arg;
-        ctx->addr = *ipaddr;
-        ctx->resolved = 1;
-    }
+    dns_ctx_t dns_ctx = { .resolved = 0 };
 
     ip_addr_t tmp_addr;
-    err_t derr = dns_gethostbyname(server, &tmp_addr, dns_cb_wrapper, &dns_ctx);
+    err_t derr = dns_gethostbyname(server, &tmp_addr, ntp_dns_cb, &dns_ctx);
     if (derr == ERR_OK) {
         dns_ctx.addr = tmp_addr;
         dns_ctx.resolved = 1;
@@ -99,25 +118,10 @@ bool ntp_sync_time_for_country(const char *country) {
     }
 
     /* Response capture */
-    struct {
-        volatile int got;
-        uint8_t buf[512];
-        int len;
-    } resp = { .got = 0, .len = 0 };
+    resp_t resp = { .got = 0, .len = 0 };
 
-    /* UDP receive callback */
-    void ntp_udp_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p,
-                      const ip_addr_t *addr, u16_t port) {
-        (void)upcb; (void)addr; (void)port; (void)arg;
-        if (!p) return;
-        int copy_len = p->tot_len > (int)sizeof(resp.buf) ? (int)sizeof(resp.buf) : p->tot_len;
-        pbuf_copy_partial(p, resp.buf, copy_len, 0);
-        resp.len = copy_len;
-        resp.got = 1;
-        pbuf_free(p);
-    }
-
-    udp_recv(pcb, ntp_udp_recv, NULL);
+    /* Register UDP receive callback with resp as arg */
+    udp_recv(pcb, ntp_udp_recv_cb, &resp);
 
     /* Connect to remote (works for v4 or v6 ip_addr_t) */
     err_t err = udp_connect(pcb, &dns_ctx.addr, 123);
