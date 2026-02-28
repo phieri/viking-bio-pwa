@@ -64,11 +64,17 @@ static uint32_t calc_crc(const uint8_t *data, size_t len) {
 
 /* Entropy source callback for mbedTLS using pico_rand (unconditionally) */
 static int pico_entropy_source(void *data, unsigned char *output, size_t len, size_t *olen) {
-    (void)data;
-    /* pico_rand_get_bytes fills the buffer with len bytes */
-    pico_rand_get_bytes(output, len);
-    *olen = len;
-    return 0;
+	(void)data;
+	/* Fill buffer using new pico-rand API: get_rand_32() */
+	size_t i = 0;
+	while (i < len) {
+		uint32_t r = get_rand_32();
+		size_t chunk = (len - i) < sizeof(r) ? (len - i) : sizeof(r);
+		memcpy(output + i, &r, chunk);
+		i += chunk;
+	}
+	*olen = len;
+	return 0;
 }
 
 static void pico_register_entropy(mbedtls_entropy_context *entropy) {
@@ -778,8 +784,6 @@ bool push_manager_init(void) {
 	memset(&s_push,   0, sizeof(s_push));
 	subscription_count = 0;
 	s_push.state = PUSH_IDLE;
-
-	pico_rand_init();
 
 	// Initialize mbedTLS RNG (HMAC_DRBG instead of CTR_DRBG for SDK compatibility)
 	mbedtls_entropy_init(&entropy);
