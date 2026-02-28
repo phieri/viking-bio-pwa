@@ -1,12 +1,16 @@
 var pollTimer=null,sw=null,sub=null;
 function poll(){
   fetch('/api/data').then(function(r){return r.json()}).then(function(d){
+    document.getElementById('power').textContent=d.power?'ON':'OFF';
     document.getElementById('flame').textContent=d.flame?'ON':'OFF';
     document.getElementById('flame-card').className='card '+(d.flame?'flame-on':'flame-off');
     document.getElementById('fan').textContent=d.fan;
     document.getElementById('temp').textContent=d.temp;
     document.getElementById('err').textContent=d.err;
     document.getElementById('flame-hours').textContent=(d.flame_secs/3600).toFixed(1);
+    const flameCheckbox = document.getElementById("flameSub");
+    const errorCheckbox = document.getElementById("errorSub");
+    const pushBtn = document.getElementById("pushBtn");
     fetch('/api/subscribers').then(function(r){return r.json()}).then(function(s){
       if(typeof s.count !== 'undefined') document.getElementById('subscribers').textContent = s.count;
     }).catch(function(){});

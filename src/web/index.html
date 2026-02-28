@@ -13,13 +13,18 @@
 <h1>&#9919; Viking Bio 20</h1>
 <div class="status connecting" id="status">Connecting...</div>
 <div class="grid">
+<div class="card" id="power-card">
+<div class="label">Power</div>
+<div class="value" id="power">--</div>
+<div class="unit">status</div>
+</div>
 <div class="card" id="flame-card">
 <div class="label">Flame</div>
 <div class="value" id="flame">--</div>
 <div class="unit">status</div>
 </div>
 <div class="card">
-<div class="label">Fan Speed</div>
+<div class="label">Fan speed</div>
 <div class="value" id="fan">--</div>
 <div class="unit">%</div>
 </div>
@@ -29,12 +34,12 @@
 <div class="unit">&deg;C</div>
 </div>
 <div class="card">
-<div class="label">Error Code</div>
+<div class="label">Error code</div>
 <div class="value" id="err">--</div>
 <div class="unit">code</div>
 </div>
 <div class="card">
-<div class="label">Flame Hours</div>
+<div class="label">Flame hours</div>
 <div class="value" id="flame-hours">--</div>
 <div class="unit">hours</div>
 </div>
@@ -45,7 +50,11 @@
 </div>
 </div>
 <div class="actions">
-<button class="btn btn-push" id="pushBtn" onclick="togglePush()">Enable Push Notifications</button>
+<div style="margin-bottom: 0.5em;">
+<label><input type="checkbox" id="flameSub"> Flame on/off</label><br>
+<label><input type="checkbox" id="errorSub"> Errors</label>
+</div>
+<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Update subscription</button>
 </div>
 <div class="settings">
 <div class="label">Wi-Fi Country</div>
