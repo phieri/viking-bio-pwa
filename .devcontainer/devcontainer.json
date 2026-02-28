@@ -30,9 +30,7 @@
       ]
     }
   },
-  "mounts": [
-    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind,consistency=cached"
-  ],
+  "mounts": [],
   "postCreateCommand": "git submodule update --init --recursive || true && if [ ! -d \"${containerWorkspaceFolder}/pico-sdk\" ]; then git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git ${containerWorkspaceFolder}/pico-sdk && (cd ${containerWorkspaceFolder}/pico-sdk && git submodule update --init); fi && pip3 install --user -r tools/requirements.txt || true",
   "remoteUser": "vscode"
 }
