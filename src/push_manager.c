@@ -1222,6 +1222,21 @@ void push_manager_notify_all(const char *title, const char *body, uint8_t error_
 	// Default type: error if non-zero error_code, otherwise onoff
 	uint8_t type = error_code ? NOTIF_ERROR : NOTIF_ONOFF;
 	push_manager_notify_type(title, body, type, error_code);
+
+	// If the push state machine is idle, start sending immediately
+	if (s_push.state == PUSH_IDLE) {
+		for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
+			if (!subscriptions[i].active) continue;
+			// Respect subscriber preferences
+			bool ok = false;
+			if (type == NOTIF_CLEAN) ok = subscriptions[i].pref_clean;
+			else if (type == NOTIF_ERROR) ok = subscriptions[i].pref_error;
+			else ok = subscriptions[i].pref_flame;
+			if (!ok) continue;
+			start_push_for_sub(i);
+			break;
+		}
+	}
 }
 
 void push_manager_notify_type(const char *title, const char *body, uint8_t type, uint8_t error_code) {
