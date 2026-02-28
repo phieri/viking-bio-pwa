@@ -908,20 +908,22 @@ bool push_manager_init(void) {
 		vapid_keys_valid = true;
 	}
 
-	// Generate new VAPID keys
-	printf("push_manager: generating new VAPID keys...\n");
-	if (!generate_vapid_keys()) {
-		printf("push_manager: VAPID key generation failed\n");
-		return false;
-	}
+	// If loading failed, generate and persist new VAPID keys
+	if (!vapid_keys_valid) {
+		printf("push_manager: generating new VAPID keys...\n");
+		if (!generate_vapid_keys()) {
+			printf("push_manager: VAPID key generation failed\n");
+			return false;
+		}
 
-	// Save to LittleFS
-	if (!save_vapid_keys()) {
-		printf("push_manager: WARNING: failed to save VAPID keys\n");
-	}
+		// Save to LittleFS
+		if (!save_vapid_keys()) {
+			printf("push_manager: WARNING: failed to save VAPID keys\n");
+		}
 
-	vapid_keys_valid = true;
-	printf("push_manager: VAPID keys generated and saved\n");
+		vapid_keys_valid = true;
+		printf("push_manager: VAPID keys generated and saved\n");
+	}
 
 	/* Load persisted subscriptions (if any) */
 	if (load_subscriptions()) {

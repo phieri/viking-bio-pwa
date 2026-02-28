@@ -7,6 +7,9 @@ function poll(){
     document.getElementById('temp').textContent=d.temp;
     document.getElementById('err').textContent=d.err;
     document.getElementById('flame-hours').textContent=(d.flame_secs/3600).toFixed(1);
+    fetch('/api/subscribers').then(function(r){return r.json()}).then(function(s){
+      if(typeof s.count !== 'undefined') document.getElementById('subscribers').textContent = s.count;
+    }).catch(function(){});
     if(d.err>0){setStatus('Error detected: code '+d.err,'error')}
     else if(!d.valid){setStatus('No data from burner','stale')}
     else{setStatus('Live \u2014 last update: '+new Date().toLocaleTimeString(),'ok')}

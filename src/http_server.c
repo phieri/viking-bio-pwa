@@ -20,6 +20,7 @@ static viking_bio_data_t s_cached_data = {0};
 static char s_data_json[160];
 static char s_vapid_json[128];
 static char s_country_json[32];
+static char s_subs_json[32];
 
 // POST response buffers
 static const char s_ok_json[]    = "{\"status\":\"ok\"}";
@@ -103,6 +104,11 @@ static void update_vapid_json(void) {
 	snprintf(s_vapid_json, sizeof(s_vapid_json), "{\"key\":\"%s\"}", key_b64);
 }
 
+static void update_subs_json(void) {
+	int c = push_manager_subscription_count();
+	snprintf(s_subs_json, sizeof(s_subs_json), "{\"count\":%d}", c);
+}
+
 static void update_country_json(void) {
 	char cc[3] = "XX";
 	wifi_config_load_country(cc, sizeof(cc));
@@ -132,10 +138,18 @@ static const char *cgi_country_handler(int iIndex, int iNumParams,
 	return "/api_country.json";
 }
 
+static const char *cgi_subs_handler(int iIndex, int iNumParams,
+									 char *pcParam[], char *pcValue[]) {
+	(void)iIndex; (void)iNumParams; (void)pcParam; (void)pcValue;
+	update_subs_json();
+	return "/api_subs.json";
+}
+
 static const tCGI s_cgi_handlers[] = {
 	{"/api/data",            cgi_data_handler},
 	{"/api/vapid-public-key", cgi_vapid_handler},
 	{"/api/country",         cgi_country_handler},
+	{"/api/subscribers",     cgi_subs_handler},
 };
 
 // --- Custom filesystem (serves embedded web content + dynamic JSON) ---
@@ -191,6 +205,8 @@ int fs_open_custom(struct fs_file *file, const char *name) {
 		return fs_open_dynamic(file, s_vapid_json, sizeof(s_vapid_json));
 	if (strcmp(name, "/api_country.json") == 0)
 		return fs_open_dynamic(file, s_country_json, sizeof(s_country_json));
+	if (strcmp(name, "/api_subs.json") == 0)
+		return fs_open_dynamic(file, s_subs_json, sizeof(s_subs_json));
 
 	// POST response files
 	if (strcmp(name, "/api_ok.json") == 0) {
