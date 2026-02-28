@@ -8,6 +8,9 @@
 #include "lwip/netif.h"
 #include "lwip/ip6_addr.h"
 #include "lwip/apps/mdns.h"
+#include <time.h>
+#include <sys/time.h>
+#include <errno.h>
 #include "serial_handler.h"
 #include "viking_bio_protocol.h"
 #include "http_server.h"
@@ -16,6 +19,7 @@
 #include "lfs_hal.h"
 #include "flame_counter.h"
 #include "version.h"
+#include "ntp.h"
 
 // Event flags (modified from interrupt context)
 volatile uint32_t event_flags = 0;
@@ -269,6 +273,22 @@ int main(void) {
 	bool watchdog_on = false;
 
 	if (have_creds && wifi_connect(ssid, password)) {
+		// Sync system time via NTP using country-specific server
+		if (!ntp_sync_time_for_country(country)) {
+			printf("NTP: sync failed, falling back to build timestamp\n");
+			struct timeval tv = { .tv_sec = (time_t)BUILD_UNIX_TIME, .tv_usec = 0 };
+			if (settimeofday(&tv, NULL) != 0) {
+				printf("Failed to set fallback time: %d (%s)\n", errno, strerror(errno));
+			} else {
+				time_t t = time(NULL);
+				struct tm tm;
+				if (gmtime_r(&t, &tm)) {
+					char buf[64];
+					strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S UTC", &tm);
+					printf("Current time: %s\n", buf);
+				}
+			}
+		}
 		// Start HTTP server
 		printf("Starting HTTP server...\n");
 		if (!http_server_init()) {

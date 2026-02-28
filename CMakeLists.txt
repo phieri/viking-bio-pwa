@@ -161,6 +161,7 @@ set(SOURCES
     src/viking_bio_protocol.c
     src/http_server.c
     src/push_manager.c
+    src/ntp.c
     src/wifi_config.c
     src/lfs_hal.c
     src/flame_counter.c
