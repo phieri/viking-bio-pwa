@@ -85,6 +85,9 @@ static int pico_entropy_source(void *data, unsigned char *output, size_t len, si
 	*olen = len;
 	return 0;
 }
+// JSON-escape a C string into dst (NUL-terminated). Returns number of bytes written (excl NUL).
+// Ensures no buffer overflow; truncates if necessary.
+static size_t json_escape(const char *src, char *dst, size_t dst_size) {
 
 static void pico_register_entropy(mbedtls_entropy_context *entropy) {
     mbedtls_entropy_add_source(entropy,
@@ -795,11 +798,16 @@ static void start_push_for_sub(int sub_idx) {
 		return;
 	}
 
-	// Build JSON notification payload
+	// Build JSON notification payload (escape title/body and include error code)
 	char json[256];
+	char esc_title[128];
+	char esc_body[256];
+	json_escape(s_notify.title, esc_title, sizeof(esc_title));
+	json_escape(s_notify.body,  esc_body,  sizeof(esc_body));
+
 	int json_len = snprintf(json, sizeof(json),
-	    "{\"title\":\"%s\",\"body\":\"%s\",\"icon\":\"/icon.png\"}",
-	    s_notify.title, s_notify.body);
+		"{\"title\":\"%s\",\"body\":\"%s\",\"icon\":\"/icon.png\",\"code\":%u}",
+		esc_title, esc_body, (unsigned)s_notify.error_code);
 	if (json_len <= 0 || json_len >= (int)sizeof(json)) {
 		s_push.state = PUSH_ERROR;
 		return;
