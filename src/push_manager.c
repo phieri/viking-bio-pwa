@@ -816,9 +816,12 @@ static void start_push_for_sub(int sub_idx) {
 	json_escape(s_notify.title, esc_title, sizeof(esc_title));
 	json_escape(s_notify.body,  esc_body,  sizeof(esc_body));
 
+	const char *priority = s_notify.error_code ? "high" : "low";
+	const char *type = s_notify.error_code ? "error" : "onoff";
+
 	int json_len = snprintf(json, sizeof(json),
-		"{\"title\":\"%s\",\"body\":\"%s\",\"icon\":\"/icon.png\",\"code\":%u}",
-		esc_title, esc_body, (unsigned)s_notify.error_code);
+		"{\"title\":\"%s\",\"body\":\"%s\",\"icon\":\"/icon.png\",\"code\":%u,\"priority\":\"%s\",\"type\":\"%s\"}",
+		esc_title, esc_body, (unsigned)s_notify.error_code, priority, type);
 	if (json_len <= 0 || json_len >= (int)sizeof(json)) {
 		s_push.state = PUSH_ERROR;
 		return;

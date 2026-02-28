@@ -57,12 +57,40 @@ async function togglePush(){
     if(perm!=='granted'){alert('Notification permission denied.');return;}
     sub=await sw.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(keyData.key)});
     var subJson=sub.toJSON();
-    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(subJson)});
+    const flameCheckbox = document.getElementById("flameSub");
+    const errorCheckbox = document.getElementById("errorSub");
+    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subJson,prefs:{flame:!!flameCheckbox.checked,error:!!errorCheckbox.checked}})});
     document.getElementById('pushBtn').textContent='Push Notifications ON';
     document.getElementById('pushBtn').className='btn btn-push subscribed';
   }catch(e){
     console.error('Push subscription failed:',e);
     alert('Push subscription failed: '+e.message);
+  }
+}
+
+// Update or create subscription preferences without toggling subscription state.
+async function updateSubscription(){
+  const flameCheckbox = document.getElementById("flameSub");
+  const errorCheckbox = document.getElementById("errorSub");
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    alert('Push notifications not supported in this browser.');
+    return;
+  }
+  // If not subscribed yet, create subscription (togglePush will send prefs too)
+  if(!sub){
+    await togglePush();
+    return;
+  }
+  try{
+    var subJson = sub.toJSON();
+    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subJson,prefs:{flame:!!flameCheckbox.checked,error:!!errorCheckbox.checked}})});
+    document.getElementById('pushBtn').textContent='Push Preferences Updated';
+    setTimeout(function(){
+      document.getElementById('pushBtn').textContent='Push Notifications ON';
+    },1500);
+  }catch(e){
+    console.error('Updating subscription failed:',e);
+    alert('Updating subscription failed: '+e.message);
   }
 }
 function urlBase64ToUint8Array(b64){

@@ -22,3 +22,11 @@ h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
 .settings .note{font-size:.75em;color:#888;margin-top:8px}
 .flame-on .value{color:#ff6b35}
 .flame-off .value{color:#555}
+.subscription{display:inline-flex;align-items:center;gap:12px;background:#16213e;padding:10px;border-radius:10px;border:1px solid #0f3460}
+.subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#eee;font-size:0.95em}
+.subs-checkboxes label{margin:2px 0}
+@media (max-width:520px){
+	.subscription{flex-direction:column;align-items:stretch}
+	.subs-checkboxes{align-items:flex-start}
+	.subscription .btn{width:100%}
+}
