@@ -1,0 +1,38 @@
+{
+  "name": "viking-bio-pwa (Pico W)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/viking-bio-pwa",
+  "containerEnv": {
+    "PICO_SDK_PATH": "/workspaces/viking-bio-pwa/pico-sdk",
+    "PICO_BOARD": "pico_w"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "cmake.generator": "Ninja",
+        "cmake.configureArgs": [
+          "-DPICO_SDK_PATH=${containerEnv:PICO_SDK_PATH}"
+        ],
+        "cmake.buildDirectory": "${workspaceFolder}/build"
+      },
+      "extensions": [
+        "editorconfig.editorconfig",
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake",
+        "marus25.cortex-debug",
+        "ms-python.python",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "mounts": [
+    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind,consistency=cached"
+  ],
+  "postCreateCommand": "git submodule update --init --recursive || true && if [ ! -d \"${containerWorkspaceFolder}/pico-sdk\" ]; then git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git ${containerWorkspaceFolder}/pico-sdk && (cd ${containerWorkspaceFolder}/pico-sdk && git submodule update --init); fi && pip3 install --user -r tools/requirements.txt || true",
+  "remoteUser": "vscode"
+}

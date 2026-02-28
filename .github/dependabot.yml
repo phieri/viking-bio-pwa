@@ -78,19 +78,6 @@ updates:
         patterns:
           - "*"
 
-  - package-ecosystem: "nuget"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "dependabot"
-    groups:
-      all-dependencies:
-        patterns:
-          - "*"
-
   - package-ecosystem: "composer"
     directory: "/"
     schedule:
@@ -105,32 +92,6 @@ updates:
           - "*"
 
   - package-ecosystem: "bundler"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "dependabot"
-    groups:
-      all-dependencies:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "cargo"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "dependabot"
-    groups:
-      all-dependencies:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "terraform"
     directory: "/"
     schedule:
       interval: "monthly"

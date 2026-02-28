@@ -25,6 +25,8 @@
 #define VAPID_FILE   "/vapid.dat"
 #define VAPID_MAGIC  0x56415049  // "VAPI"
 
+#define SUBSCRIBERS_FILE "/subscribers.dat"
+
 // Storage layout: magic(4) + private_key(32) + public_key(65) + crc(4) = 105 bytes
 #define VAPID_STORED_SIZE (4 + 32 + 65 + 4)
 
