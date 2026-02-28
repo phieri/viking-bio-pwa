@@ -7,6 +7,7 @@
 #include "hardware/watchdog.h"
 #include "lwip/netif.h"
 #include "lwip/ip6_addr.h"
+#include <lwip/dns.h>
 #include "lwip/apps/mdns.h"
 #include <time.h>
 #include <sys/time.h>
@@ -171,18 +172,30 @@ static bool wifi_connect(const char *ssid, const char *password) {
 	printf("WiFi connected\n");
 
 	// Wait for at least one valid IPv6 address (link-local, up to 5 s)
-	absolute_time_t ipv6_wait = make_timeout_time_ms(5000);
-	while (!time_reached(ipv6_wait)) {
+	/* Wait up to 5s for networking to provide DNS servers (via DHCP) or
+	   for IPv6 addresses to appear. DNS is required for hostname lookups
+	   (e.g., NTP servers) — waiting only for IPv6 was causing DNS to be
+	   unavailable at boot on some networks. */
+	absolute_time_t net_wait = make_timeout_time_ms(5000);
+	while (!time_reached(net_wait)) {
 		cyw43_arch_poll();
+		const ip_addr_t *dns0 = dns_getserver(0);
+		if (dns0 != NULL && !ip_addr_isany(dns0)) break;
 		if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, 0))) break;
-		sleep_ms(50);
+		SLEEP_MS(50);
 	}
 
 	for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
 		if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, i))) {
 			printf("  IPv6[%d]: %s\n", i,
-			       ip6addr_ntoa(netif_ip6_addr(netif_default, i)));
+				   ip6addr_ntoa(netif_ip6_addr(netif_default, i)));
 		}
+	}
+	const ip_addr_t *dns0 = dns_getserver(0);
+	if (dns0 != NULL && !ip_addr_isany(dns0)) {
+		char buf[64];
+		ipaddr_ntoa_r(dns0, buf, sizeof(buf));
+		printf("  DNS[0]: %s\n", buf);
 	}
 	return true;
 }

@@ -12,6 +12,10 @@
 #define LWIP_IPV6 1
 #define LWIP_IPV6_AUTOCONFIG 1      // Stateless Address Autoconfiguration (SLAAC)
 #define LWIP_IPV6_ND 1              // Neighbor Discovery Protocol
+#define LWIP_ND6_RDNSS 1            // Enable RDNSS support (Recursive DNS via RA)
+#define LWIP_IPV6_RDNSS 1           // Alternate macro used in some lwIP versions
+#define ND6_RDNSS_MAX_SERVERS 2     // Max RDNSS entries to accept from RA
+#define LWIP_ND6_RDNSS_MAX_SERVERS 2
 #define LWIP_IPV6_MLD 1             // Multicast Listener Discovery (required for mDNS)
 #define LWIP_IPV6_NUM_ADDRESSES 3   // Max IPv6 addresses per interface
 
