@@ -10,7 +10,7 @@ A Progressive Web App (PWA) dashboard and Web Push notification system for the V
 - **PWA**: Installable on mobile/desktop, works offline (cached service worker)
 - **Viking Bio 20 Protocol**: Reads TTL serial data at 9600 baud from the burner's serial port
 - **LittleFS Storage**: Wear-leveled flash storage for configuration (WiFi credentials, VAPID keys, country code)
-- **Wi-Fi Country Setting**: Configurable Wi-Fi regulatory domain via USB serial or web UI
+- **Wi-Fi Country Setting**: Configurable Wi-Fi regulatory domain via USB serial
 
 ## Hardware
 
@@ -20,7 +20,7 @@ A Progressive Web App (PWA) dashboard and Web Push notification system for the V
 
 ## Wiring
 
-Connect the Viking Bio 20 TTL serial output to the Raspberry Pi Pico W by RJ12 cable:
+Connect the Viking Bio 20 TTL serial output by RJ12 cable to the Raspberry Pi Pico W:
 
 ```mermaid
 graph LR
@@ -151,10 +151,3 @@ The Viking Bio 20 protocol supports:
 - FLAGS bits 1-7: error code
 
 **Text protocol**: `F:1,S:50,T:75` (Flame, Speed%, Temp°C)
-
-## Serial Connection
-
-| Signal | Pico W Pin | GPIO |
-|--------|-----------|------|
-| RX     | Pin 2      | GP1  |
-| GND    | Pin 3      | GND  |
