@@ -779,12 +779,13 @@ bool push_manager_init(void) {
 	subscription_count = 0;
 	s_push.state = PUSH_IDLE;
 
+	pico_rand_init();
+
 	// Initialize mbedTLS RNG (HMAC_DRBG instead of CTR_DRBG for SDK compatibility)
 	mbedtls_entropy_init(&entropy);
 	mbedtls_hmac_drbg_init(&hmac_drbg);
 
 	/* Register Pico hardware entropy source (ROSC) */
-	pico_rand_init();
     pico_register_entropy(&entropy);
 
 	// Seed with Pico W unique ID
