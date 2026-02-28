@@ -27,6 +27,15 @@
 
 #define SUBSCRIBERS_FILE "/subscribers.dat"
 
+#define SUBS_MAGIC 0x53554253 /* 'SUBS' */
+
+/* Storage layout:
+ * magic (4) + count (1) + entries[PUSH_MAX_SUBSCRIPTIONS]
+ * entry = active(1) + endpoint(PUSH_MAX_ENDPOINT_LEN) + p256dh(PUSH_MAX_KEY_LEN) + auth(PUSH_MAX_AUTH_LEN)
+ */
+#define SUBS_ENTRY_SIZE (1 + PUSH_MAX_ENDPOINT_LEN + PUSH_MAX_KEY_LEN + PUSH_MAX_AUTH_LEN)
+#define SUBS_STORED_SIZE (4 + 1 + (PUSH_MAX_SUBSCRIPTIONS * SUBS_ENTRY_SIZE))
+
 // Storage layout: magic(4) + private_key(32) + public_key(65) + crc(4) = 105 bytes
 #define VAPID_STORED_SIZE (4 + 32 + 65 + 4)
 
@@ -104,6 +113,95 @@ static bool load_vapid_keys(void) {
 	memcpy(vapid_private_key, buf + 4, 32);
 	memcpy(vapid_public_key, buf + 4 + 32, 65);
 	return true;
+}
+
+static bool load_subscriptions(void) {
+	uint8_t buf[SUBS_STORED_SIZE];
+	int n = lfs_hal_read_file(SUBSCRIBERS_FILE, buf, sizeof(buf));
+	if (n < (int)sizeof(uint32_t) + 1) return false; /* at least magic + count */
+
+	uint32_t magic;
+	memcpy(&magic, buf, 4);
+	if (magic != SUBS_MAGIC) return false;
+
+	uint8_t count = buf[4];
+	if (count > PUSH_MAX_SUBSCRIPTIONS) return false;
+
+	/* Initialize to empty */
+	for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
+		subscriptions[i].active = false;
+		subscriptions[i].endpoint[0] = '\0';
+		subscriptions[i].p256dh[0] = '\0';
+		subscriptions[i].auth[0] = '\0';
+	}
+
+	size_t offset = 5;
+	int loaded = 0;
+	for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS && (int)offset + SUBS_ENTRY_SIZE <= n; i++) {
+		uint8_t active = buf[offset];
+		offset += 1;
+
+		if (active) {
+			/* copy endpoint */
+			memcpy(subscriptions[i].endpoint, buf + offset, PUSH_MAX_ENDPOINT_LEN);
+			subscriptions[i].endpoint[PUSH_MAX_ENDPOINT_LEN - 1] = '\0';
+		}
+		offset += PUSH_MAX_ENDPOINT_LEN;
+
+		if (active) {
+			memcpy(subscriptions[i].p256dh, buf + offset, PUSH_MAX_KEY_LEN);
+			subscriptions[i].p256dh[PUSH_MAX_KEY_LEN - 1] = '\0';
+		}
+		offset += PUSH_MAX_KEY_LEN;
+
+		if (active) {
+			memcpy(subscriptions[i].auth, buf + offset, PUSH_MAX_AUTH_LEN);
+			subscriptions[i].auth[PUSH_MAX_AUTH_LEN - 1] = '\0';
+			subscriptions[i].active = true;
+			loaded++;
+		}
+		offset += PUSH_MAX_AUTH_LEN;
+	}
+
+	subscription_count = loaded;
+	return true;
+}
+
+static bool save_subscriptions(void) {
+	uint8_t buf[SUBS_STORED_SIZE];
+	uint32_t magic = SUBS_MAGIC;
+	memcpy(buf, &magic, 4);
+	buf[4] = (uint8_t)subscription_count;
+
+	size_t offset = 5;
+	for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
+		/* active flag */
+		buf[offset] = subscriptions[i].active ? 1 : 0;
+		offset += 1;
+
+		/* endpoint (fixed-size) */
+		memset(buf + offset, 0, PUSH_MAX_ENDPOINT_LEN);
+		if (subscriptions[i].active) {
+			strncpy((char *)(buf + offset), subscriptions[i].endpoint, PUSH_MAX_ENDPOINT_LEN - 1);
+		}
+		offset += PUSH_MAX_ENDPOINT_LEN;
+
+		/* p256dh */
+		memset(buf + offset, 0, PUSH_MAX_KEY_LEN);
+		if (subscriptions[i].active) {
+			strncpy((char *)(buf + offset), subscriptions[i].p256dh, PUSH_MAX_KEY_LEN - 1);
+		}
+		offset += PUSH_MAX_KEY_LEN;
+
+		/* auth */
+		memset(buf + offset, 0, PUSH_MAX_AUTH_LEN);
+		if (subscriptions[i].active) {
+			strncpy((char *)(buf + offset), subscriptions[i].auth, PUSH_MAX_AUTH_LEN - 1);
+		}
+		offset += PUSH_MAX_AUTH_LEN;
+	}
+
+	return lfs_hal_write_file(SUBSCRIBERS_FILE, buf, sizeof(buf));
 }
 
 static bool save_vapid_keys(void) {
@@ -808,7 +906,6 @@ bool push_manager_init(void) {
 	if (load_vapid_keys()) {
 		printf("push_manager: loaded VAPID keys from storage\n");
 		vapid_keys_valid = true;
-		return true;
 	}
 
 	// Generate new VAPID keys
@@ -825,6 +922,12 @@ bool push_manager_init(void) {
 
 	vapid_keys_valid = true;
 	printf("push_manager: VAPID keys generated and saved\n");
+
+	/* Load persisted subscriptions (if any) */
+	if (load_subscriptions()) {
+		printf("push_manager: loaded %d subscriptions from storage\n", subscription_count);
+	}
+
 	return true;
 }
 
@@ -899,6 +1002,7 @@ bool push_manager_add_subscription(const char *endpoint, const char *p256dh, con
 			// Update existing
 			if (p256dh) strncpy(subscriptions[i].p256dh, p256dh, PUSH_MAX_KEY_LEN - 1);
 			if (auth) strncpy(subscriptions[i].auth, auth, PUSH_MAX_AUTH_LEN - 1);
+			save_subscriptions();
 			return true;
 		}
 	}
@@ -919,6 +1023,7 @@ bool push_manager_add_subscription(const char *endpoint, const char *p256dh, con
 			}
 			subscription_count++;
 			printf("push_manager: added subscription (%d active)\n", subscription_count);
+			save_subscriptions();
 			return true;
 		}
 	}
@@ -935,6 +1040,7 @@ bool push_manager_remove_subscription(const char *endpoint) {
 			subscription_count--;
 			if (subscription_count < 0) subscription_count = 0;
 			printf("push_manager: removed subscription\n");
+			save_subscriptions();
 			return true;
 		}
 	}
