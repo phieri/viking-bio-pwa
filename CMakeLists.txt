@@ -196,6 +196,7 @@ target_link_libraries(viking_bio_pwa
     pico_lwip_mbedtls
     pico_lwip_mdns
     pico_lwip_http
+    pico_lwip_sntp
 )
 
 # Enable USB output, disable UART output

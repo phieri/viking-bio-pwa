@@ -6,6 +6,12 @@
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
+#if defined(PICO_BOARD)
+#include "pico/time.h"
+#define SLEEP_MS(ms) sleep_ms(ms)
+#else
+#define SLEEP_MS(ms) usleep((ms) * 1000)
+#endif
 #include <errno.h>
 
 #include <lwip/sockets.h>
@@ -50,7 +56,7 @@ bool ntp_sync_time_for_country(const char *country) {
     while (waited_ms < NTP_RECV_TIMEOUT_MS) {
         sec = sntp_get_current_timestamp();
         if (sec != 0) break;
-        usleep(100 * 1000); /* 100 ms */
+        SLEEP_MS(100); /* 100 ms */
         waited_ms += 100;
     }
 
