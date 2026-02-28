@@ -452,8 +452,9 @@ static bool make_vapid_jwt(const char *audience, char *jwt_out, size_t jwt_out_s
 //   out_size         – capacity of out (needs >= plaintext_len + 39)
 // Returns encoded byte count, or 0 on failure.
 static size_t encrypt_push_payload(const uint8_t *plaintext, size_t plaintext_len,
-                                    const char *p256dh_b64, const char *auth_b64,
-                                    uint8_t *out, size_t out_size) {
+									const char *p256dh_b64, const char *auth_b64,
+									uint8_t *out, size_t out_size,
+									uint8_t *salt_out, uint8_t *ua_public_out) {
 	// Minimum output size check: 16 (salt) + 4 (rs) + 1 (idlen) + record + 16 (tag)
 	// The internal record buffer is 256 bytes, so plaintext must be <= 255 bytes.
 	if (plaintext_len > 255 || out_size < plaintext_len + 38) return 0;
@@ -582,6 +583,10 @@ static size_t encrypt_push_payload(const uint8_t *plaintext, size_t plaintext_le
 		out[19] = (uint8_t)(rs      );
 		out[20] = 0;  // idlen = 0 (no explicit key ID)
 		memcpy(out + 21 + rec_len, tag, 16);
+
+		// Return salt and ephemeral public key to caller if requested
+		if (salt_out) memcpy(salt_out, salt, 16);
+		if (ua_public_out) memcpy(ua_public_out, ua_public, 65);
 
 		return 21 + rec_len + 16;
 	}
@@ -828,11 +833,14 @@ static void start_push_for_sub(int sub_idx) {
 	}
 
 	// Encrypt payload when subscription keys are present
+	uint8_t salt[16];
+	uint8_t ua_public[65];
 	if (sub->p256dh[0] != '\0' && sub->auth[0] != '\0') {
 		s_push.payload_len = encrypt_push_payload(
-		    (const uint8_t *)json, (size_t)json_len,
-		    sub->p256dh, sub->auth,
-		    s_push.payload, sizeof(s_push.payload));
+			(const uint8_t *)json, (size_t)json_len,
+			sub->p256dh, sub->auth,
+			s_push.payload, sizeof(s_push.payload),
+			salt, ua_public);
 		if (s_push.payload_len == 0) {
 			printf("push_manager: encryption failed (sub %d)\n", sub_idx);
 			s_push.state = PUSH_ERROR;
@@ -856,21 +864,56 @@ static void start_push_for_sub(int sub_idx) {
 	char vapid_pub_b64[96] = {0};
 	base64url_encode(vapid_public_key, 65, vapid_pub_b64, sizeof(vapid_pub_b64));
 
+	// Optional encryption headers
+	char salt_b64[48] = {0};
+	char ua_b64[96] = {0};
+	if (s_push.payload_len > 0) {
+		base64url_encode(salt, 16, salt_b64, sizeof(salt_b64));
+		base64url_encode(ua_public, 65, ua_b64, sizeof(ua_b64));
+	}
+
 	// Assemble HTTP POST request headers
 	int hlen = snprintf((char *)s_push.req_buf, sizeof(s_push.req_buf),
-	    "POST %s HTTP/1.1\r\n"
-	    "Host: %s\r\n"
-	    "Authorization: vapid t=%s,k=%s\r\n"
-	    "Content-Type: application/octet-stream\r\n"
-	    "Content-Encoding: aes128gcm\r\n"
-	    "TTL: 60\r\n"
-	    "Content-Length: %u\r\n"
-	    "Connection: close\r\n"
-	    "\r\n",
-	    s_push.path,
-	    s_push.hostname,
-	    jwt, vapid_pub_b64,
-	    (unsigned)s_push.payload_len);
+		"POST %s HTTP/1.1\r\n"
+		"Host: %s\r\n"
+		"Authorization: WebPush %s\r\n"
+		"%s" /* Encryption header */
+		"%s" /* Crypto-Key header */
+		"Content-Type: application/octet-stream\r\n"
+		"Content-Encoding: aes128gcm\r\n"
+		"TTL: 60\r\n"
+		"Content-Length: %u\r\n"
+		"Connection: close\r\n"
+		"\r\n",
+		s_push.path,
+		s_push.hostname,
+		jwt,
+		(s_push.payload_len > 0) ? ("Encryption: salt=%s\r\n") : (""),
+		(s_push.payload_len > 0) ? ("Crypto-Key: dh=%s;p256ecdsa=%s\r\n") : (""),
+		(unsigned)s_push.payload_len);
+
+	/* If encryption headers are present, rebuild with actual values */
+	if (s_push.payload_len > 0 && hlen > 0) {
+		hlen = snprintf((char *)s_push.req_buf, sizeof(s_push.req_buf),
+			"POST %s HTTP/1.1\r\n"
+			"Host: %s\r\n"
+			"Authorization: WebPush %s\r\n"
+			"Encryption: salt=%s\r\n"
+			"Crypto-Key: dh=%s;p256ecdsa=%s\r\n"
+			"Content-Type: application/octet-stream\r\n"
+			"Content-Encoding: aes128gcm\r\n"
+			"TTL: 60\r\n"
+			"Content-Length: %u\r\n"
+			"Connection: close\r\n"
+			"\r\n",
+			s_push.path,
+			s_push.hostname,
+			jwt,
+			salt_b64,
+			ua_b64,
+			vapid_pub_b64,
+			(unsigned)s_push.payload_len);
+	}
 	if (hlen <= 0 || hlen >= (int)sizeof(s_push.req_buf)) {
 		printf("push_manager: request buffer overflow\n");
 		s_push.state = PUSH_ERROR;

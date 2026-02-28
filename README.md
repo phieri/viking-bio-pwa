@@ -130,6 +130,18 @@ The Wi-Fi country code controls regulatory settings (available channels, transmi
 
 VAPID keys are generated on first boot and stored in LittleFS. They persist across reboots.
 
+Notes on server/client integration and Web Push headers
+
+- Subscription POST format: the dashboard posts a small JSON object to `POST /api/subscribe` with top-level fields `endpoint`, `p256dh`, and `auth` (all base64url where applicable). The server stores these values and uses them when sending notifications. The dashboard also includes an optional `prefs` object for client-side preferences.
+- Authorization header: outgoing push requests use a VAPID JWT placed in the `Authorization` header as `Authorization: WebPush <jwt>` (the server generates the JWT at send time).
+- Encrypted payload headers: when delivering encrypted notifications (`Content-Encoding: aes128gcm`) the server includes the required headers:
+    - `Encryption: salt=<base64url-salt>`
+    - `Crypto-Key: dh=<base64url-ephemeral-public>;p256ecdsa=<base64url-vapid-public>`
+    These allow the push service and the browser to perform the EC Diffie-Hellman and derive the CEK/nonce per RFC 8291 / RFC 8188.
+- Payload layout: the encrypted body uses the aes128gcm single-record layout. The wire format begins with the 16-byte salt followed by the Record Size field, id length, the ciphertext record, and a 16-byte auth tag. The service worker expects JSON when decrypted (the project's service worker tries to parse `e.data.json()` and falls back to a default payload).
+
+The above details are implemented in the firmware: the dashboard sends subscriptions with `endpoint`, `p256dh`, and `auth`; the device generates/stores VAPID keys and includes the appropriate `Encryption` / `Crypto-Key` headers when sending encrypted push payloads.
+
 ## Data Format
 
 The Viking Bio 20 protocol supports:

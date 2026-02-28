@@ -59,7 +59,14 @@ async function togglePush(){
     var subJson=sub.toJSON();
     const flameCheckbox = document.getElementById("flameSub");
     const errorCheckbox = document.getElementById("errorSub");
-    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subJson,prefs:{flame:!!flameCheckbox.checked,error:!!errorCheckbox.checked}})});
+    // Send flat fields the server expects: endpoint, p256dh, auth
+    var body = {
+      endpoint: subJson.endpoint || "",
+      p256dh: (subJson.keys && subJson.keys.p256dh) ? subJson.keys.p256dh : "",
+      auth:  (subJson.keys && subJson.keys.auth) ? subJson.keys.auth : "",
+      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked }
+    };
+    await fetch('/api/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     document.getElementById('pushBtn').textContent='Push Notifications ON';
     document.getElementById('pushBtn').className='btn btn-push subscribed';
   }catch(e){
@@ -81,9 +88,15 @@ async function updateSubscription(){
     await togglePush();
     return;
   }
-  try{
+    try{
     var subJson = sub.toJSON();
-    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subJson,prefs:{flame:!!flameCheckbox.checked,error:!!errorCheckbox.checked}})});
+    var body = {
+      endpoint: subJson.endpoint || "",
+      p256dh: (subJson.keys && subJson.keys.p256dh) ? subJson.keys.p256dh : "",
+      auth:  (subJson.keys && subJson.keys.auth) ? subJson.keys.auth : "",
+      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked }
+    };
+    await fetch('/api/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
     document.getElementById('pushBtn').textContent='Push Preferences Updated';
     setTimeout(function(){
       document.getElementById('pushBtn').textContent='Push Notifications ON';
