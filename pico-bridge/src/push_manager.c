@@ -13,18 +13,29 @@
 // LittleFS file for VAPID key pair
 #define VAPID_FILE "/vapid.dat"
 
+// LittleFS file for persisted push subscriptions
+#define SUBS_FILE  "/subs.dat"
+
 // Storage layout: magic(4) + private_key(32) + public_key(65) + crc32(4) = 105 bytes
 #define VAPID_MAGIC   0x56415049U  // "VAPI"
 #define VAPID_PRIVLEN 32
 #define VAPID_PUBLEN  65
 #define VAPID_STORED  (4 + VAPID_PRIVLEN + VAPID_PUBLEN + 4)
 
+// Subscriptions storage layout (fixed-size flat record array):
+//   magic(4) + N×slot + crc32(4)
+// Each slot: active(1) + endpoint(513) + p256dh(97) + auth(33) + prefs(3) = 647 bytes
+#define SUBS_MAGIC     0x53554253U  // "SUBS"
+#define SUBS_SLOT_SIZE (1 + (PUSH_ENDPOINT_MAX_LEN + 1) + (PUSH_P256DH_MAX_LEN + 1) + \
+                        (PUSH_AUTH_MAX_LEN + 1) + PUSH_NOTIFY_TYPE_COUNT)
+#define SUBS_STORED    (4 + SUBS_SLOT_SIZE * PUSH_MAX_SUBSCRIPTIONS + 4)
+
 // In-memory key pair
 static uint8_t s_private_key[VAPID_PRIVLEN];
 static uint8_t s_public_key[VAPID_PUBLEN];   // Uncompressed P-256 point (0x04 || X || Y)
 static bool    s_keys_valid = false;
 
-// In-RAM subscriptions
+// In-memory subscription cache (loaded from /subs.dat on init, persisted on change)
 static push_subscription_t s_subs[PUSH_MAX_SUBSCRIPTIONS];
 
 // ---------------------------------------------------------------------------
@@ -73,6 +84,68 @@ static bool save_vapid_keys(void) {
 	uint32_t crc = crc32(buf, 4 + VAPID_PRIVLEN + VAPID_PUBLEN);
 	memcpy(buf + 4 + VAPID_PRIVLEN + VAPID_PUBLEN, &crc, 4);
 	return lfs_hal_write_file(VAPID_FILE, buf, sizeof(buf));
+}
+
+// ---------------------------------------------------------------------------
+// Subscription persistence
+// ---------------------------------------------------------------------------
+
+static void save_subscriptions(void) {
+	uint8_t buf[SUBS_STORED];
+	memset(buf, 0, sizeof(buf));
+
+	uint32_t magic = SUBS_MAGIC;
+	memcpy(buf, &magic, 4);
+
+	uint8_t *p = buf + 4;
+	for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
+		p[0] = s_subs[i].active ? 1 : 0;
+		p++;
+		memcpy(p, s_subs[i].endpoint, PUSH_ENDPOINT_MAX_LEN + 1); p += PUSH_ENDPOINT_MAX_LEN + 1;
+		memcpy(p, s_subs[i].p256dh,   PUSH_P256DH_MAX_LEN + 1);   p += PUSH_P256DH_MAX_LEN + 1;
+		memcpy(p, s_subs[i].auth,     PUSH_AUTH_MAX_LEN + 1);     p += PUSH_AUTH_MAX_LEN + 1;
+		for (int t = 0; t < PUSH_NOTIFY_TYPE_COUNT; t++)
+			*p++ = s_subs[i].prefs[t] ? 1 : 0;
+	}
+
+	uint32_t crc = crc32(buf, 4 + SUBS_SLOT_SIZE * PUSH_MAX_SUBSCRIPTIONS);
+	memcpy(buf + 4 + SUBS_SLOT_SIZE * PUSH_MAX_SUBSCRIPTIONS, &crc, 4);
+
+	if (!lfs_hal_write_file(SUBS_FILE, buf, sizeof(buf))) {
+		printf("push_manager: WARNING – could not persist subscriptions\n");
+	}
+}
+
+static void load_subscriptions(void) {
+	uint8_t buf[SUBS_STORED];
+	int n = lfs_hal_read_file(SUBS_FILE, buf, sizeof(buf));
+	if (n != (int)sizeof(buf)) return;
+
+	uint32_t magic;
+	memcpy(&magic, buf, 4);
+	if (magic != SUBS_MAGIC) return;
+
+	uint32_t stored_crc;
+	memcpy(&stored_crc, buf + 4 + SUBS_SLOT_SIZE * PUSH_MAX_SUBSCRIPTIONS, 4);
+	if (crc32(buf, 4 + SUBS_SLOT_SIZE * PUSH_MAX_SUBSCRIPTIONS) != stored_crc) return;
+
+	const uint8_t *p = buf + 4;
+	int loaded = 0;
+	for (int i = 0; i < PUSH_MAX_SUBSCRIPTIONS; i++) {
+		s_subs[i].active = (p[0] == 1);
+		p++;
+		memcpy(s_subs[i].endpoint, p, PUSH_ENDPOINT_MAX_LEN + 1); p += PUSH_ENDPOINT_MAX_LEN + 1;
+		memcpy(s_subs[i].p256dh,   p, PUSH_P256DH_MAX_LEN + 1);   p += PUSH_P256DH_MAX_LEN + 1;
+		memcpy(s_subs[i].auth,     p, PUSH_AUTH_MAX_LEN + 1);     p += PUSH_AUTH_MAX_LEN + 1;
+		for (int t = 0; t < PUSH_NOTIFY_TYPE_COUNT; t++)
+			s_subs[i].prefs[t] = (*p++ == 1);
+		// Enforce null-termination to guard against corrupted strings
+		s_subs[i].endpoint[PUSH_ENDPOINT_MAX_LEN] = '\0';
+		s_subs[i].p256dh[PUSH_P256DH_MAX_LEN]     = '\0';
+		s_subs[i].auth[PUSH_AUTH_MAX_LEN]          = '\0';
+		if (s_subs[i].active) loaded++;
+	}
+	printf("push_manager: loaded %d subscription(s) from flash\n", loaded);
 }
 
 // ---------------------------------------------------------------------------
@@ -144,18 +217,19 @@ bool push_manager_init(void) {
 	if (load_vapid_keys()) {
 		printf("push_manager: loaded VAPID keys from flash\n");
 		s_keys_valid = true;
-		return true;
+	} else {
+		printf("push_manager: generating new VAPID key pair (P-256)...\n");
+		if (!generate_vapid_keys()) return false;
+
+		if (!save_vapid_keys()) {
+			printf("push_manager: WARNING – could not persist VAPID keys\n");
+		}
+
+		s_keys_valid = true;
+		printf("push_manager: VAPID keys generated and stored\n");
 	}
 
-	printf("push_manager: generating new VAPID key pair (P-256)...\n");
-	if (!generate_vapid_keys()) return false;
-
-	if (!save_vapid_keys()) {
-		printf("push_manager: WARNING – could not persist VAPID keys\n");
-	}
-
-	s_keys_valid = true;
-	printf("push_manager: VAPID keys generated and stored\n");
+	load_subscriptions();
 	return true;
 }
 
@@ -196,6 +270,7 @@ bool push_manager_add_subscription(const char *endpoint, const char *p256dh,
 				for (int t = 0; t < PUSH_NOTIFY_TYPE_COUNT; t++)
 					s_subs[i].prefs[t] = prefs[t];
 			}
+			save_subscriptions();
 			printf("push_manager: updated subscription (total: %d)\n",
 			       push_manager_subscription_count());
 			return true;
@@ -213,6 +288,7 @@ bool push_manager_add_subscription(const char *endpoint, const char *p256dh,
 				for (int t = 0; t < PUSH_NOTIFY_TYPE_COUNT; t++)
 					s_subs[i].prefs[t] = prefs[t];
 			}
+			save_subscriptions();
 			printf("push_manager: added subscription (total: %d)\n",
 			       push_manager_subscription_count());
 			return true;
@@ -229,6 +305,7 @@ void push_manager_remove_subscription(const char *endpoint) {
 		if (s_subs[i].active &&
 		    strncmp(s_subs[i].endpoint, endpoint, PUSH_ENDPOINT_MAX_LEN) == 0) {
 			memset(&s_subs[i], 0, sizeof(s_subs[i]));
+			save_subscriptions();
 			printf("push_manager: removed subscription (total: %d)\n",
 			       push_manager_subscription_count());
 			return;

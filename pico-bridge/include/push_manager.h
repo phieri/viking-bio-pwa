@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-// Maximum number of push subscriptions stored in RAM
+// Maximum number of push subscriptions (persisted in LittleFS flash)
 #define PUSH_MAX_SUBSCRIPTIONS 4
 
 // Maximum length of a push endpoint URL
@@ -30,7 +30,7 @@ typedef enum {
 } push_notify_type_t;
 
 /**
- * A single browser push subscription (stored in RAM).
+ * A single browser push subscription (cached in RAM, persisted to LittleFS flash).
  */
 typedef struct {
 	bool   active;
@@ -59,6 +59,7 @@ bool push_manager_get_vapid_public_key(char *out_buf, size_t buf_len);
 
 /**
  * Add or update a push subscription.
+ * The subscription is written to LittleFS flash immediately so it survives reboots.
  * @param endpoint  Push endpoint URL
  * @param p256dh    Browser's ECDH public key (base64url)
  * @param auth      Auth secret (base64url)
@@ -70,6 +71,7 @@ bool push_manager_add_subscription(const char *endpoint, const char *p256dh,
 
 /**
  * Remove a push subscription by endpoint URL.
+ * The change is written to LittleFS flash immediately.
  * @param endpoint  Push endpoint URL to remove
  */
 void push_manager_remove_subscription(const char *endpoint);
