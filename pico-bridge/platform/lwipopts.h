@@ -24,6 +24,11 @@
 #define LWIP_ICMP 1
 #define LWIP_RAW 0
 
+// altcp layer (required for TLS client via pico_lwip_mbedtls)
+#define LWIP_ALTCP 1
+#define LWIP_ALTCP_TLS 1
+#define LWIP_ALTCP_TLS_MBEDTLS 1
+
 // mDNS (for device hostname advertisement)
 #define LWIP_MDNS_RESPONDER 1
 #define MDNS_MAX_SERVICES 1
