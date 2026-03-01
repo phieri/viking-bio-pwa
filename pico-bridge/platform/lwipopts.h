@@ -52,7 +52,10 @@
 #define DNS_TABLE_SIZE 4
 
 // Timers
-#define MEMP_NUM_SYS_TIMEOUT 6
+// Base lwIP timers (TCP + DNS + IPv6 ND/REASS/MLD) use ~5 slots.
+// The mDNS responder allocates additional sys_timeout slots at runtime
+// during the probe/announce sequence. 14 is a safe value for this config.
+#define MEMP_NUM_SYS_TIMEOUT 14
 
 // ARP
 #define ARP_TABLE_SIZE 4
