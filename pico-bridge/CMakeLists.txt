@@ -67,10 +67,12 @@ execute_process(
     COMMAND python3 -c "import time; print(int(time.time()))"
     OUTPUT_VARIABLE BUILD_UNIX_TIME
     OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE  BUILD_UNIX_TIME_ERR
     ERROR_QUIET
 )
 if(NOT BUILD_UNIX_TIME)
     set(BUILD_UNIX_TIME 0)
+    message(WARNING "Could not determine build time via python3: ${BUILD_UNIX_TIME_ERR} – BUILD_UNIX_TIME defaults to 0; VAPID JWT exp will use device uptime only until proxy time-sync occurs.")
 endif()
 add_compile_definitions(BUILD_UNIX_TIME=${BUILD_UNIX_TIME}UL)
 message(STATUS "Build Unix time: ${BUILD_UNIX_TIME}")
@@ -151,6 +153,7 @@ target_link_libraries(viking_bio_bridge
     pico_unique_id
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
+    pico_lwip_mbedtls
     pico_lwip_mdns
 )
 

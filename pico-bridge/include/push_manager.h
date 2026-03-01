@@ -19,6 +19,13 @@
 // VAPID JWT validity period in seconds
 #define VAPID_JWT_EXPIRY_SECS  43200  // 12 hours
 
+// RFC 8291 encryption record size (bytes per record in the aes128gcm content encoding)
+#define PUSH_RS_FIELD  4096
+
+// Maximum number of push_manager_poll() intervals before a push delivery times out
+// (each interval is driven by EVENT_BROADCAST which fires every 2 s, so 50 ≈ 100 s)
+#define PUSH_POLL_TIMEOUT_INTERVALS 50
+
 /**
  * Notification type for per-subscription preference filtering.
  */
@@ -83,15 +90,21 @@ int push_manager_subscription_count(void);
 
 /**
  * Send a push notification to all subscribers that opted in to the given type.
+ * The notification is delivered asynchronously: call push_manager_poll() from
+ * the main loop to drive the HTTPS delivery state machine.
  *
  * @param type   Notification type (used to filter by subscriber preferences)
  * @param title  Notification title
  * @param body   Notification body
- *
- * NOTE: Outbound HTTPS delivery is a TODO.  This function currently logs the
- * notification only.  TLS client support (pico_lwip_mbedtls) and RFC 8291
- * message encryption must be added to enable actual delivery.
  */
 void push_manager_notify_all(push_notify_type_t type, const char *title, const char *body);
+
+/**
+ * Poll the push notification delivery state machine.
+ * Must be called regularly from the main loop (e.g. on every EVENT_BROADCAST).
+ * Drives asynchronous HTTPS delivery, handles timeouts, and starts any pending
+ * notification once the current delivery is complete.
+ */
+void push_manager_poll(void);
 
 #endif // PUSH_MANAGER_H
