@@ -31,9 +31,10 @@ function createWebhookReceiver(state, pushManager) {
 
 		// Accumulate flame-on seconds
 		if (state.flame) {
-			if (!lastFlameUpdate) lastFlameUpdate = Date.now();
-			state.flame_secs += Math.floor((Date.now() - lastFlameUpdate) / 1000);
-			lastFlameUpdate = Date.now();
+			const now = Date.now();
+			if (!lastFlameUpdate) lastFlameUpdate = now;
+			state.flame_secs += Math.floor((now - lastFlameUpdate) / 1000);
+			lastFlameUpdate = now;
 		} else {
 			lastFlameUpdate = null;
 		}

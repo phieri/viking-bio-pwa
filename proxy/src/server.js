@@ -152,8 +152,8 @@ app.post('/api/subscribe', async (req, res) => {
 		error: !!prefs.error,
 		clean: !!prefs.clean,
 	});
-	// Best-effort forward to Pico W (errors are non-fatal)
-	picoForward('/api/subscribe', req.body);
+	// Best-effort forward to Pico W (errors are non-fatal; picoForward returns a Promise)
+	picoForward('/api/subscribe', req.body).catch(() => {});
 	res.json({ status: ok ? 'ok' : 'full' });
 });
 
@@ -162,8 +162,8 @@ app.post('/api/unsubscribe', (req, res) => {
 	const { endpoint } = req.body;
 	if (endpoint) {
 		pushManager.removeSubscription(endpoint);
-		// Best-effort forward to Pico W
-		picoForward('/api/unsubscribe', { endpoint });
+		// Best-effort forward to Pico W (errors are non-fatal)
+		picoForward('/api/unsubscribe', { endpoint }).catch(() => {});
 	}
 	res.json({ status: 'ok' });
 });

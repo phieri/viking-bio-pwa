@@ -287,7 +287,7 @@ bool wifi_config_load_hook_token(char *token, size_t len) {
 	int n = lfs_hal_read_file(WIFI_HOOK_FILE, buf, sizeof(buf));
 	if (n <= 0 || n > WIFI_HOOK_TOKEN_MAX_LEN) return false;
 
-	buf[n] = '\0';
+	buf[n] = '\0';  // safe: buf is WIFI_HOOK_TOKEN_MAX_LEN+1 bytes, n <= WIFI_HOOK_TOKEN_MAX_LEN
 	// Ensure the stored string is null-terminated within its length
 	if (strlen(buf) == 0) return false;
 	if (strlen(buf) + 1 > len) return false;

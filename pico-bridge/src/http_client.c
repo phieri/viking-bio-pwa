@@ -70,8 +70,11 @@ static bool is_bare_ipv6(const char *host) {
  * @return length of the request, or 0 on overflow
  */
 static size_t build_request(const char *body) {
-	// Wrap bare IPv6 addresses in brackets for the Host header
-	char host_header[WIFI_SERVER_IP_MAX_LEN + 10]; // "[" + addr + "]:" + port
+	// Wrap bare IPv6 addresses in brackets for the Host header.
+	// Buffer: "[" + addr(max 46) + "]:" + port(max 5 digits) + null = 55 bytes; +8 for safety.
+	// Note: IPv6 zone IDs (e.g. fe80::1%eth0) are not supported by ipaddr_aton; users
+	// should configure link-local addresses without zone IDs (routing via the default interface).
+	char host_header[WIFI_SERVER_IP_MAX_LEN + 8];
 	if (is_bare_ipv6(s_host)) {
 		snprintf(host_header, sizeof(host_header), "[%s]:%u", s_host, (unsigned)s_port);
 	} else {
