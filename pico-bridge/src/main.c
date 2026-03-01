@@ -201,26 +201,14 @@ static bool wifi_connect(const char *ssid, const char *password) {
 
 	printf("WiFi connected\n");
 
-	// Wait up to 5 s for networking (IPv4 DHCP or IPv6 link-local)
+	// Wait up to 5 s for IPv6 link-local address to appear
 	absolute_time_t net_wait = make_timeout_time_ms(5000);
 	while (!time_reached(net_wait)) {
 		cyw43_arch_poll();
-		if (netif_default && netif_is_link_up(netif_default)) {
-#if LWIP_IPV4
-			if (!ip4_addr_isany(netif_ip4_addr(netif_default))) break;
-#endif
-			if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, 0))) break;
-		}
+		if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, 0))) break;
 		sleep_ms(50);
 	}
 
-#if LWIP_IPV4
-	if (netif_default) {
-		char buf[16];
-		ipaddr_ntoa_r(netif_ip4_addr(netif_default), buf, sizeof(buf));
-		printf("  IPv4: %s\n", buf);
-	}
-#endif
 	for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
 		if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, i))) {
 			printf("  IPv6[%d]: %s\n", i,

@@ -7,8 +7,8 @@
 #define LWIP_NETCONN 0
 #define MEM_LIBC_MALLOC 0
 
-// Enable both IPv4 and IPv6 for connecting to the proxy server
-#define LWIP_IPV4 1
+// IPv6 only (no IPv4 – Pico W CYW43 arch uses IPv6-only lwIP configuration)
+#define LWIP_IPV4 0
 #define LWIP_IPV6 1
 #define LWIP_IPV6_AUTOCONFIG 1
 #define LWIP_IPV6_ND 1
