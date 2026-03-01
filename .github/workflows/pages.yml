@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/web/**'
-      - 'cmake/gen_demo_page.py'
+      - 'proxy/public/**'
+      - 'pico-bridge/cmake/gen_demo_page.py'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -33,11 +33,11 @@ jobs:
       - name: Generate demo page
         run: |
           mkdir -p _site
-          python3 cmake/gen_demo_page.py src/web/index.html _site/index.html
-          cp src/web/sw.js _site/sw.js
-          cp src/web/manifest.json _site/manifest.json
-          cp src/web/app.js _site/app.js
-          cp src/web/style.css _site/style.css
+          python3 pico-bridge/cmake/gen_demo_page.py proxy/public/index.html _site/index.html
+          cp proxy/public/sw.js _site/sw.js
+          cp proxy/public/manifest.json _site/manifest.json
+          cp proxy/public/app.js _site/app.js
+          cp proxy/public/style.css _site/style.css
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

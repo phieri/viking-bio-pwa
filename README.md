@@ -1,105 +1,58 @@
-# Viking Bio PWA
+# Viking Bio Monorepo
 
-A Progressive Web App (PWA) dashboard and Web Push notification system for the Viking Bio 20 pellet burner, running on a Raspberry Pi Pico W.
+A monorepo for the Viking Bio 20 pellet burner integration system. It consists of two components:
 
-## Features
-
-- **Real-time Dashboard**: Web-based dashboard showing live burner data (flame status, fan speed, temperature, error codes)
-- **AJAX Polling**: Dashboard polls for data every 2 seconds via the lwIP httpd server
-- **Web Push Notifications**: Browser push notifications when errors are detected
-- **PWA**: Installable on mobile/desktop, works offline (cached service worker)
-- **Viking Bio 20 Protocol**: Reads TTL serial data at 9600 baud from the burner's serial port
-- **LittleFS Storage**: Wear-leveled flash storage for configuration (WiFi credentials, VAPID keys, country code)
-- **Wi-Fi Country Setting**: Configurable Wi-Fi regulatory domain via USB serial
-
-## Hardware
-
-- Raspberry Pi Pico W
-- Viking Bio 20 burner (TTL serial at 9600 baud, 8N1)
-- Serial connection: UART0 (GPIO0=TX, GPIO1=RX)
-
-## Wiring
-
-Connect the Viking Bio 20 TTL serial output by RJ12 cable to the Raspberry Pi Pico W:
-
-```mermaid
-graph LR
-    subgraph VB["Viking Bio 20 burner connector"]
-        VB_TX["Pin 2: TX Serial Out"]
-        VB_GND["Pin 3: GND"]
-    end
-    
-    LEVEL_SHIFTER["Level Shifter or Voltage Divider from 5&nbsp;V to 3,3&nbsp;V"]
-    
-    subgraph PICO["Raspberry Pi<br/>Pico W"]
-        PICO_GP1["Pin 2: GP1 UART0 RX"]
-        PICO_GND["Pin 3: GND"]
-        PICO_USB["USB Port<br/>(Power & Debug)"]
-    end
-    
-    VB_TX -->|5&nbsp;V TTL| LEVEL_SHIFTER
-    LEVEL_SHIFTER -->|3,3&nbsp;V| PICO_GP1
-    VB_GND --> PICO_GND
-    
-    style VB fill:#e1f5ff
-    style PICO fill:#ffe1f5
-    style LEVEL_SHIFTER fill:#FFB6C1
-    style VB_TX fill:#90EE90
-    style PICO_GP1 fill:#90EE90
-    style VB_GND fill:#FFD700
-    style PICO_GND fill:#FFD700
-
-```
-**Note**: The Pico W RX pin (GP1) expects 3,3&nbsp;V logic levels. The Viking Bio 20's TTL output voltage should be verified before connecting directly. If it outputs 5&nbsp;V TTL (which is common), a level shifter (e.g., bi-directional logic level converter) or voltage divider (two resistors: 2kΩ from TX to RX, 1kΩ from RX to GND) is required for safe voltage conversion. The diagram above shows the configuration with level shifting, which is the recommended safe approach.
+1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W firmware that reads serial data from the burner and forwards it via TCP to the proxy server
+2. **[proxy/](proxy/)** – Node.js proxy server that receives burner data by TCP, serves the PWA dashboard, and sends Web Push notifications
 
 ## Architecture
 
 ```
-Viking Bio 20 ──UART──► Pico W ──WiFi──► Browser
-                          │
-                    HTTP Server (lwIP httpd, port 80)
-                    ├── GET /                  Dashboard PWA
-                    ├── GET /sw.js             Service Worker
-                    ├── GET /manifest.json     PWA Manifest
-                    ├── GET /api/data          Burner data (JSON)
-                    ├── GET /api/vapid-public-key  VAPID Key
-                    ├── GET /api/country       Wi-Fi country code
-                    ├── POST /api/subscribe    Push Subscription
-                    ├── POST /api/unsubscribe  Remove Subscription
-                    └── POST /api/country      Set Wi-Fi country
+Viking Bio 20 ──UART──► Pico W (pico-bridge)
+                              │
+                         TCP (port 9000)
+                              │
+                         Node.js Proxy (proxy)
+                         ├── HTTP server (port 3000)
+                         │   ├── GET /                Dashboard PWA
+                         │   ├── GET /api/data        Burner state (JSON)
+                         │   ├── GET /api/vapid-public-key  VAPID key
+                         │   ├── GET /api/subscribers Subscription count
+                         │   ├── POST /api/subscribe  Add/update subscription
+                         │   └── POST /api/unsubscribe Remove subscription
+                         └── Web Push notifications
+                             ├── Flame on/off
+                             ├── Error codes
+                             └── Cleaning reminder (Sat 07:00, Nov–Mar)
 ```
 
-## Building
+## pico-bridge
 
-### Prerequisites
+The Pico W firmware:
+- Reads Viking Bio 20 serial data (UART0, GPIO1, 9600 baud, 8N1)
+- Parses binary (`[0xAA] [FLAGS] [SPEED] [TEMP_H] [TEMP_L] [0x55]`) and text (`F:1,S:50,T:75`) protocols
+- Sends parsed data as newline-delimited JSON to the proxy server via TCP
+- WiFi credentials and proxy server address stored in LittleFS (encrypted with AES-128-GCM)
+- Configurable via USB serial (115200 baud)
+
+### Hardware
+
+- Raspberry Pi Pico W
+- Viking Bio 20 burner TTL serial output (5 V → 3.3 V level shifter required)
+- Wiring: Viking Bio Pin 2 (TX) → level shifter → Pico W GP1 (UART0 RX)
+
+### Building
 
 ```bash
-sudo apt-get install cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
+# Prerequisites: cmake, gcc-arm-none-eabi, libnewlib-arm-none-eabi, Pico SDK 2.2.0
+export PICO_SDK_PATH=/path/to/pico-sdk
 
-# Clone Pico SDK 2.2.0
-git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git
-cd pico-sdk && git submodule update --init && cd ..
-
-export PICO_SDK_PATH=$(pwd)/pico-sdk
-```
-
-### Build
-
-```bash
-mkdir build-pwa && cd build-pwa
+mkdir pico-bridge/build && cd pico-bridge/build
 cmake .. -DWIFI_SSID="your_network" -DWIFI_PASSWORD="your_password"
 make -j$(nproc)
 ```
 
-The firmware will be built as `viking_bio_pwa-<version>.uf2`.
-
-LittleFS is fetched automatically via CMake FetchContent during configuration.
-
-### Flash
-
-Hold BOOTSEL while plugging in the Pico W, then copy the `.uf2` file to the mounted drive.
-
-## Configuration
+Output: `pico-bridge/build/viking_bio_bridge-<version>.uf2`
 
 ### USB Serial Commands
 
@@ -107,47 +60,51 @@ Connect via USB serial (115200 baud) to configure:
 
 | Command | Description |
 |---------|-------------|
-| `SSID=<ssid>` | Set WiFi SSID (stage for saving) |
-| `PASS=<password>` | Set password and save credentials (reboots) |
+| `SSID=<ssid>` | Set WiFi SSID |
+| `PASS=<password>` | Set password and save (reboots) |
 | `COUNTRY=<CC>` | Set Wi-Fi country code (e.g. SE, US, GB) |
-| `STATUS` | Show WiFi status and current country |
+| `SERVER=<ip>` | Set proxy server IP address |
+| `PORT=<port>` | Set proxy server TCP port (default: 9000) |
+| `STATUS` | Show WiFi and TCP connection status |
 | `CLEAR` | Erase stored credentials (reboots) |
 
-### Wi-Fi Country
+## proxy
 
-The Wi-Fi country code controls regulatory settings (available channels, transmit power). Set via:
-- USB serial: `COUNTRY=SE`
-- Web UI: Country selector dropdown on the dashboard
-- Reboot required after changing country
+The Node.js proxy server:
+- TCP server (port 9000) receives JSON messages from the Pico bridge
+- Express HTTP server (port 3000) serves the PWA dashboard
+- Web Push notifications via `web-push` (VAPID keys auto-generated on first start)
+- Subscriptions persisted to `proxy/data/subscriptions.json`
 
-## Web Push
+### Running
 
-1. Open the dashboard in a browser at `http://<pico-ip>/`
-2. Click **Enable Push Notifications**
-3. Accept the notification permission request
-4. The browser is now registered for push notifications
-5. When the Viking Bio 20 reports an error (non-zero error code), a push notification is sent
+```bash
+cd proxy
+npm install
+npm start
+```
 
-VAPID keys are generated on first boot and stored in LittleFS. They persist across reboots.
+Or with custom ports:
 
-Notes on server/client integration and Web Push headers
+```bash
+HTTP_PORT=8080 TCP_PORT=9000 npm start
+```
 
-- Subscription POST format: the dashboard posts a small JSON object to `POST /api/subscribe` with top-level fields `endpoint`, `p256dh`, and `auth` (all base64url where applicable). The server stores these values and uses them when sending notifications. The dashboard also includes an optional `prefs` object for client-side preferences.
-- Authorization header: outgoing push requests use a VAPID JWT placed in the `Authorization` header as `Authorization: WebPush <jwt>` (the server generates the JWT at send time).
-- Encrypted payload headers: when delivering encrypted notifications (`Content-Encoding: aes128gcm`) the server includes the required headers:
-    - `Encryption: salt=<base64url-salt>`
-    - `Crypto-Key: dh=<base64url-ephemeral-public>;p256ecdsa=<base64url-vapid-public>`
-    These allow the push service and the browser to perform the EC Diffie-Hellman and derive the CEK/nonce per RFC 8291 / RFC 8188.
-- Payload layout: the encrypted body uses the aes128gcm single-record layout. The wire format begins with the 16-byte salt followed by the Record Size field, id length, the ciphertext record, and a 16-byte auth tag. The service worker expects JSON when decrypted (the project's service worker tries to parse `e.data.json()` and falls back to a default payload).
+Open the dashboard at `http://<proxy-server>:3000/`.
 
-The above details are implemented in the firmware: the dashboard sends subscriptions with `endpoint`, `p256dh`, and `auth`; the device generates/stores VAPID keys and includes the appropriate `Encryption` / `Crypto-Key` headers when sending encrypted push payloads.
+### Push Notification Types
 
-## Data Format
+Subscribers can opt in to three types:
 
-The Viking Bio 20 protocol supports:
+| Type | Trigger |
+|------|---------|
+| `flame` | Flame state changes (on/off) |
+| `error` | Non-zero error code detected |
+| `clean` | Cleaning reminder (Saturday 07:00, November–March) |
 
-**Binary protocol**: `[0xAA] [FLAGS] [FAN_SPEED] [TEMP_HIGH] [TEMP_LOW] [0x55]`
-- FLAGS bit 0: flame detected
-- FLAGS bits 1-7: error code
+## Wiring Diagram
 
-**Text protocol**: `F:1,S:50,T:75` (Flame, Speed%, Temp°C)
+```
+Viking Bio 20 RJ12 ──► Level Shifter (5V→3.3V) ──► Pico W GP1 (UART0 RX)
+Viking Bio 20 GND  ──────────────────────────────► Pico W GND
+```

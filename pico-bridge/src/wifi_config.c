@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
 #include "mbedtls/gcm.h"
@@ -11,6 +12,7 @@
 // LittleFS file paths
 #define WIFI_CONFIG_FILE   "/wifi.dat"
 #define WIFI_COUNTRY_FILE  "/country.dat"
+#define WIFI_SERVER_FILE   "/server.dat"
 
 #define WIFI_CONFIG_MAGIC 0x57494649U  // "WIFI"
 
@@ -26,6 +28,9 @@
 //   magic(4) + nonce(12) + tag(16) + ciphertext(112) = 144 bytes
 #define WIFI_STORED_SIZE (4 + WIFI_GCM_NONCE_LEN + WIFI_GCM_TAG_LEN + WIFI_PLAINTEXT_PADDED)
 
+// Server config storage: ip(47) + port(2) = 49 bytes
+#define WIFI_SERVER_STORED_SIZE (WIFI_SERVER_IP_MAX_LEN + 1 + sizeof(uint16_t))
+
 // In-memory cached credentials
 static char s_ssid[WIFI_SSID_MAX_LEN + 1];
 static char s_pass[WIFI_PASS_MAX_LEN + 1];
@@ -37,10 +42,10 @@ static bool derive_key(uint8_t key[16]) {
 	pico_unique_board_id_t uid;
 	pico_get_unique_board_id(&uid);
 
-	// 8-byte board ID concatenated with a fixed 16-byte salt
+	// 8-byte board ID concatenated with a fixed 16-byte salt (no null terminator)
 	uint8_t material[PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 16];
 	memcpy(material, uid.id, PICO_UNIQUE_BOARD_ID_SIZE_BYTES);
-	memcpy(material + PICO_UNIQUE_BOARD_ID_SIZE_BYTES, "VIKINGBIO_WIFIKEY", 16);
+	memcpy(material + PICO_UNIQUE_BOARD_ID_SIZE_BYTES, "VIKINGBIO_WIFIKEY", 16); // 16 bytes, no null
 
 	uint8_t hash[32];
 	if (mbedtls_sha256(material, sizeof(material), hash, 0) != 0) return false;
@@ -75,7 +80,6 @@ bool wifi_config_load(char *ssid, size_t ssid_len, char *password, size_t pass_l
 	if (!derive_key(key)) return false;
 
 	// Decrypt and authenticate using AES-128-GCM.
-	// Additional data (AD) = magic value, binding the tag to this layout.
 	uint8_t ad[4];
 	memcpy(ad, &magic, sizeof(ad));
 
@@ -228,9 +232,49 @@ bool wifi_config_save_country(const char *country) {
 
 uint32_t wifi_config_country_to_cyw43(const char *country) {
 	if (!country || strlen(country) < WIFI_COUNTRY_LEN) {
-		// Default: worldwide
 		return ((uint32_t)'X') | ((uint32_t)'X' << 8);
 	}
 	return ((uint32_t)(unsigned char)country[0]) |
 	       ((uint32_t)(unsigned char)country[1] << 8);
+}
+
+bool wifi_config_load_server(char *ip, size_t ip_len, uint16_t *port) {
+	if (!ip || ip_len == 0 || !port) return false;
+
+	uint8_t stored[WIFI_SERVER_STORED_SIZE];
+	int n = lfs_hal_read_file(WIFI_SERVER_FILE, stored, sizeof(stored));
+	if (n != (int)sizeof(stored)) return false;
+
+	// IP is stored as null-terminated string in first WIFI_SERVER_IP_MAX_LEN+1 bytes
+	stored[WIFI_SERVER_IP_MAX_LEN] = '\0';  // Ensure null termination
+	size_t slen = strlen((char *)stored);
+	if (slen == 0 || slen > WIFI_SERVER_IP_MAX_LEN) return false;
+
+	if (slen + 1 > ip_len) return false;
+	memcpy(ip, stored, slen + 1);
+
+	// Port is stored as little-endian uint16 at offset WIFI_SERVER_IP_MAX_LEN+1
+	memcpy(port, stored + WIFI_SERVER_IP_MAX_LEN + 1, sizeof(uint16_t));
+	if (*port == 0) return false;
+
+	return true;
+}
+
+bool wifi_config_save_server(const char *ip, uint16_t port) {
+	if (!ip || ip[0] == '\0') return false;
+	size_t ilen = strlen(ip);
+	if (ilen > WIFI_SERVER_IP_MAX_LEN) return false;
+	if (port == 0) return false;
+
+	uint8_t stored[WIFI_SERVER_STORED_SIZE];
+	memset(stored, 0, sizeof(stored));
+	memcpy(stored, ip, ilen);
+	memcpy(stored + WIFI_SERVER_IP_MAX_LEN + 1, &port, sizeof(uint16_t));
+
+	if (!lfs_hal_write_file(WIFI_SERVER_FILE, stored, sizeof(stored))) {
+		printf("wifi_config: ERROR saving server config\n");
+		return false;
+	}
+	printf("wifi_config: server set to %s:%d\n", ip, port);
+	return true;
 }
