@@ -24,6 +24,11 @@
 #define LWIP_ICMP 1
 #define LWIP_RAW 0
 
+// altcp layer (required for TLS client via pico_lwip_mbedtls)
+#define LWIP_ALTCP 1
+#define LWIP_ALTCP_TLS 1
+#define LWIP_ALTCP_TLS_MBEDTLS 1
+
 // mDNS (for device hostname advertisement)
 #define LWIP_MDNS_RESPONDER 1
 #define MDNS_MAX_SERVICES 1
@@ -54,8 +59,10 @@
 // Timers
 // Base lwIP timers (TCP + DNS + IPv6 ND/REASS/MLD) use ~5 slots.
 // The mDNS responder allocates additional sys_timeout slots at runtime
-// during the probe/announce sequence. 14 is a safe value for this config.
-#define MEMP_NUM_SYS_TIMEOUT 14
+// during the probe/announce sequence.  The altcp_tls (TLS) layer adds
+// further timer slots for handshake retransmits.  18 is a safe value
+// for this config (mDNS + TLS + base lwIP).
+#define MEMP_NUM_SYS_TIMEOUT 18
 
 // ARP
 #define ARP_TABLE_SIZE 4

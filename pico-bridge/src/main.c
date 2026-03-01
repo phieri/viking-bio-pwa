@@ -419,6 +419,7 @@ int main(void) {
 			event_flags &= ~EVENT_BROADCAST;
 			if (wifi_up) {
 				http_client_poll();
+				push_manager_poll();
 			}
 		}
 

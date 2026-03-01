@@ -83,7 +83,7 @@ function createWebhookReceiver(state, pushManager) {
 
 		handleMessage(msg);
 		console.log(`webhook: data received (flame=${state.flame}, temp=${state.temp}°C, err=${state.err})`);
-		res.json({ status: 'ok' });
+		res.json({ status: 'ok', server_time: Math.floor(Date.now() / 1000) });
 	}
 
 	return { middleware };

@@ -39,4 +39,12 @@ void http_client_poll(void);
  */
 bool http_client_is_active(void);
 
+/**
+ * Return the best estimate of the current Unix epoch time (seconds).
+ * Initialised to BUILD_UNIX_TIME at startup; updated whenever the proxy
+ * responds with a "server_time" field in the webhook acknowledgement.
+ * @return Approximate Unix epoch seconds (0 if completely uninitialised)
+ */
+uint32_t http_client_get_epoch_time(void);
+
 #endif // HTTP_CLIENT_H

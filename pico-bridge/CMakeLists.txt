@@ -62,6 +62,21 @@ add_compile_definitions(
 )
 # ============================================
 
+# Build-time Unix epoch for VAPID JWT expiry approximation (no RTC on Pico)
+execute_process(
+    COMMAND python3 -c "import time; print(int(time.time()))"
+    OUTPUT_VARIABLE BUILD_UNIX_TIME
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE  BUILD_UNIX_TIME_ERR
+    ERROR_QUIET
+)
+if(NOT BUILD_UNIX_TIME)
+    set(BUILD_UNIX_TIME 0)
+    message(WARNING "Could not determine build time via python3: ${BUILD_UNIX_TIME_ERR} – BUILD_UNIX_TIME defaults to 0; VAPID JWT exp will use device uptime only until proxy time-sync occurs.")
+endif()
+add_compile_definitions(BUILD_UNIX_TIME=${BUILD_UNIX_TIME}UL)
+message(STATUS "Build Unix time: ${BUILD_UNIX_TIME}")
+
 # WiFi credentials - optional at build time (primary configuration is via USB serial)
 if(DEFINED ENV{WIFI_SSID} AND NOT DEFINED WIFI_SSID)
     set(WIFI_SSID "$ENV{WIFI_SSID}")
@@ -138,6 +153,7 @@ target_link_libraries(viking_bio_bridge
     pico_unique_id
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
+    pico_lwip_mbedtls
     pico_lwip_mdns
 )
 
