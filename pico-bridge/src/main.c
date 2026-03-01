@@ -7,27 +7,20 @@
 #include "hardware/watchdog.h"
 #include "lwip/netif.h"
 #include "lwip/ip6_addr.h"
-#include <lwip/dns.h>
 #include "lwip/apps/mdns.h"
-#include <time.h>
-#include <sys/time.h>
-#include <errno.h>
 #include "serial_handler.h"
 #include "viking_bio_protocol.h"
-#include "http_server.h"
-#include "push_manager.h"
+#include "tcp_client.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
-#include "flame_counter.h"
 #include "version.h"
-#include "ntp.h"
 
 // Event flags (modified from interrupt context)
 volatile uint32_t event_flags = 0;
 
 #define EVENT_SERIAL_DATA   (1 << 0)
 #define EVENT_TIMEOUT_CHECK (1 << 2)
-#define EVENT_BROADCAST     (1 << 4)  // Periodic data update
+#define EVENT_BROADCAST     (1 << 4)
 
 // Broadcast interval: 2 seconds
 #define BROADCAST_INTERVAL_MS 2000
@@ -39,8 +32,8 @@ volatile uint32_t event_flags = 0;
 #define WATCHDOG_REBOOT_MS 1
 
 // --- LED state ---
-static absolute_time_t s_led_blink_time;   // Next 2 Hz toggle when disconnected
-static absolute_time_t s_serial_blink_end; // Serial-data short-blink deadline
+static absolute_time_t s_led_blink_time;
+static absolute_time_t s_serial_blink_end;
 static bool s_led_blink_on = false;
 
 static void led_update(void) {
@@ -55,10 +48,8 @@ static void led_update(void) {
 	}
 
 	if (wifi_up) {
-		// Steady LED when connected
 		cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
 	} else {
-		// Blink at 2 Hz (250 ms on / 250 ms off) when not connected
 		if (time_reached(s_led_blink_time)) {
 			s_led_blink_on = !s_led_blink_on;
 			s_led_blink_time = make_timeout_time_ms(250);
@@ -67,13 +58,13 @@ static void led_update(void) {
 	}
 }
 
-// --- USB serial WiFi configuration ---
+// --- USB serial configuration ---
 static char s_usb_buf[160];
 static size_t s_usb_buf_len = 0;
 static char s_pending_ssid[WIFI_SSID_MAX_LEN + 1];
 static bool s_has_pending_ssid = false;
 
-// Returns true when new credentials have been saved (caller should reboot).
+// Returns true when credentials were saved and device should reboot.
 static bool process_usb_commands(void) {
 	int c;
 	while ((c = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
@@ -92,8 +83,7 @@ static bool process_usb_commands(void) {
 				if (!s_has_pending_ssid) {
 					printf("wifi: send SSID=<ssid> first\n");
 				} else {
-					const char *pass = s_usb_buf + 5;
-					if (wifi_config_save(s_pending_ssid, pass)) {
+					if (wifi_config_save(s_pending_ssid, s_usb_buf + 5)) {
 						printf("wifi: credentials saved – rebooting\n");
 						s_has_pending_ssid = false;
 						return true;
@@ -116,6 +106,35 @@ static bool process_usb_commands(void) {
 					printf("wifi: country must be 2 uppercase letters (e.g. SE, US, GB)\n");
 				}
 
+			} else if (strncmp(s_usb_buf, "SERVER=", 7) == 0) {
+				const char *addr = s_usb_buf + 7;
+				// Load current port, use default if not set
+				char cur_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
+				uint16_t cur_port = WIFI_SERVER_PORT_DEFAULT;
+				wifi_config_load_server(cur_ip, sizeof(cur_ip), &cur_port);
+				if (wifi_config_save_server(addr, cur_port)) {
+					printf("tcp: server IP set to %s – reboot to apply\n", addr);
+				} else {
+					printf("tcp: ERROR saving server IP\n");
+				}
+
+			} else if (strncmp(s_usb_buf, "PORT=", 5) == 0) {
+				int p = atoi(s_usb_buf + 5);
+				if (p > 0 && p <= 65535) {
+					char cur_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
+					uint16_t cur_port = WIFI_SERVER_PORT_DEFAULT;
+					wifi_config_load_server(cur_ip, sizeof(cur_ip), &cur_port);
+					if (cur_ip[0] == '\0') {
+						printf("tcp: set SERVER=<ip> first\n");
+					} else if (wifi_config_save_server(cur_ip, (uint16_t)p)) {
+						printf("tcp: port set to %d – reboot to apply\n", p);
+					} else {
+						printf("tcp: ERROR saving port\n");
+					}
+				} else {
+					printf("tcp: port must be 1-65535\n");
+				}
+
 			} else if (strcmp(s_usb_buf, "STATUS") == 0) {
 				bool up = (netif_default != NULL) &&
 				          netif_is_up(netif_default) &&
@@ -132,6 +151,14 @@ static bool process_usb_commands(void) {
 				char cc[3] = "XX";
 				wifi_config_load_country(cc, sizeof(cc));
 				printf("  country: %s\n", cc);
+				char srv_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
+				uint16_t srv_port = 0;
+				if (wifi_config_load_server(srv_ip, sizeof(srv_ip), &srv_port)) {
+					printf("  server:  %s:%d\n", srv_ip, srv_port);
+				} else {
+					printf("  server:  not configured\n");
+				}
+				printf("  tcp:     %s\n", tcp_client_is_connected() ? "connected" : "disconnected");
 
 			} else if (strcmp(s_usb_buf, "CLEAR") == 0) {
 				wifi_config_clear();
@@ -139,11 +166,14 @@ static bool process_usb_commands(void) {
 				return true;
 
 			} else if (s_usb_buf[0] != '\0') {
-				printf("wifi: unknown command '%s'\n", s_usb_buf);
-				printf("  SSID=<ssid>      – set SSID\n");
+				printf("unknown command '%s'\n", s_usb_buf);
+				printf("  SSID=<ssid>      – set WiFi SSID\n");
 				printf("  PASS=<pass>      – set password and save\n");
 				printf("  COUNTRY=<CC>     – set Wi-Fi country (e.g. SE, US)\n");
-				printf("  STATUS           – show WiFi status\n");
+				printf("  SERVER=<ip>      – set proxy server IP address\n");
+				printf("  PORT=<port>      – set proxy server port (default %d)\n",
+				       WIFI_SERVER_PORT_DEFAULT);
+				printf("  STATUS           – show status\n");
 				printf("  CLEAR            – erase stored credentials\n");
 			}
 		} else {
@@ -171,18 +201,12 @@ static bool wifi_connect(const char *ssid, const char *password) {
 
 	printf("WiFi connected\n");
 
-	// Wait for at least one valid IPv6 address (link-local, up to 5 s)
-	/* Wait up to 5s for networking to provide DNS servers (via DHCP) or
-	   for IPv6 addresses to appear. DNS is required for hostname lookups
-	   (e.g., NTP servers) — waiting only for IPv6 was causing DNS to be
-	   unavailable at boot on some networks. */
+	// Wait up to 5 s for IPv6 link-local address to appear
 	absolute_time_t net_wait = make_timeout_time_ms(5000);
 	while (!time_reached(net_wait)) {
 		cyw43_arch_poll();
-		const ip_addr_t *dns0 = dns_getserver(0);
-		if (dns0 != NULL && !ip_addr_isany(dns0)) break;
 		if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, 0))) break;
-		SLEEP_MS(50);
+		sleep_ms(50);
 	}
 
 	for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
@@ -191,17 +215,10 @@ static bool wifi_connect(const char *ssid, const char *password) {
 				   ip6addr_ntoa(netif_ip6_addr(netif_default, i)));
 		}
 	}
-	const ip_addr_t *dns0 = dns_getserver(0);
-	if (dns0 != NULL && !ip_addr_isany(dns0)) {
-		char buf[64];
-		ipaddr_ntoa_r(dns0, buf, sizeof(buf));
-		printf("  DNS[0]: %s\n", buf);
-	}
 	return true;
 }
 
 static void mdns_setup(void) {
-	// Build a unique hostname: viking-bio-XXYY (last 2 bytes of board ID)
 	pico_unique_board_id_t uid;
 	pico_get_unique_board_id(&uid);
 	char hostname[32];
@@ -209,51 +226,37 @@ static void mdns_setup(void) {
 	         uid.id[6], uid.id[7]);
 
 	mdns_resp_add_netif(netif_default, hostname);
-	mdns_resp_add_service(netif_default, "Viking-Bio-20", "_http",
-	                      DNSSD_PROTO_TCP, HTTP_SERVER_PORT, NULL, NULL);
-	printf("mDNS: %s.local registered (_http._tcp port %d)\n",
-	       hostname, HTTP_SERVER_PORT);
+	printf("mDNS: %s.local registered\n", hostname);
 }
 
 int main(void) {
 	stdio_init_all();
-	sleep_ms(5000);
+	sleep_ms(2000);
 
 	printf("\n");
 	version_print_info();
-	printf("Viking Bio PWA starting...\n");
+	printf("Viking Bio Bridge starting...\n");
 
-	// Initialise LED timing state
 	s_led_blink_time = get_absolute_time();
-	s_serial_blink_end = get_absolute_time();  // already in the past
+	s_serial_blink_end = get_absolute_time();
 
-	// Initialize protocol parser
-	printf("Initializing Viking Bio protocol parser...\n");
+	printf("Initializing protocol parser...\n");
 	viking_bio_init();
 
-	// Initialize serial handler
 	printf("Initializing serial handler...\n");
 	serial_handler_init();
 
-	// Initialize LittleFS filesystem (must be before wifi_config and push_manager)
 	printf("Initializing LittleFS...\n");
 	if (!lfs_hal_init()) {
 		printf("WARNING: LittleFS initialization failed\n");
 	}
 
-	// Initialize flame hours counter
-	printf("Initializing flame counter...\n");
-	flame_counter_init();
-
-	// Initialize WiFi credential store
 	wifi_config_init();
 
-	// Load WiFi country code (default: worldwide)
 	char country[3] = "XX";
 	wifi_config_load_country(country, sizeof(country));
 	printf("WiFi country: %s\n", country);
 
-	// Initialize CYW43 / WiFi with country setting
 	printf("Initializing WiFi...\n");
 	uint32_t cyw43_country = wifi_config_country_to_cyw43(country);
 	if (cyw43_arch_init_with_country(cyw43_country)) {
@@ -262,14 +265,8 @@ int main(void) {
 	}
 	cyw43_arch_enable_sta_mode();
 
-	// Initialize push manager (VAPID keys)
-	printf("Initializing push manager...\n");
-	push_manager_init();
-
-	// Initialize mDNS responder (must be before any mdns_resp_add_netif call)
 	mdns_resp_init();
 
-	// Load WiFi credentials: stored takes precedence, then compile-time fallback
 	char ssid[WIFI_SSID_MAX_LEN + 1] = {0};
 	char password[WIFI_PASS_MAX_LEN + 1] = {0};
 	bool have_creds = wifi_config_load(ssid, sizeof(ssid), password, sizeof(password));
@@ -282,105 +279,68 @@ int main(void) {
 	}
 #endif
 
-	bool http_started = false;
+	bool wifi_up = false;
 	bool watchdog_on = false;
 
 	if (have_creds && wifi_connect(ssid, password)) {
-		// Sync system time via NTP using country-specific server
-		if (!ntp_sync_time_for_country(country)) {
-			printf("NTP: sync failed, falling back to build timestamp\n");
-			struct timeval tv = { .tv_sec = (time_t)BUILD_UNIX_TIME, .tv_usec = 0 };
-			if (settimeofday(&tv, NULL) != 0) {
-				printf("Failed to set fallback time: %d (%s)\n", errno, strerror(errno));
-			} else {
-				time_t t = time(NULL);
-				struct tm tm;
-				if (gmtime_r(&t, &tm)) {
-					char buf[64];
-					strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S UTC", &tm);
-					printf("Current time: %s\n", buf);
-				}
-			}
-		}
-		// Start HTTP server
-		printf("Starting HTTP server...\n");
-		if (!http_server_init()) {
-			printf("FATAL: http_server_init() failed\n");
-			cyw43_arch_deinit();
-			return 1;
-		}
 		mdns_setup();
-		http_started = true;
+		wifi_up = true;
 
-		// Enable watchdog only after successful WiFi + HTTP setup
+		// Load proxy server config
+		char srv_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
+		uint16_t srv_port = WIFI_SERVER_PORT_DEFAULT;
+		wifi_config_load_server(srv_ip, sizeof(srv_ip), &srv_port);
+		if (srv_ip[0] != '\0') {
+			printf("Proxy server: %s:%d\n", srv_ip, srv_port);
+			tcp_client_init(srv_ip, srv_port);
+		} else {
+			printf("Proxy server not configured – use SERVER=<ip> via USB serial\n");
+		}
+
 		watchdog_enable(WATCHDOG_TIMEOUT_MS, false);
 		watchdog_on = true;
-		printf("Watchdog enabled (%d ms timeout)\n", WATCHDOG_TIMEOUT_MS);
+		printf("Watchdog enabled (%d ms)\n", WATCHDOG_TIMEOUT_MS);
 	} else {
-		printf("\nWiFi not connected. Configure credentials via USB serial:\n");
-		printf("  SSID=<your-network>  (then press Enter)\n");
-		printf("  PASS=<your-password> (then press Enter)\n\n");
+		printf("\nWiFi not connected. Configure via USB serial:\n");
+		printf("  SSID=<ssid> then PASS=<password>\n\n");
 	}
 
-	// Periodic timer (every 2 seconds)
 	struct repeating_timer timer;
 	if (!add_repeating_timer_ms(BROADCAST_INTERVAL_MS, periodic_timer_callback, NULL, &timer)) {
 		printf("WARNING: failed to init periodic timer\n");
 	}
 
 	printf("Initialization complete.%s\n",
-	       http_started ? " Serving dashboard..." : " Waiting for WiFi config.");
+	       wifi_up ? " Bridging data..." : " Waiting for WiFi config.");
 
 	uint8_t buffer[SERIAL_BUFFER_SIZE];
-	viking_bio_data_t viking_data;
 	bool timeout_triggered = false;
-	bool error_notified = false;
-
-	memset(&viking_data, 0, sizeof(viking_data));
 
 	while (true) {
-		// Feed watchdog
 		if (watchdog_on) watchdog_update();
 
-		// Process WiFi/lwIP
 		cyw43_arch_poll();
 
-		// Process USB serial commands (WiFi config)
 		if (process_usb_commands()) {
-			// New credentials saved – reboot to apply
+			// New credentials saved – flush USB output and reboot via watchdog
+			stdio_flush();
 			sleep_ms(100);
 			watchdog_enable(WATCHDOG_REBOOT_MS, false);
-			while (1) {}  // Wait for watchdog reset
+			while (1) {}
 		}
 
 		// Process Viking Bio serial data
 		if (serial_handler_data_available()) {
 			size_t bytes = serial_handler_read(buffer, sizeof(buffer));
 			if (bytes > 0) {
-				// Short LED blink: 50 ms when serial data is received
 				s_serial_blink_end = make_timeout_time_ms(50);
 				cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
 
 				viking_bio_data_t new_data;
 				if (viking_bio_parse_data(buffer, bytes, &new_data)) {
-					memcpy(&viking_data, &new_data, sizeof(viking_data));
 					timeout_triggered = false;
-
-					if (http_started) {
-						// Update cached data for polling
-						http_server_update_data(&viking_data);
-
-						// Send push notification on first error detection
-						if (viking_data.error_code != 0 && !error_notified) {
-							error_notified = true;
-							char title[] = "Viking Bio 20 Error";
-							char body[64];
-							snprintf(body, sizeof(body), "Error code %d detected",
-							         viking_data.error_code);
-							push_manager_notify_all(title, body, viking_data.error_code);
-						} else if (viking_data.error_code == 0) {
-							error_notified = false;
-						}
+					if (wifi_up) {
+						tcp_client_send_data(&new_data);
 					}
 				}
 			}
@@ -392,41 +352,21 @@ int main(void) {
 
 			if (!timeout_triggered && viking_bio_is_data_stale(VIKING_BIO_TIMEOUT_MS)) {
 				timeout_triggered = true;
-				printf("Viking Bio: no data for 30s - burner may be off\n");
-
-				if (http_started) {
-					viking_bio_data_t stale = {
-						.flame_detected = false,
-						.fan_speed = 0,
-						.temperature = 0,
-						.error_code = 0,
-						.valid = false
-					};
-					http_server_update_data(&stale);
+				printf("Viking Bio: no data for 30s – burner may be off\n");
+				if (wifi_up) {
+					viking_bio_data_t stale = { .valid = false };
+					tcp_client_send_data(&stale);
 				}
 			}
 		}
 
 		if (event_flags & EVENT_BROADCAST) {
 			event_flags &= ~EVENT_BROADCAST;
-
-			// Update flame hours counter
-			bool flame_on = !timeout_triggered && viking_data.valid && viking_data.flame_detected;
-			flame_counter_update(flame_on, BROADCAST_INTERVAL_MS);
-
-			if (http_started && !timeout_triggered) {
-				viking_bio_data_t current;
-				viking_bio_get_current_data(&current);
-				if (current.valid) {
-					http_server_update_data(&current);
-				}
+			if (wifi_up) {
+				tcp_client_poll();
 			}
-
-			// Poll push manager
-			if (http_started) push_manager_poll();
 		}
 
-		// Update LED (must run every loop iteration for smooth blinking)
 		led_update();
 	}
 

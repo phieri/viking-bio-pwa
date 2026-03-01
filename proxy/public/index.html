@@ -13,11 +13,6 @@
 <h1>&#9919; Viking Bio 20</h1>
 <div class="status connecting" id="status">Connecting...</div>
 <div class="grid">
-<div class="card" id="power-card">
-<div class="label">Power</div>
-<div class="value" id="power">--</div>
-<div class="unit">status</div>
-</div>
 <div class="card" id="flame-card">
 <div class="label">Flame</div>
 <div class="value" id="flame">--</div>
@@ -48,18 +43,13 @@
 <div class="value" id="subscribers">--</div>
 <div class="unit">count</div>
 </div>
-<div class="card" id="country-card">
-<div class="label">Wi-Fi country</div>
-	<div class="value" id="countryDisplay">--</div>
-	<div class="note">(Use USB console to change)</div>
-</div>
 </div>
 <div class="actions">
 	<div class="subscription">
 		<div class="subs-checkboxes">
 			<label><input type="checkbox" id="flameSub"> Flame on/off</label>
 			<label><input type="checkbox" id="errorSub"> Errors</label>
-			<label><input type="checkbox" id="cleanSub"> Cleaning reminder (Sat 07:00, Nov–Mar)</label>
+			<label><input type="checkbox" id="cleanSub"> Cleaning reminder (Sat 07:00, Nov&ndash;Mar)</label>
 		</div>
 		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Update subscription</button>
 	</div>

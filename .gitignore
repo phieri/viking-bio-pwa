@@ -23,6 +23,12 @@ Makefile
 *.uf2
 *.map
 
+# Node.js
+proxy/node_modules/
+proxy/data/vapid.json
+proxy/data/subscriptions.json
+proxy/.env
+
 # IDE files
 .vscode/
 .idea/

@@ -1,17 +1,12 @@
 var pollTimer=null,sw=null,sub=null;
 function poll(){
   fetch('/api/data').then(function(r){return r.json()}).then(function(d){
-    document.getElementById('power').textContent=d.power?'ON':'OFF';
     document.getElementById('flame').textContent=d.flame?'ON':'OFF';
     document.getElementById('flame-card').className='card '+(d.flame?'flame-on':'flame-off');
     document.getElementById('fan').textContent=d.fan;
     document.getElementById('temp').textContent=d.temp;
     document.getElementById('err').textContent=d.err;
     document.getElementById('flame-hours').textContent=(d.flame_secs/3600).toFixed(1);
-    const flameCheckbox = document.getElementById("flameSub");
-    const errorCheckbox = document.getElementById("errorSub");
-    const cleanCheckbox = document.getElementById("cleanSub");
-    const pushBtn = document.getElementById("pushBtn");
     fetch('/api/subscribers').then(function(r){return r.json()}).then(function(s){
       if(typeof s.count !== 'undefined') document.getElementById('subscribers').textContent = s.count;
     }).catch(function(){});
@@ -30,11 +25,6 @@ function setStatus(msg,cls){
   el.textContent=msg;
   el.className='status '+cls;
 }
-function loadCountry(){
-  fetch('/api/country').then(function(r){return r.json()}).then(function(d){
-    document.getElementById('countryDisplay').textContent=d.country;
-  }).catch(function(){});
-}
 async function togglePush(){
   if(!('serviceWorker' in navigator)||!('PushManager' in window)){
     alert('Push notifications not supported in this browser.');
@@ -45,7 +35,7 @@ async function togglePush(){
     await sub.unsubscribe();
     sub=null;
     await fetch('/api/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:ep})});
-    document.getElementById('pushBtn').textContent='Enable Push Notifications';
+    document.getElementById('pushBtn').textContent='Update subscription';
     document.getElementById('pushBtn').className='btn btn-push';
     return;
   }
@@ -58,16 +48,17 @@ async function togglePush(){
     if(perm!=='granted'){alert('Notification permission denied.');return;}
     sub=await sw.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(keyData.key)});
     var subJson=sub.toJSON();
-    const flameCheckbox = document.getElementById("flameSub");
-    const errorCheckbox = document.getElementById("errorSub");
-    // Send flat fields the server expects: endpoint, p256dh, auth
-    var body = {
-      endpoint: subJson.endpoint || "",
-      p256dh: (subJson.keys && subJson.keys.p256dh) ? subJson.keys.p256dh : "",
-      auth:  (subJson.keys && subJson.keys.auth) ? subJson.keys.auth : "",
-      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked, clean: !!cleanCheckbox.checked }
+    var body={
+      endpoint:subJson.endpoint||'',
+      p256dh:(subJson.keys&&subJson.keys.p256dh)?subJson.keys.p256dh:'',
+      auth:(subJson.keys&&subJson.keys.auth)?subJson.keys.auth:'',
+      prefs:{
+        flame:!!document.getElementById('flameSub').checked,
+        error:!!document.getElementById('errorSub').checked,
+        clean:!!document.getElementById('cleanSub').checked
+      }
     };
-    await fetch('/api/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     document.getElementById('pushBtn').textContent='Push Notifications ON';
     document.getElementById('pushBtn').className='btn btn-push subscribed';
   }catch(e){
@@ -75,34 +66,27 @@ async function togglePush(){
     alert('Push subscription failed: '+e.message);
   }
 }
-
-// Update or create subscription preferences without toggling subscription state.
 async function updateSubscription(){
-  const flameCheckbox = document.getElementById("flameSub");
-  const errorCheckbox = document.getElementById("errorSub");
-  const cleanCheckbox = document.getElementById("cleanSub");
   if(!('serviceWorker' in navigator)||!('PushManager' in window)){
     alert('Push notifications not supported in this browser.');
     return;
   }
-  // If not subscribed yet, create subscription (togglePush will send prefs too)
-  if(!sub){
-    await togglePush();
-    return;
-  }
-    try{
-    var subJson = sub.toJSON();
-    var body = {
-      endpoint: subJson.endpoint || "",
-      p256dh: (subJson.keys && subJson.keys.p256dh) ? subJson.keys.p256dh : "",
-      auth:  (subJson.keys && subJson.keys.auth) ? subJson.keys.auth : "",
-      prefs: { flame: !!flameCheckbox.checked, error: !!errorCheckbox.checked, clean: !!cleanCheckbox.checked }
+  if(!sub){await togglePush();return;}
+  try{
+    var subJson=sub.toJSON();
+    var body={
+      endpoint:subJson.endpoint||'',
+      p256dh:(subJson.keys&&subJson.keys.p256dh)?subJson.keys.p256dh:'',
+      auth:(subJson.keys&&subJson.keys.auth)?subJson.keys.auth:'',
+      prefs:{
+        flame:!!document.getElementById('flameSub').checked,
+        error:!!document.getElementById('errorSub').checked,
+        clean:!!document.getElementById('cleanSub').checked
+      }
     };
-    await fetch('/api/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    document.getElementById('pushBtn').textContent='Push Preferences Updated';
-    setTimeout(function(){
-      document.getElementById('pushBtn').textContent='Push Notifications ON';
-    },1500);
+    await fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    document.getElementById('pushBtn').textContent='Preferences Updated';
+    setTimeout(function(){document.getElementById('pushBtn').textContent='Push Notifications ON';},1500);
   }catch(e){
     console.error('Updating subscription failed:',e);
     alert('Updating subscription failed: '+e.message);
@@ -123,5 +107,4 @@ if('serviceWorker' in navigator){
     if(s){sub=s;document.getElementById('pushBtn').textContent='Push Notifications ON';document.getElementById('pushBtn').className='btn btn-push subscribed';}
   });
 }
-loadCountry();
 startPolling();

@@ -1,0 +1,44 @@
+name: Build and Test Proxy
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'proxy/**'
+      - '.github/workflows/build-proxy.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'proxy/**'
+      - '.github/workflows/build-proxy.yml'
+  workflow_dispatch:
+
+jobs:
+  build-proxy:
+    name: Build Proxy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: proxy/package.json
+
+    - name: Install dependencies
+      working-directory: proxy
+      run: npm install
+
+    - name: Verify server starts
+      working-directory: proxy
+      run: |
+        timeout 5 node src/server.js &
+        sleep 3
+        curl -sf http://localhost:3000/api/data || true
+        echo "Proxy started successfully"

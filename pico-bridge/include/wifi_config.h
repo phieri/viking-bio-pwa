@@ -12,6 +12,12 @@
 // WiFi country code length (2-letter ISO 3166-1 alpha-2)
 #define WIFI_COUNTRY_LEN 2
 
+// Proxy server IP address max length (IPv6 max string + null)
+#define WIFI_SERVER_IP_MAX_LEN 46
+
+// Default proxy server port
+#define WIFI_SERVER_PORT_DEFAULT 9000
+
 /**
  * Initialize the WiFi config module (resets in-memory state).
  * Call once at startup before any load/save operations.
@@ -30,8 +36,6 @@ bool wifi_config_load(char *ssid, size_t ssid_len, char *password, size_t pass_l
 
 /**
  * Encrypt and save WiFi credentials to storage (LittleFS).
- * Credentials are encrypted with AES-128-GCM using a key derived from
- * the device's unique board ID.
  * @param ssid     WiFi SSID (must not be NULL or empty)
  * @param password WiFi password (may be NULL or empty for open networks)
  * @return true on success, false on error
@@ -70,5 +74,22 @@ bool wifi_config_save_country(const char *country);
  * @return CYW43 country code value for use with cyw43_arch_init_with_country()
  */
 uint32_t wifi_config_country_to_cyw43(const char *country);
+
+/**
+ * Load the proxy server IP address and port from storage (LittleFS).
+ * @param ip      Output buffer for IP string (at least WIFI_SERVER_IP_MAX_LEN+1 bytes)
+ * @param ip_len  Size of ip buffer
+ * @param port    Output for port number
+ * @return true if server config was loaded, false otherwise
+ */
+bool wifi_config_load_server(char *ip, size_t ip_len, uint16_t *port);
+
+/**
+ * Save the proxy server IP address and port to storage (LittleFS).
+ * @param ip    Server IP address string
+ * @param port  Server TCP port
+ * @return true on success, false on error
+ */
+bool wifi_config_save_server(const char *ip, uint16_t port);
 
 #endif // WIFI_CONFIG_H

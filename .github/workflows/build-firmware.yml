@@ -6,19 +6,21 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+      - 'proxy/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
+      - 'proxy/**'
   workflow_dispatch:
 
 env:
   PICO_SDK_VERSION: 2.2.0
 
 jobs:
-  build-pwa:
-    name: Build PWA Firmware
+  build-bridge:
+    name: Build Bridge Firmware
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,18 +54,18 @@ jobs:
       run: echo "PICO_SDK_PATH=${{ github.workspace }}/pico-sdk" >> $GITHUB_ENV
 
     - name: Create build directory
-      run: mkdir -p build-pwa
+      run: mkdir -p pico-bridge/build
 
     - name: Configure CMake
-      working-directory: build-pwa
+      working-directory: pico-bridge/build
       run: cmake .. -DCMAKE_BUILD_TYPE=Release -DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"
 
     - name: Build firmware
-      working-directory: build-pwa
+      working-directory: pico-bridge/build
       run: make -j$(nproc)
 
     - name: List build artifacts
-      working-directory: build-pwa
+      working-directory: pico-bridge/build
       run: |
         echo "Build artifacts:"
         ls -lh *.uf2 *.elf *.bin 2>/dev/null || echo "No artifacts found"
@@ -71,26 +73,10 @@ jobs:
     - name: Upload firmware artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: viking-bio-pwa-firmware
+        name: viking-bio-bridge-firmware
         path: |
-          build-pwa/*.uf2
-          build-pwa/*.elf
-          build-pwa/*.bin
-          build-pwa/*.hex
+          pico-bridge/build/*.uf2
+          pico-bridge/build/*.elf
+          pico-bridge/build/*.bin
+          pico-bridge/build/*.hex
         if-no-files-found: warn
-
-    - name: Create release info
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        echo "## Build Information" > build-info.txt
-        echo "Commit: ${{ github.sha }}" >> build-info.txt
-        echo "Date: $(date)" >> build-info.txt
-        echo "Pico SDK Version: ${{ env.PICO_SDK_VERSION }}" >> build-info.txt
-        echo "Target: Raspberry Pi Pico W - PWA Web Server" >> build-info.txt
-
-    - name: Upload build info
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: actions/upload-artifact@v7
-      with:
-        name: build-info
-        path: build-info.txt
