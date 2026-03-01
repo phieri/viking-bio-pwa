@@ -11,6 +11,7 @@
 #include "serial_handler.h"
 #include "viking_bio_protocol.h"
 #include "http_client.h"
+#include "push_manager.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
 #include "version.h"
@@ -113,9 +114,9 @@ static bool process_usb_commands(void) {
 				uint16_t cur_port = WIFI_SERVER_PORT_DEFAULT;
 				wifi_config_load_server(cur_ip, sizeof(cur_ip), &cur_port);
 				if (wifi_config_save_server(addr, cur_port)) {
-					printf("tcp: server IP set to %s – reboot to apply\n", addr);
+					printf("webhook: server IP set to %s – reboot to apply\n", addr);
 				} else {
-					printf("tcp: ERROR saving server IP\n");
+					printf("webhook: ERROR saving server IP\n");
 				}
 
 			} else if (strncmp(s_usb_buf, "PORT=", 5) == 0) {
@@ -125,14 +126,23 @@ static bool process_usb_commands(void) {
 					uint16_t cur_port = WIFI_SERVER_PORT_DEFAULT;
 					wifi_config_load_server(cur_ip, sizeof(cur_ip), &cur_port);
 					if (cur_ip[0] == '\0') {
-						printf("tcp: set SERVER=<ip> first\n");
+						printf("webhook: set SERVER=<ip> first\n");
 					} else if (wifi_config_save_server(cur_ip, (uint16_t)p)) {
-						printf("tcp: port set to %d – reboot to apply\n", p);
+						printf("webhook: port set to %d – reboot to apply\n", p);
 					} else {
-						printf("tcp: ERROR saving port\n");
+						printf("webhook: ERROR saving port\n");
 					}
 				} else {
-					printf("tcp: port must be 1-65535\n");
+					printf("webhook: port must be 1-65535\n");
+				}
+
+			} else if (strncmp(s_usb_buf, "TOKEN=", 6) == 0) {
+				const char *tok = s_usb_buf + 6;
+				if (wifi_config_save_hook_token(tok)) {
+					printf("webhook: auth token saved – reboot to apply\n");
+				} else {
+					printf("webhook: ERROR saving token (max %d chars)\n",
+					       WIFI_HOOK_TOKEN_MAX_LEN);
 				}
 
 			} else if (strcmp(s_usb_buf, "STATUS") == 0) {
@@ -158,7 +168,17 @@ static bool process_usb_commands(void) {
 				} else {
 					printf("  server:  not configured\n");
 				}
-				printf("  tcp:     %s\n", tcp_client_is_connected() ? "connected" : "disconnected");
+				printf("  webhook: %s\n", http_client_is_active() ? "active" : "idle");
+				printf("  push:    %d subscription(s)\n",
+				       push_manager_subscription_count());
+				char tok_check[WIFI_HOOK_TOKEN_MAX_LEN + 1];
+				printf("  token:   %s\n",
+				       wifi_config_load_hook_token(tok_check, sizeof(tok_check))
+				       ? "(set)" : "not set");
+				char vapid_pub[96];
+				if (push_manager_get_vapid_public_key(vapid_pub, sizeof(vapid_pub))) {
+					printf("  vapid_pub: %s\n", vapid_pub);
+				}
 
 			} else if (strcmp(s_usb_buf, "CLEAR") == 0) {
 				wifi_config_clear();
@@ -170,10 +190,11 @@ static bool process_usb_commands(void) {
 				printf("  SSID=<ssid>      – set WiFi SSID\n");
 				printf("  PASS=<pass>      – set password and save\n");
 				printf("  COUNTRY=<CC>     – set Wi-Fi country (e.g. SE, US)\n");
-				printf("  SERVER=<ip>      – set proxy server IP address\n");
+				printf("  SERVER=<ip>      – set proxy server IP/hostname\n");
 				printf("  PORT=<port>      – set proxy server port (default %d)\n",
 				       WIFI_SERVER_PORT_DEFAULT);
-				printf("  STATUS           – show status\n");
+				printf("  TOKEN=<token>    – set webhook X-Hook-Auth token\n");
+				printf("  STATUS           – show status and VAPID public key\n");
 				printf("  CLEAR            – erase stored credentials\n");
 			}
 		} else {
@@ -251,6 +272,11 @@ int main(void) {
 		printf("WARNING: LittleFS initialization failed\n");
 	}
 
+	printf("Initializing push manager...\n");
+	if (!push_manager_init()) {
+		printf("WARNING: push_manager_init() failed\n");
+	}
+
 	wifi_config_init();
 
 	char country[3] = "XX";
@@ -286,13 +312,15 @@ int main(void) {
 		mdns_setup();
 		wifi_up = true;
 
-		// Load proxy server config
+		// Load proxy server config and auth token
 		char srv_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
 		uint16_t srv_port = WIFI_SERVER_PORT_DEFAULT;
 		wifi_config_load_server(srv_ip, sizeof(srv_ip), &srv_port);
+		char hook_token[WIFI_HOOK_TOKEN_MAX_LEN + 1] = {0};
+		wifi_config_load_hook_token(hook_token, sizeof(hook_token));
 		if (srv_ip[0] != '\0') {
 			printf("Proxy server: %s:%d\n", srv_ip, srv_port);
-			tcp_client_init(srv_ip, srv_port);
+			http_client_init(srv_ip, srv_port, hook_token[0] ? hook_token : NULL);
 		} else {
 			printf("Proxy server not configured – use SERVER=<ip> via USB serial\n");
 		}
@@ -315,6 +343,9 @@ int main(void) {
 
 	uint8_t buffer[SERIAL_BUFFER_SIZE];
 	bool timeout_triggered = false;
+	// State tracking for push notifications
+	bool prev_flame = false;
+	int  prev_err   = 0;
 
 	while (true) {
 		if (watchdog_on) watchdog_update();
@@ -340,8 +371,32 @@ int main(void) {
 				if (viking_bio_parse_data(buffer, bytes, &new_data)) {
 					timeout_triggered = false;
 					if (wifi_up) {
-						tcp_client_send_data(&new_data);
+						http_client_send_data(&new_data);
 					}
+
+					// Push notifications: flame state change
+					if (new_data.flame_detected != prev_flame) {
+						if (new_data.flame_detected) {
+							push_manager_notify_all(PUSH_NOTIFY_FLAME,
+								"Viking Bio: Flame ON",
+								"Burner ignited");
+						} else {
+							push_manager_notify_all(PUSH_NOTIFY_FLAME,
+								"Viking Bio: Flame OFF",
+								"Burner flame extinguished");
+						}
+						prev_flame = new_data.flame_detected;
+					}
+
+					// Push notifications: new error
+					if (new_data.error_code != 0 && new_data.error_code != prev_err) {
+						char errbody[32];
+						snprintf(errbody, sizeof(errbody), "Error code %d detected",
+						         new_data.error_code);
+						push_manager_notify_all(PUSH_NOTIFY_ERROR,
+							"Viking Bio: Error", errbody);
+					}
+					prev_err = new_data.error_code;
 				}
 			}
 		}
@@ -355,7 +410,7 @@ int main(void) {
 				printf("Viking Bio: no data for 30s – burner may be off\n");
 				if (wifi_up) {
 					viking_bio_data_t stale = { .valid = false };
-					tcp_client_send_data(&stale);
+					http_client_send_data(&stale);
 				}
 			}
 		}
@@ -363,7 +418,7 @@ int main(void) {
 		if (event_flags & EVENT_BROADCAST) {
 			event_flags &= ~EVENT_BROADCAST;
 			if (wifi_up) {
-				tcp_client_poll();
+				http_client_poll();
 			}
 		}
 

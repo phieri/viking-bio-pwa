@@ -35,10 +35,15 @@ jobs:
       working-directory: proxy
       run: npm install
 
-    - name: Verify server starts
+    - name: Verify server starts and webhook works
       working-directory: proxy
       run: |
         timeout 5 node src/server.js &
         sleep 3
+        # Dashboard API
         curl -sf http://localhost:3000/api/data || true
+        # Webhook endpoint: unauthenticated POST should succeed when no token is configured
+        curl -sf -X POST http://localhost:3000/api/machine-data \
+          -H "Content-Type: application/json" \
+          -d '{"flame":false,"fan":0,"temp":0,"err":0,"valid":true}' || true
         echo "Proxy started successfully"

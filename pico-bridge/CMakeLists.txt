@@ -110,7 +110,8 @@ set(SOURCES
     src/version.c
     src/serial_handler.c
     src/viking_bio_protocol.c
-    src/tcp_client.c
+    src/http_client.c
+    src/push_manager.c
     src/wifi_config.c
     src/lfs_hal.c
     ${littlefs_SOURCE_DIR}/lfs.c
