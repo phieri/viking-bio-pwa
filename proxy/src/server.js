@@ -2,19 +2,21 @@
 'use strict';
 
 const express = require('express');
-const path = require('path');
-const { createTcpReceiver } = require('./tcp-receiver');
+const http    = require('http');
+const https   = require('https');
+const fs      = require('fs');
+const path    = require('path');
+const { createWebhookReceiver } = require('./webhook-receiver');
 const { createPushManager } = require('./push-manager');
 const { createScheduler } = require('./scheduler');
 
 const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
-const TCP_PORT  = parseInt(process.env.TCP_PORT  || '9000', 10);
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Shared burner state updated by TCP receiver
+// Shared burner state updated by webhook receiver
 const state = {
 	flame: false,
 	fan: 0,
@@ -31,8 +33,8 @@ const pushManager = createPushManager();
 // Scheduler handles the cleaning reminder
 const scheduler = createScheduler(pushManager);
 
-// TCP receiver gets data from the Pico bridge
-createTcpReceiver(TCP_PORT, state, pushManager);
+// Webhook receiver processes authenticated POST requests from the Pico bridge
+const webhookReceiver = createWebhookReceiver(state, pushManager);
 
 // Start cleaning reminder scheduler
 scheduler.start();
@@ -61,6 +63,9 @@ app.get('/api/subscribers', (req, res) => {
 	res.json({ count: pushManager.getSubscriptionCount() });
 });
 
+// POST /api/machine-data - receive authenticated telemetry from the Pico bridge
+app.post('/api/machine-data', webhookReceiver.middleware);
+
 // POST /api/subscribe - add or update a push subscription
 app.post('/api/subscribe', (req, res) => {
 	const { endpoint, p256dh, auth } = req.body;
@@ -83,8 +88,27 @@ app.post('/api/unsubscribe', (req, res) => {
 	res.json({ status: 'ok' });
 });
 
-// Start HTTP server
-app.listen(HTTP_PORT, () => {
-	console.log(`Viking Bio Proxy listening on http://0.0.0.0:${HTTP_PORT}`);
-	console.log(`TCP receiver listening on port ${TCP_PORT}`);
-});
+// Start server: HTTPS if cert/key are configured, otherwise HTTP.
+// Binds to '::' so the dashboard is reachable over both IPv6 and IPv4 (dual-stack).
+const certPath = process.env.TLS_CERT_PATH;
+const keyPath  = process.env.TLS_KEY_PATH;
+
+if (certPath && keyPath) {
+	let cert, key;
+	try {
+		cert = fs.readFileSync(certPath);
+		key  = fs.readFileSync(keyPath);
+	} catch (err) {
+		console.error(`Failed to read TLS cert/key: ${err.message}`);
+		process.exit(1);
+	}
+	const server = https.createServer({ cert, key }, app);
+	server.listen(HTTP_PORT, '::', () => {
+		console.log(`Viking Bio Proxy listening on https://[::]:${HTTP_PORT} (TLS)`);
+	});
+} else {
+	const server = http.createServer(app);
+	server.listen(HTTP_PORT, '::', () => {
+		console.log(`Viking Bio Proxy listening on http://[::]:${HTTP_PORT}`);
+	});
+}

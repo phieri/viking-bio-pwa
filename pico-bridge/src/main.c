@@ -10,7 +10,7 @@
 #include "lwip/apps/mdns.h"
 #include "serial_handler.h"
 #include "viking_bio_protocol.h"
-#include "tcp_client.h"
+#include "http_client.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
 #include "version.h"
