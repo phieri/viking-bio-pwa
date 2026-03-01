@@ -2,7 +2,9 @@
  * @file mbedtls_config.h
  * @brief Minimal mbedTLS configuration for Viking Bio Bridge firmware (Pico W)
  *
- * Enables only AES-128-GCM and SHA-256 needed for WiFi credential encryption.
+ * Enables:
+ *   - AES-128-GCM + SHA-256 for WiFi credential encryption
+ *   - ECC P-256 (ECDH + CTR-DRBG + Entropy) for VAPID key generation
  */
 
 #ifndef MBEDTLS_CONFIG_H
@@ -21,7 +23,7 @@
 #define MBEDTLS_HAVE_TIME
 #define MBEDTLS_PLATFORM_MS_TIME_ALT
 
-// No platform entropy (RP2040 uses hardware RNG directly)
+// No platform entropy (RP2040 uses hardware RNG directly via CTR-DRBG)
 #define MBEDTLS_NO_PLATFORM_ENTROPY
 
 // Core crypto modules needed for WiFi credential encryption
@@ -30,5 +32,20 @@
 #define MBEDTLS_GCM_C
 #define MBEDTLS_MD_C
 #define MBEDTLS_SHA256_C
+
+// Big-number arithmetic (required by ECC)
+#define MBEDTLS_BIGNUM_C
+
+// ECC P-256 for VAPID key generation and signing
+#define MBEDTLS_ECP_C
+#define MBEDTLS_ECP_DP_SECP256R1_ENABLED
+#define MBEDTLS_ECDH_C
+
+// Deterministic RNG seeded from hardware entropy (required for key generation)
+#define MBEDTLS_ENTROPY_C
+#define MBEDTLS_CTR_DRBG_C
+
+// Base64 encoding for VAPID public key export
+#define MBEDTLS_BASE64_C
 
 #endif /* MBEDTLS_CONFIG_H */

@@ -13,6 +13,7 @@
 #define WIFI_CONFIG_FILE   "/wifi.dat"
 #define WIFI_COUNTRY_FILE  "/country.dat"
 #define WIFI_SERVER_FILE   "/server.dat"
+#define WIFI_HOOK_FILE     "/hook.dat"
 
 #define WIFI_CONFIG_MAGIC 0x57494649U  // "WIFI"
 
@@ -276,5 +277,34 @@ bool wifi_config_save_server(const char *ip, uint16_t port) {
 		return false;
 	}
 	printf("wifi_config: server set to %s:%d\n", ip, port);
+	return true;
+}
+
+bool wifi_config_load_hook_token(char *token, size_t len) {
+	if (!token || len == 0) return false;
+
+	char buf[WIFI_HOOK_TOKEN_MAX_LEN + 1];
+	int n = lfs_hal_read_file(WIFI_HOOK_FILE, buf, sizeof(buf));
+	if (n <= 0 || n > WIFI_HOOK_TOKEN_MAX_LEN) return false;
+
+	buf[n] = '\0';  // safe: buf is WIFI_HOOK_TOKEN_MAX_LEN+1 bytes, n <= WIFI_HOOK_TOKEN_MAX_LEN
+	// Ensure the stored string is null-terminated within its length
+	if (strlen(buf) == 0) return false;
+	if (strlen(buf) + 1 > len) return false;
+
+	memcpy(token, buf, strlen(buf) + 1);
+	return true;
+}
+
+bool wifi_config_save_hook_token(const char *token) {
+	if (!token) return false;
+	size_t tlen = strlen(token);
+	if (tlen == 0 || tlen > WIFI_HOOK_TOKEN_MAX_LEN) return false;
+
+	if (!lfs_hal_write_file(WIFI_HOOK_FILE, token, tlen)) {
+		printf("wifi_config: ERROR saving hook token\n");
+		return false;
+	}
+	printf("wifi_config: webhook auth token saved\n");
 	return true;
 }
