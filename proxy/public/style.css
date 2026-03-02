@@ -15,6 +15,8 @@ h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
 .btn-push{background:#0f3460;color:#e94560;border:1px solid #e94560}
 .btn-push:hover{background:#1a3a6e}
 .btn-push.subscribed{background:#0d3d2e;color:#4ecdc4;border-color:#4ecdc4}
+.btn-unsub{background:#3d0000;color:#ff6b6b;border:1px solid #ff6b6b}
+.btn-unsub:hover{background:#5a0000}
 .actions{text-align:center;margin:16px auto;max-width:800px}
 .flame-on .value{color:#ff6b35}
 .flame-off .value{color:#555}

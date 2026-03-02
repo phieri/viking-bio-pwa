@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#1a1a2e"/>
+  <!-- Flame shape -->
+  <path d="M256 80c0 0 100 120 100 220c0 70-45 130-100 140
+           c-55-10-100-70-100-140C156 200 256 80 256 80z"
+        fill="#e94560" opacity="0.9"/>
+  <path d="M256 180c0 0 50 70 50 120c0 40-22 70-50 78
+           c-28-8-50-38-50-78C206 250 256 180 256 180z"
+        fill="#ff6b35" opacity="0.9"/>
+  <path d="M256 260c0 0 22 35 22 58c0 18-10 32-22 36
+           c-12-4-22-18-22-36C234 295 256 260 256 260z"
+        fill="#ffd93d" opacity="0.9"/>
+  <!-- Temperature indicator lines -->
+  <line x1="100" y1="400" x2="100" y2="430" stroke="#4ecdc4" stroke-width="8" stroke-linecap="round"/>
+  <line x1="130" y1="390" x2="130" y2="430" stroke="#4ecdc4" stroke-width="8" stroke-linecap="round"/>
+  <line x1="160" y1="380" x2="160" y2="430" stroke="#4ecdc4" stroke-width="8" stroke-linecap="round"/>
+  <line x1="352" y1="380" x2="352" y2="430" stroke="#4ecdc4" stroke-width="8" stroke-linecap="round"/>
+  <line x1="382" y1="390" x2="382" y2="430" stroke="#4ecdc4" stroke-width="8" stroke-linecap="round"/>
+  <line x1="412" y1="400" x2="412" y2="430" stroke="#4ecdc4" stroke-width="8" stroke-linecap="round"/>
+</svg>
