@@ -9,6 +9,7 @@ const path    = require('path');
 const { createWebhookReceiver } = require('./webhook-receiver');
 const { createPushManager } = require('./push-manager');
 const { createScheduler } = require('./scheduler');
+const { createMdnsAdvertiser } = require('./mdns-advertiser');
 
 const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
 
@@ -49,6 +50,16 @@ const webhookReceiver = createWebhookReceiver(state, pushManager);
 
 // Start cleaning reminder scheduler
 scheduler.start();
+
+// Advertise the proxy as a DNS-SD service (_viking-bio._tcp) so it can be
+// discovered by standard mDNS clients (Bonjour, Avahi, Windows mDNS).
+// Note: browsers/PWAs cannot speak mDNS directly; this runs server-side only.
+const mdnsAdvertiser = createMdnsAdvertiser({
+	port:     HTTP_PORT,
+	name:     process.env.MDNS_NAME || 'Viking Bio',
+	disabled: process.env.MDNS_DISABLE === '1' || process.env.MDNS_DISABLE === 'true',
+});
+mdnsAdvertiser.start();
 
 // ---------------------------------------------------------------------------
 // Pico W forwarding helper

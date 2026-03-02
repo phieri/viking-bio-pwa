@@ -29,10 +29,6 @@
 #define LWIP_ALTCP_TLS 1
 #define LWIP_ALTCP_TLS_MBEDTLS 1
 
-// mDNS (for device hostname advertisement)
-#define LWIP_MDNS_RESPONDER 1
-#define MDNS_MAX_SERVICES 1
-
 #define MEM_ALIGNMENT 4
 #define MEM_SIZE (16 * 1024)
 
@@ -58,19 +54,14 @@
 
 // Timers
 // Base lwIP timers (TCP + DNS + IPv6 ND/REASS/MLD) use ~5 slots.
-// The mDNS responder allocates additional sys_timeout slots at runtime
-// during the probe/announce sequence.  The altcp_tls (TLS) layer adds
-// further timer slots for handshake retransmits.  18 is a safe value
-// for this config (mDNS + TLS + base lwIP).
-#define MEMP_NUM_SYS_TIMEOUT 18
+// The altcp_tls (TLS) layer adds further timer slots for handshake retransmits.
+// 14 is a safe value for TLS + base lwIP without mDNS.
+#define MEMP_NUM_SYS_TIMEOUT 14
 
 // ARP
 #define ARP_TABLE_SIZE 4
 #define ARP_QUEUEING 1
 #define ETHARP_SUPPORT_STATIC_ENTRIES 0
-
-// Netif client data (mDNS responder needs 1 slot)
-#define LWIP_NUM_NETIF_CLIENT_DATA 1
 
 // Keep-alive for TCP connection to proxy
 #define LWIP_TCP_KEEPALIVE 1

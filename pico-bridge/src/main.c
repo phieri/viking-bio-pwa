@@ -3,17 +3,16 @@
 #include <ctype.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
-#include "pico/unique_id.h"
 #include "hardware/watchdog.h"
 #include "lwip/netif.h"
 #include "lwip/ip6_addr.h"
-#include "lwip/apps/mdns.h"
 #include "serial_handler.h"
 #include "viking_bio_protocol.h"
 #include "http_client.h"
 #include "push_manager.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
+#include "dns_sd_browser.h"
 #include "version.h"
 
 // Event flags (modified from interrupt context)
@@ -204,6 +203,31 @@ static bool process_usb_commands(void) {
 	return false;
 }
 
+/*
+ * Called from the lwIP poll context when a _viking-bio._tcp mDNS announcement
+ * is received.  Saves the new proxy address and (re-)initialises the HTTP
+ * webhook client only when the address actually changed.
+ */
+static void on_proxy_discovered(const char *ip6addr, uint16_t port)
+{
+	char cur_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
+	uint16_t cur_port = 0;
+	wifi_config_load_server(cur_ip, sizeof(cur_ip), &cur_port);
+	if (strcmp(cur_ip, ip6addr) == 0 && cur_port == port) {
+		printf("dns_sd: announcement from %s:%d matches current config – no change\n",
+		       ip6addr, port);
+		return;
+	}
+
+	printf("dns_sd: proxy changed to %s:%d – updating config\n", ip6addr, port);
+	if (!wifi_config_save_server(ip6addr, port)) {
+		printf("dns_sd: failed to save proxy config\n");
+	}
+	char hook_token[WIFI_HOOK_TOKEN_MAX_LEN + 1] = {0};
+	wifi_config_load_hook_token(hook_token, sizeof(hook_token));
+	http_client_init(ip6addr, port, hook_token[0] ? hook_token : NULL);
+}
+
 bool periodic_timer_callback(struct repeating_timer *t) {
 	(void)t;
 	event_flags |= EVENT_TIMEOUT_CHECK | EVENT_BROADCAST;
@@ -237,17 +261,6 @@ static bool wifi_connect(const char *ssid, const char *password) {
 		}
 	}
 	return true;
-}
-
-static void mdns_setup(void) {
-	pico_unique_board_id_t uid;
-	pico_get_unique_board_id(&uid);
-	char hostname[32];
-	snprintf(hostname, sizeof(hostname), "viking-bio-%02x%02x",
-	         uid.id[6], uid.id[7]);
-
-	mdns_resp_add_netif(netif_default, hostname);
-	printf("mDNS: %s.local registered\n", hostname);
 }
 
 int main(void) {
@@ -291,8 +304,6 @@ int main(void) {
 	}
 	cyw43_arch_enable_sta_mode();
 
-	mdns_resp_init();
-
 	char ssid[WIFI_SSID_MAX_LEN + 1] = {0};
 	char password[WIFI_PASS_MAX_LEN + 1] = {0};
 	bool have_creds = wifi_config_load(ssid, sizeof(ssid), password, sizeof(password));
@@ -309,7 +320,7 @@ int main(void) {
 	bool watchdog_on = false;
 
 	if (have_creds && wifi_connect(ssid, password)) {
-		mdns_setup();
+		dns_sd_browser_start(on_proxy_discovered);
 		wifi_up = true;
 
 		// Load proxy server config and auth token

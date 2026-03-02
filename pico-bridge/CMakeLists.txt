@@ -129,6 +129,7 @@ set(SOURCES
     src/push_manager.c
     src/wifi_config.c
     src/lfs_hal.c
+    src/dns_sd_browser.c
     ${littlefs_SOURCE_DIR}/lfs.c
     ${littlefs_SOURCE_DIR}/lfs_util.c
     platform/mbedtls_time.c
@@ -154,7 +155,6 @@ target_link_libraries(viking_bio_bridge
     pico_cyw43_arch_lwip_poll
     pico_mbedtls
     pico_lwip_mbedtls
-    pico_lwip_mdns
 )
 
 # Enable USB output, disable UART output
