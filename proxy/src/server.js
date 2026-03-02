@@ -9,6 +9,7 @@ const path    = require('path');
 const { createWebhookReceiver } = require('./webhook-receiver');
 const { createPushManager } = require('./push-manager');
 const { createScheduler } = require('./scheduler');
+const { createAnnouncer } = require('./announcer');
 
 const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
 
@@ -49,6 +50,17 @@ const webhookReceiver = createWebhookReceiver(state, pushManager);
 
 // Start cleaning reminder scheduler
 scheduler.start();
+
+// Start zero-conf proxy registration announcer so Pico W devices on the same
+// network segment can auto-discover the proxy without USB-serial provisioning.
+const announcer = createAnnouncer({
+	token:        process.env.MACHINE_WEBHOOK_AUTH_TOKEN || '',
+	port:         HTTP_PORT,
+	intervalMs:   parseInt(process.env.ANNOUNCE_INTERVAL_MS || '30000', 10),
+	announceAddr: process.env.ANNOUNCE_ADDR || '',
+	iface:        process.env.ANNOUNCE_IFACE || '',
+});
+announcer.start();
 
 // ---------------------------------------------------------------------------
 // Pico W forwarding helper

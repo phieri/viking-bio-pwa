@@ -3,17 +3,16 @@
 #include <ctype.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
-#include "pico/unique_id.h"
 #include "hardware/watchdog.h"
 #include "lwip/netif.h"
 #include "lwip/ip6_addr.h"
-#include "lwip/apps/mdns.h"
 #include "serial_handler.h"
 #include "viking_bio_protocol.h"
 #include "http_client.h"
 #include "push_manager.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
+#include "reg_listener.h"
 #include "version.h"
 
 // Event flags (modified from interrupt context)
@@ -239,17 +238,6 @@ static bool wifi_connect(const char *ssid, const char *password) {
 	return true;
 }
 
-static void mdns_setup(void) {
-	pico_unique_board_id_t uid;
-	pico_get_unique_board_id(&uid);
-	char hostname[32];
-	snprintf(hostname, sizeof(hostname), "viking-bio-%02x%02x",
-	         uid.id[6], uid.id[7]);
-
-	mdns_resp_add_netif(netif_default, hostname);
-	printf("mDNS: %s.local registered\n", hostname);
-}
-
 int main(void) {
 	stdio_init_all();
 	sleep_ms(2000);
@@ -291,8 +279,6 @@ int main(void) {
 	}
 	cyw43_arch_enable_sta_mode();
 
-	mdns_resp_init();
-
 	char ssid[WIFI_SSID_MAX_LEN + 1] = {0};
 	char password[WIFI_PASS_MAX_LEN + 1] = {0};
 	bool have_creds = wifi_config_load(ssid, sizeof(ssid), password, sizeof(password));
@@ -309,7 +295,7 @@ int main(void) {
 	bool watchdog_on = false;
 
 	if (have_creds && wifi_connect(ssid, password)) {
-		mdns_setup();
+		reg_listener_start();
 		wifi_up = true;
 
 		// Load proxy server config and auth token
