@@ -86,6 +86,13 @@ The Node.js proxy server:
 - Web Push notifications via `web-push` (VAPID keys auto-generated on first start, or use Pico's key via `PICO_VAPID_PUBLIC_KEY`)
 - Subscriptions persisted to `proxy/data/subscriptions.json`; forwarded to Pico W when `PICO_BASE_URL` is set
 
+### PWA Dashboard
+
+The dashboard at `proxy/public/` is a fully installable Progressive Web App:
+- **Offline support**: ServiceWorker precaches all static assets (HTML, CSS, JS, icons, manifest) using a cache-first strategy; API requests bypass the cache
+- **Icons**: SVG source icon with PNG variants at 192×192 and 512×512 (standard + maskable), plus favicon and Apple touch icon
+- **Push notifications**: subscribe/unsubscribe UI with per-type preference checkboxes (flame, error, cleaning reminder)
+
 ### Running
 
 ```bash
