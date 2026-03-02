@@ -115,7 +115,7 @@ function createPushManager() {
 		const payload = JSON.stringify({
 			title,
 			body,
-			icon: '/icon.png',
+			icon: '/icon-192.png',
 			type,
 			priority: type === 'error' ? 'high' : 'low',
 		});

@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1a1a2e">
 <link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 <script src="app.js" defer></script>
 <title>Viking Bio 20 Dashboard</title>
@@ -51,7 +55,8 @@
 			<label><input type="checkbox" id="errorSub"> Errors</label>
 			<label><input type="checkbox" id="cleanSub"> Cleaning reminder (Sat 07:00, Nov&ndash;Mar)</label>
 		</div>
-		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Update subscription</button>
+		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Enable Notifications</button>
+		<button class="btn btn-unsub" id="unsubBtn" onclick="unsubscribePush()" style="display:none">Unsubscribe</button>
 	</div>
 </div>
 </body>
