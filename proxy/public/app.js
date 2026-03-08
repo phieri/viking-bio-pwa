@@ -55,8 +55,7 @@ async function subscribePush() {
 	try {
 		var r = await fetch('/api/vapid-public-key');
 		var keyData = await r.json();
-		sw = await navigator.serviceWorker.register('/sw.js');
-		await navigator.serviceWorker.ready;
+		sw = await navigator.serviceWorker.ready;
 		var perm = await Notification.requestPermission();
 		if (perm !== 'granted') {
 			alert('Notification permission denied.');

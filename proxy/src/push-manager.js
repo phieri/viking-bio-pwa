@@ -44,8 +44,11 @@ function createPushManager() {
 		console.log('push-manager: generated new VAPID keys');
 	}
 
+	const vapidContact = process.env.VAPID_CONTACT_EMAIL
+		? `mailto:${process.env.VAPID_CONTACT_EMAIL}`
+		: 'mailto:admin@viking-bio.local';
 	webpush.setVapidDetails(
-		'mailto:admin@viking-bio.local',
+		vapidContact,
 		vapidKeys.publicKey,
 		vapidKeys.privateKey
 	);
