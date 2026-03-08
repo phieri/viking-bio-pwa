@@ -39,8 +39,6 @@ The Pico W firmware:
 - WiFi credentials, proxy server address, and webhook auth token stored in LittleFS (credentials encrypted with AES-128-GCM)
 - Configurable via USB serial (115200 baud)
 
-> **Note:** Actual outbound HTTPS push delivery from the Pico W requires TLS client support (`pico_lwip_mbedtls`). The firmware scaffold logs notifications; see `src/push_manager.c` for the TODO comment.
-
 ### Hardware
 
 - Raspberry Pi Pico W
