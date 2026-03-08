@@ -19,9 +19,6 @@
 // VAPID JWT validity period in seconds
 #define VAPID_JWT_EXPIRY_SECS  43200  // 12 hours
 
-// RFC 8291 encryption record size (bytes per record in the aes128gcm content encoding)
-#define PUSH_RS_FIELD  4096
-
 // Maximum number of push_manager_poll() intervals before a push delivery times out
 // (each interval is driven by EVENT_BROADCAST which fires every 2 s, so 50 ≈ 100 s)
 #define PUSH_POLL_TIMEOUT_INTERVALS 50
