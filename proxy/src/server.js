@@ -4,12 +4,15 @@
 const express = require('express');
 const http    = require('http');
 const https   = require('https');
+const tls     = require('tls');
 const fs      = require('fs');
 const path    = require('path');
 const { createWebhookReceiver } = require('./webhook-receiver');
 const { createPushManager } = require('./push-manager');
 const { createScheduler } = require('./scheduler');
 const { createMdnsAdvertiser } = require('./mdns-advertiser');
+const { createDdnsClient } = require('./ddns-client');
+const { createCertManager } = require('./cert-manager');
 
 const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
 
@@ -179,31 +182,115 @@ app.post('/api/unsubscribe', (req, res) => {
 	res.json({ status: 'ok' });
 });
 
-// Start server: HTTPS if cert/key are configured, otherwise HTTP.
-// Binds to '::' so the dashboard is reachable over both IPv6 and IPv4 (dual-stack).
-const certPath = process.env.TLS_CERT_PATH;
-const keyPath  = process.env.TLS_KEY_PATH;
+// ---------------------------------------------------------------------------
+// Server startup
+// ---------------------------------------------------------------------------
+// Priority order:
+//   1. DDNS_SUBDOMAIN + DDNS_TOKEN → automatic Let's Encrypt HTTPS
+//   2. TLS_CERT_PATH  + TLS_KEY_PATH  → manual HTTPS with provided cert/key
+//   3. fallback                       → plain HTTP (development only)
+// ---------------------------------------------------------------------------
 
-if (certPath && keyPath) {
-	let cert, key;
-	try {
-		cert = fs.readFileSync(certPath);
-		key  = fs.readFileSync(keyPath);
-	} catch (err) {
-		console.error(`Failed to read TLS cert/key: ${err.message}`);
-		process.exit(1);
+async function startServer() {
+	const ddns    = createDdnsClient();
+	const certPath = process.env.TLS_CERT_PATH;
+	const keyPath  = process.env.TLS_KEY_PATH;
+
+	// ------------------------------------------------------------------
+	// Option 1: automatic Let's Encrypt HTTPS via DuckDNS
+	// ------------------------------------------------------------------
+	if (ddns.domain) {
+		ddns.start();
+
+		const certMgr = createCertManager({ domain: ddns.domain });
+		const ready   = await certMgr.initialize();
+
+		if (ready) {
+			// Load initial certificate into a TLS SecureContext.
+			// SNICallback allows live reloading after renewal without restart.
+			let secureContext;
+			try {
+				secureContext = tls.createSecureContext({
+					cert: fs.readFileSync(certMgr.certPath),
+					key:  fs.readFileSync(certMgr.keyPath),
+				});
+			} catch (err) {
+				console.error(
+					`cert-manager: failed to load certificate: ${err.message}`
+					+ ` – check ACME_CERT_DIR and file permissions`
+				);
+			}
+
+			if (secureContext) {
+				// Reload the SecureContext whenever the certificate is renewed.
+				certMgr.onRenew = () => {
+					try {
+						secureContext = tls.createSecureContext({
+							cert: fs.readFileSync(certMgr.certPath),
+							key:  fs.readFileSync(certMgr.keyPath),
+						});
+						console.log('HTTPS: TLS certificate reloaded after renewal');
+					} catch (err) {
+						console.error(`HTTPS: failed to reload certificate: ${err.message}`);
+					}
+				};
+
+				const server = https.createServer(
+					{ SNICallback: (_sni, cb) => cb(null, secureContext) },
+					app
+				);
+				server.listen(HTTP_PORT, '::', () => {
+					console.log(
+						`Viking Bio Proxy listening on https://${ddns.domain}:${HTTP_PORT}`
+						+ ` (Let's Encrypt)`
+					);
+					if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
+					if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
+				});
+				return;
+			}
+		}
+
+		// Certificate not available yet (e.g. DNS not propagated, port 80
+		// unreachable); fall through to warn and start plain HTTP so the
+		// dashboard is still reachable while the issue is resolved.
+		console.warn('cert-manager: certificate not ready – starting HTTP instead.');
+		console.warn(`  Ensure port 80 is reachable from the internet for ${ddns.domain}`);
 	}
-	const server = https.createServer({ cert, key }, app);
-	server.listen(HTTP_PORT, '::', () => {
-		console.log(`Viking Bio Proxy listening on https://[::]:${HTTP_PORT} (TLS)`);
-		if (PICO_BASE_URL)        console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
-		if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
-	});
-} else {
+
+	// ------------------------------------------------------------------
+	// Option 2: manual HTTPS with user-supplied cert/key
+	// ------------------------------------------------------------------
+	if (certPath && keyPath) {
+		let cert, key;
+		try {
+			cert = fs.readFileSync(certPath);
+			key  = fs.readFileSync(keyPath);
+		} catch (err) {
+			console.error(`Failed to read TLS cert/key: ${err.message}`);
+			process.exit(1);
+		}
+		const server = https.createServer({ cert, key }, app);
+		server.listen(HTTP_PORT, '::', () => {
+			console.log(`Viking Bio Proxy listening on https://[::]:${HTTP_PORT} (TLS)`);
+			if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
+			if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
+		});
+		return;
+	}
+
+	// ------------------------------------------------------------------
+	// Option 3: plain HTTP (development / fallback)
+	// ------------------------------------------------------------------
 	const server = http.createServer(app);
 	server.listen(HTTP_PORT, '::', () => {
 		console.log(`Viking Bio Proxy listening on http://[::]:${HTTP_PORT}`);
-		if (PICO_BASE_URL)        console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
+		if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
 		if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
 	});
 }
+
+startServer().catch((err) => {
+	console.error(`Server startup failed: ${err.message}`);
+	process.exit(1);
+});
