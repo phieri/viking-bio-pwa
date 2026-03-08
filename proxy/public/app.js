@@ -67,6 +67,7 @@ async function subscribePush() {
 		});
 		await sendSubscription();
 		updatePushUI(true);
+		updatePushSource();
 	} catch (e) {
 		console.error('Push subscription failed:', e);
 		alert('Push subscription failed: ' + e.message);
@@ -88,6 +89,7 @@ async function unsubscribePush() {
 		body: JSON.stringify({ endpoint: ep })
 	});
 	updatePushUI(false);
+	updatePushSource();
 }
 
 async function sendSubscription() {
@@ -145,6 +147,28 @@ function updatePushUI(subscribed) {
 	}
 }
 
+async function updatePushSource() {
+	var el = document.getElementById('pushSource');
+	if (!el) return;
+	try {
+		var r = await fetch('/api/vapid-public-key');
+		var data = await r.json();
+		var msg;
+		if (data.source === 'pico') {
+			msg = 'Push: handled by device (Pico)';
+		} else if (data.source === 'proxy') {
+			msg = 'Push: handled by this proxy';
+		} else if (data.source === 'demo') {
+			msg = 'Push: demo mode \u2014 push requires Pico';
+		} else {
+			msg = 'Push: unknown';
+		}
+		el.textContent = msg;
+	} catch (e) {
+		el.textContent = '';
+	}
+}
+
 function urlBase64ToUint8Array(b64) {
 	var p = b64.replace(/-/g, '+').replace(/_/g, '/');
 	while (p.length % 4) p += '=';
@@ -168,3 +192,7 @@ if ('serviceWorker' in navigator) {
 }
 
 startPolling();
+
+window.addEventListener('load', function () {
+	updatePushSource();
+});

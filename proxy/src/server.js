@@ -138,9 +138,9 @@ app.get('/api/data', (req, res) => {
 // browser subscriptions are tied to the Pico's on-device private key.
 app.get('/api/vapid-public-key', (req, res) => {
 	if (PICO_VAPID_PUBLIC_KEY) {
-		res.json({ key: PICO_VAPID_PUBLIC_KEY });
+		res.json({ key: PICO_VAPID_PUBLIC_KEY, source: 'pico' });
 	} else {
-		res.json({ key: pushManager.getVapidPublicKey() });
+		res.json({ key: pushManager.getVapidPublicKey(), source: 'proxy' });
 	}
 });
 
