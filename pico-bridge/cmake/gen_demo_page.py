@@ -34,7 +34,7 @@ _MOCK_SCRIPT = """\
       return Promise.resolve({ok: true, json: function () { return Promise.resolve({country: 'SE'}); }});
     }
     if (url === '/api/vapid-public-key') {
-      return Promise.resolve({ok: true, json: function () { return Promise.resolve({key: ''}); }});
+      return Promise.resolve({ok: true, json: function () { return Promise.resolve({key: '', source: 'demo'}); }});
     }
     if (opts && opts.method === 'POST') {
       return Promise.resolve({ok: true, json: function () { return Promise.resolve({status: 'ok'}); }});
