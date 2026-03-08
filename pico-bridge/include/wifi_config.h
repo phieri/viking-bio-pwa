@@ -15,8 +15,8 @@
 // Proxy server IP address max length (IPv6 max string + null)
 #define WIFI_SERVER_IP_MAX_LEN 46
 
-// Default proxy server port
-#define WIFI_SERVER_PORT_DEFAULT 9000
+// Default proxy server port (matches the proxy's HTTP_PORT default)
+#define WIFI_SERVER_PORT_DEFAULT 3000
 
 /**
  * Initialize the WiFi config module (resets in-memory state).
