@@ -61,8 +61,8 @@ static push_subscription_t s_subs[PUSH_MAX_SUBSCRIPTIONS];
 #define PUSH_PATH_MAX_LEN     255
 // Maximum length of the notification JSON payload
 #define PUSH_PAYLOAD_MAX_LEN  255
-// Encrypted body: salt(16)+rs(4)+idlen(1)+as_pub(65)+ciphertext+tag(16)
-#define PUSH_ENCRYPTED_MAX_LEN  (86 + PUSH_PAYLOAD_MAX_LEN + 17)
+// Encrypted body: 2-byte pad-length prefix + ciphertext + tag(16)
+#define PUSH_ENCRYPTED_MAX_LEN  (2 + PUSH_PAYLOAD_MAX_LEN + 16)
 // VAPID JWT maximum length
 #define PUSH_VAPID_JWT_MAX_LEN  512
 // HTTP response buffer (just need the status line)
@@ -86,8 +86,10 @@ typedef struct {
 	absolute_time_t     timeout;
 	char                host[PUSH_HOST_MAX_LEN + 1];
 	uint16_t            port;
-	// HTTP request buffer: headers (text) + encrypted body (binary)
-	uint8_t             http_req[704 + PUSH_ENCRYPTED_MAX_LEN];
+	// HTTP request buffer: headers (text) + encrypted body (binary).
+	// 1024 bytes reserves space for the fixed headers plus the new
+	// Encryption: and Crypto-Key: lines that the aesgcm format requires.
+	uint8_t             http_req[1024 + PUSH_ENCRYPTED_MAX_LEN];
 	size_t              http_req_len;
 	char                response[PUSH_RESPONSE_MAX_LEN];
 	size_t              response_len;
@@ -484,13 +486,26 @@ static bool build_vapid_jwt(const char *audience, char *out_buf, size_t out_cap)
 }
 
 // ---------------------------------------------------------------------------
-// Delivery helper: RFC 8291 message encryption (aes128gcm)
+// Delivery helper: aesgcm message encryption
+// (draft-ietf-webpush-encryption-04, used with Content-Encoding: aesgcm)
 // ---------------------------------------------------------------------------
 
-// Encrypt plaintext for a push subscriber.
-// Returns number of bytes written to out_buf (header + ciphertext), or -1 on error.
+// Encrypt plaintext for a push subscriber using the aesgcm scheme.
+//
+// On success the function:
+//   - writes the 16-byte random salt to out_salt
+//   - writes the 65-byte uncompressed ephemeral sender public key to out_as_pub
+//   - writes ciphertext || tag (padded_len + 16 bytes) to out_buf
+//   - returns the number of bytes written to out_buf
+//
+// The caller must supply out_salt and out_as_pub to build the HTTP
+// Encryption and Crypto-Key headers respectively.
+//
+// Returns -1 on error.
 static int push_encrypt(const char *p256dh_b64, const char *auth_b64,
                          const char *plaintext,
+                         uint8_t out_salt[16],
+                         uint8_t out_as_pub[65],
                          uint8_t *out_buf, size_t out_cap) {
 	// Decode subscription keys
 	uint8_t ua_pub[65];
@@ -558,27 +573,41 @@ static int push_encrypt(const char *p256dh_b64, const char *auth_b64,
 	mbedtls_ctr_drbg_free(&ctr_drbg);
 	if (!ok) return -1;
 
-	// HKDF key derivation (RFC 8291 Section 3.4)
+	// aesgcm key derivation (draft-ietf-webpush-encryption-04 Section 3.3)
 	const mbedtls_md_info_t *sha256 = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
 	if (!sha256) return -1;
 
-	// PRK_key = HKDF-Extract(salt=auth_secret, IKM=ecdh_secret)
-	uint8_t prk_key[32];
+	// Step 1 – derive IKM from the ECDH shared secret and the auth secret:
+	//   PRK_auth = HKDF-Extract(salt=auth_secret, IKM=ecdh_secret)
+	//   IKM      = HKDF-Expand(PRK_auth, "Content-Encoding: auth\0", 32)
+	uint8_t prk_auth[32];
 	if (mbedtls_hkdf_extract(sha256, auth_secret, 16,
-	                          ecdh_secret, 32, prk_key) != 0) return -1;
+	                          ecdh_secret, 32, prk_auth) != 0) return -1;
 
-	// key_info = "WebPush: info\0" (14 bytes) || ua_pub(65) || as_pub(65)
-	uint8_t key_info[144];
-	memcpy(key_info, "WebPush: info\x00", 14);
-	memcpy(key_info + 14,  ua_pub, 65);
-	memcpy(key_info + 79,  as_pub, 65);
-
-	// IKM = HKDF-Expand(PRK_key, key_info, 32)
+	// "Content-Encoding: auth\0" – 23 bytes (22-char string + NUL delimiter)
+	static const uint8_t auth_info[] = "Content-Encoding: auth\x00";
 	uint8_t ikm[32];
-	if (mbedtls_hkdf_expand(sha256, prk_key, 32,
-	                         key_info, sizeof(key_info), ikm, 32) != 0) return -1;
+	if (mbedtls_hkdf_expand(sha256, prk_auth, 32,
+	                         auth_info, sizeof(auth_info), ikm, 32) != 0) return -1;
 
-	// Random 16-byte salt for content encryption
+	// Step 2 – build the key-derivation context:
+	//   context = "P-256\0" || uint16be(65) || ua_pub || uint16be(65) || as_pub
+	//
+	//   Byte layout (140 bytes total):
+	//     [0..5]   "P-256\0"          – 6 bytes
+	//     [6..7]   uint16be(65)        – 2 bytes (receiver key length)
+	//     [8..72]  ua_pub              – 65 bytes
+	//     [73..74] uint16be(65)        – 2 bytes (sender key length)
+	//     [75..139] as_pub             – 65 bytes
+	uint8_t context[140];
+	memcpy(context,      "P-256\x00", 6);
+	context[6]  = 0x00; context[7]  = 0x41; // uint16be(65) – receiver key length
+	memcpy(context + 8,  ua_pub, 65);
+	context[73] = 0x00; context[74] = 0x41; // uint16be(65) – sender key length
+	memcpy(context + 75, as_pub, 65);
+
+	// Step 3 – generate a random 16-byte salt and extract PRK:
+	//   PRK = HKDF-Extract(salt=salt, IKM=ikm)
 	uint8_t salt[16];
 	{
 		mbedtls_entropy_context  e2;
@@ -592,46 +621,44 @@ static int push_encrypt(const char *p256dh_b64, const char *auth_b64,
 		if (ret != 0) return -1;
 	}
 
-	// PRK = HKDF-Extract(salt=salt, IKM=ikm)
 	uint8_t prk[32];
 	if (mbedtls_hkdf_extract(sha256, salt, 16, ikm, 32, prk) != 0) return -1;
 
-	// CEK = HKDF-Expand(PRK, "Content-Encoding: aes128gcm\0", 16)
+	// Step 4 – derive the content-encryption key and nonce:
+	//   CEK   = HKDF-Expand(PRK, "Content-Encoding: aesgcm\0" || context, 16)
+	//   NONCE = HKDF-Expand(PRK, "Content-Encoding: nonce\0"  || context, 12)
+	uint8_t cek_info[165];   // 25 + 140
+	memcpy(cek_info, "Content-Encoding: aesgcm\x00", 25);
+	memcpy(cek_info + 25, context, 140);
+
+	uint8_t nonce_info[164]; // 24 + 140
+	memcpy(nonce_info, "Content-Encoding: nonce\x00", 24);
+	memcpy(nonce_info + 24, context, 140);
+
 	uint8_t cek[16];
-	static const uint8_t cek_info[] = "Content-Encoding: aes128gcm\x00"; // 28 bytes
-	if (mbedtls_hkdf_expand(sha256, prk, 32, cek_info, 28, cek, 16) != 0) return -1;
+	if (mbedtls_hkdf_expand(sha256, prk, 32, cek_info, sizeof(cek_info), cek, 16) != 0)
+		return -1;
 
-	// NONCE = HKDF-Expand(PRK, "Content-Encoding: nonce\0", 12)
 	uint8_t nonce[12];
-	static const uint8_t nonce_info[] = "Content-Encoding: nonce\x00"; // 24 bytes
-	if (mbedtls_hkdf_expand(sha256, prk, 32, nonce_info, 24, nonce, 12) != 0) return -1;
+	if (mbedtls_hkdf_expand(sha256, prk, 32, nonce_info, sizeof(nonce_info), nonce, 12) != 0)
+		return -1;
 
-	// Pad plaintext: append 0x02 delimiter (RFC 8291)
+	// Step 5 – pad the plaintext.
+	// aesgcm padding: prepend a 2-byte big-endian padding-length field set to 0
+	// (meaning no extra padding bytes), followed by the plaintext.
 	size_t pt_len = strlen(plaintext);
 	if (pt_len >= PUSH_PAYLOAD_MAX_LEN) return -1;
-	uint8_t padded[PUSH_PAYLOAD_MAX_LEN + 1];
-	memcpy(padded, plaintext, pt_len);
-	padded[pt_len] = 0x02;
-	size_t padded_len = pt_len + 1;
+	uint8_t padded[PUSH_PAYLOAD_MAX_LEN + 2];
+	padded[0] = 0x00; // pad_len high byte
+	padded[1] = 0x00; // pad_len low byte
+	memcpy(padded + 2, plaintext, pt_len);
+	size_t padded_len = 2 + pt_len;
 
-	// Output header: salt(16) + rs_be32(4) + idlen(1) + as_pub(65)
-	size_t total = 16 + 4 + 1 + 65 + padded_len + 16;
+	// Step 6 – AES-128-GCM encrypt.
+	// Output: ciphertext (padded_len bytes) || tag (16 bytes) – no binary header.
+	size_t total = padded_len + 16;
 	if (total > out_cap) return -1;
 
-	uint8_t *p = out_buf;
-
-	memcpy(p, salt, 16); p += 16;
-
-	uint32_t rs = PUSH_RS_FIELD;
-	p[0] = (uint8_t)(rs >> 24); p[1] = (uint8_t)(rs >> 16);
-	p[2] = (uint8_t)(rs >> 8);  p[3] = (uint8_t) rs;
-	p += 4;
-
-	*p++ = 65; // idlen = length of as_pub
-
-	memcpy(p, as_pub, 65); p += 65;
-
-	// AES-128-GCM encrypt: writes ciphertext to p, tag to tag[]
 	uint8_t tag[16];
 	mbedtls_gcm_context gcm;
 	mbedtls_gcm_init(&gcm);
@@ -640,13 +667,17 @@ static int push_encrypt(const char *p256dh_b64, const char *auth_b64,
 		ret = mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT,
 		                                 padded_len, nonce, 12,
 		                                 NULL, 0,
-		                                 padded, p, 16, tag);
+		                                 padded, out_buf, 16, tag);
 	}
 	mbedtls_gcm_free(&gcm);
 	if (ret != 0) return -1;
 
-	p += padded_len;
-	memcpy(p, tag, 16);
+	memcpy(out_buf + padded_len, tag, 16);
+
+	// Export salt and sender public key so the caller can build the HTTP headers.
+	// salt is always 16 bytes (AES-128-GCM); as_pub is 65 bytes (uncompressed P-256).
+	memcpy(out_salt,   salt,   16);
+	memcpy(out_as_pub, as_pub, 65);
 
 	return (int)total;
 }
@@ -881,12 +912,31 @@ static void push_start_delivery_for_sub(int sub_idx) {
 		return;
 	}
 
-	// RFC 8291: encrypt the payload
+	// aesgcm: encrypt the payload; get the per-message salt and sender key back
 	uint8_t encrypted[PUSH_ENCRYPTED_MAX_LEN];
+	uint8_t enc_salt[16];
+	uint8_t enc_as_pub[65];
 	int enc_len = push_encrypt(sub->p256dh, sub->auth, payload,
+	                            enc_salt, enc_as_pub,
 	                            encrypted, sizeof(encrypted));
 	if (enc_len < 0) {
 		printf("push_manager: encryption failed for sub %d\n", sub_idx);
+		push_advance_to_next_sub();
+		return;
+	}
+
+	// Base64url-encode the salt (Encryption header) and sender key (Crypto-Key header).
+	// salt  16 bytes → 22 base64url chars + NUL; 32-byte buffer gives a 9-byte margin.
+	char salt_b64[32];
+	// as_pub 65 bytes → 88 base64url chars + NUL; 96-byte buffer gives a 7-byte margin.
+	char as_pub_b64[96];
+	if (b64url_encode(enc_salt, 16, salt_b64, sizeof(salt_b64)) < 0) {
+		printf("push_manager: salt encode failed for sub %d\n", sub_idx);
+		push_advance_to_next_sub();
+		return;
+	}
+	if (b64url_encode(enc_as_pub, 65, as_pub_b64, sizeof(as_pub_b64)) < 0) {
+		printf("push_manager: sender key encode failed for sub %d\n", sub_idx);
 		push_advance_to_next_sub();
 		return;
 	}
@@ -906,18 +956,28 @@ static void push_start_delivery_for_sub(int sub_idx) {
 		return;
 	}
 
-	// Build HTTP POST headers directly into s_ctx.http_req, then append binary body
+	// Build HTTP POST headers directly into s_ctx.http_req, then append binary body.
+	//
+	// Header layout follows the aesgcm Web Push format:
+	//   Content-Encoding: aesgcm
+	//   Encryption: salt=<base64url(salt)>
+	//   Crypto-Key: dh=<base64url(sender_pub)>
+	//   Authorization: vapid t=<jwt>,k=<vapid_pub>   (RFC 8292)
 	int hdr_len = snprintf((char *)s_ctx.http_req, sizeof(s_ctx.http_req),
 	                        "POST %s HTTP/1.1\r\n"
 	                        "Host: %s\r\n"
 	                        "Content-Type: application/octet-stream\r\n"
-	                        "Content-Encoding: aes128gcm\r\n"
+	                        "Content-Encoding: aesgcm\r\n"
+	                        "Encryption: salt=%s\r\n"
+	                        "Crypto-Key: dh=%s\r\n"
 	                        "Authorization: vapid t=%s,k=%s\r\n"
 	                        "TTL: 0\r\n"
 	                        "Content-Length: %d\r\n"
 	                        "Connection: close\r\n"
 	                        "\r\n",
 	                        path, s_ctx.host,
+	                        salt_b64,
+	                        as_pub_b64,
 	                        s_ctx.vapid_jwt, vapid_pub,
 	                        enc_len);
 	if (hdr_len <= 0 || (size_t)hdr_len + (size_t)enc_len > sizeof(s_ctx.http_req)) {
