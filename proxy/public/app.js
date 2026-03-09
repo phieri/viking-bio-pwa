@@ -2,16 +2,16 @@ var pollTimer = null;
 var seasonTimer = null;
 var sw = null;
 var sub = null;
-var MS_PER_DAY = 86400000;
+const MS_PER_DAY = 86400000;
 
 function updateSeasonCountdown(timestamp) {
-	var today = new Date(timestamp || Date.now());
-	var todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-	var countdownEl = document.getElementById('season-countdown');
-	var targetEl = document.getElementById('season-target');
-	var target;
-	var label;
-	var days;
+	let today = new Date(timestamp || Date.now());
+	let todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+	let countdownEl = document.getElementById('season-countdown');
+	let targetEl = document.getElementById('season-target');
+	let target;
+	let label;
+	let days;
 
 	if (!countdownEl || !targetEl) return;
 
@@ -71,11 +71,11 @@ function startPolling() {
 	if (pollTimer) clearInterval(pollTimer);
 	if (seasonTimer) clearInterval(seasonTimer);
 	pollTimer = setInterval(poll, 2000);
-	seasonTimer = setInterval(updateSeasonCountdown, 60000);
+	seasonTimer = setInterval(updateSeasonCountdown, 600000);
 }
 
 function setStatus(msg, cls) {
-	var el = document.getElementById('status');
+	let el = document.getElementById('status');
 	el.textContent = msg;
 	el.className = 'status ' + cls;
 }
@@ -167,8 +167,8 @@ async function updateSubscription() {
 }
 
 function updatePushUI(subscribed) {
-	var btn = document.getElementById('pushBtn');
-	var unsub = document.getElementById('unsubBtn');
+	let btn = document.getElementById('pushBtn');
+	let unsub = document.getElementById('unsubBtn');
 	if (subscribed) {
 		btn.textContent = 'Update Preferences';
 		btn.className = 'btn btn-push subscribed';
@@ -181,7 +181,7 @@ function updatePushUI(subscribed) {
 }
 
 async function updatePushSource() {
-	var el = document.getElementById('pushSource');
+	let el = document.getElementById('pushSource');
 	if (!el) return;
 	try {
 		var r = await fetch('/api/vapid-public-key');
