@@ -20,8 +20,13 @@ include(pico_sdk_import.cmake)
 
 project(viking_bio_bridge C CXX ASM)
 
-set(CMAKE_C_STANDARD 11)
+set(C_STANDARD 17 CACHE STRING "C standard version to use (11, 17, or 23)")
+set(CMAKE_C_STANDARD ${C_STANDARD})
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 17)
+
+message(STATUS "C standard: C${CMAKE_C_STANDARD} (CMAKE_C_EXTENSIONS=${CMAKE_C_EXTENSIONS}, CMAKE_C_STANDARD_REQUIRED=${CMAKE_C_STANDARD_REQUIRED})")
 
 # ============================================
 # Build Version Information
