@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -11,57 +11,57 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 <script src="app.js" defer></script>
-<title>Viking Bio 20 Dashboard</title>
+<title>Viking Bio 20 – instrumentpanel</title>
 </head>
 <body>
 <h1>&#9919; Viking Bio 20</h1>
-<div class="status connecting" id="status">Connecting...</div>
+<div class="status connecting" id="status">Ansluter...</div>
 <div class="grid">
 <div class="card" id="flame-card">
-<div class="label">Flame</div>
+<div class="label">Låga</div>
 <div class="value" id="flame">--</div>
 <div class="unit">status</div>
 </div>
 <div class="card">
-<div class="label">Fan speed</div>
+<div class="label">Fläkthastighet</div>
 <div class="value" id="fan">--</div>
 <div class="unit">%</div>
 </div>
 <div class="card">
-<div class="label">Temperature</div>
+<div class="label">Temperatur</div>
 <div class="value" id="temp">--</div>
 <div class="unit">&deg;C</div>
 </div>
 <div class="card">
-<div class="label">Error code</div>
+<div class="label">Felkod</div>
 <div class="value" id="err">--</div>
-<div class="unit">code</div>
+<div class="unit">kod</div>
 </div>
 <div class="card">
-<div class="label">Flame hours</div>
+<div class="label">Brinntimmar</div>
 <div class="value" id="flame-hours">--</div>
-<div class="unit">hours</div>
+<div class="unit">timmar</div>
 </div>
 <div class="card">
-<div class="label">Subscribers</div>
+<div class="label">Prenumeranter</div>
 <div class="value" id="subscribers">--</div>
-<div class="unit">count</div>
+<div class="unit">antal</div>
 </div>
 <div class="card">
-<div class="label">Season change</div>
+<div class="label">Säsongsskifte</div>
 <div class="value" id="season-countdown">--</div>
-<div class="unit" id="season-target">days</div>
+<div class="unit" id="season-target">dagar</div>
 </div>
 </div>
 <div class="actions">
 	<div class="subscription">
 		<div class="subs-checkboxes">
-			<label><input type="checkbox" id="flameSub"> Flame on/off</label>
-			<label><input type="checkbox" id="errorSub"> Errors</label>
-			<label><input type="checkbox" id="cleanSub"> Cleaning reminder (Sat 07:00, Nov&ndash;Mar)</label>
+			<label><input type="checkbox" id="flameSub"> Låga på/av</label>
+			<label><input type="checkbox" id="errorSub"> Fel</label>
+			<label><input type="checkbox" id="cleanSub"> Städpåminnelse (lör 07:00, nov&ndash;mar)</label>
 		</div>
-		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Enable Notifications</button>
-		<button class="btn btn-unsub" id="unsubBtn" onclick="unsubscribePush()" style="display:none">Unsubscribe</button>
+		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Aktivera aviseringar</button>
+		<button class="btn btn-unsub" id="unsubBtn" onclick="unsubscribePush()" style="display:none">Avregistrera</button>
 		<div id="pushSource" class="push-source"></div>
 	</div>
 </div>
