@@ -203,9 +203,10 @@ async function updatePushSource() {
 }
 
 function urlBase64ToUint8Array(b64) {
-	let p = b64.replace(/-/g, '+').replace(/_/g, '/');
-	while (p.length % 4) p += '=';
-	const r = atob(p);
+	const p = b64.replace(/-/g, '+').replace(/_/g, '/');
+	const paddingLength = (4 - (p.length % 4)) % 4;
+	const padded = p.padEnd(p.length + paddingLength, '=');
+	const r = atob(padded);
 	return Uint8Array.from(r, (char) => char.charCodeAt(0));
 }
 
