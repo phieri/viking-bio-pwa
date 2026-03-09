@@ -1,14 +1,14 @@
-var pollTimer = null;
-var seasonTimer = null;
-var sw = null;
-var sub = null;
+let pollTimer = null;
+let seasonTimer = null;
+let sw = null;
+let sub = null;
 const MS_PER_DAY = 86400000;
 
-function updateSeasonCountdown(timestamp) {
-	let today = new Date(timestamp || Date.now());
-	let todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-	let countdownEl = document.getElementById('season-countdown');
-	let targetEl = document.getElementById('season-target');
+function updateSeasonCountdown(timestamp = Date.now()) {
+	const today = new Date(timestamp);
+	const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+	const countdownEl = document.getElementById('season-countdown');
+	const targetEl = document.getElementById('season-target');
 	let target;
 	let label;
 	let days;
@@ -34,33 +34,33 @@ function updateSeasonCountdown(timestamp) {
 
 function poll() {
 	fetch('/api/data')
-		.then(function(r) { return r.json(); })
-		.then(function(d) {
+		.then((r) => r.json())
+		.then((d) => {
 			document.getElementById('flame').textContent = d.flame ? 'ON' : 'OFF';
-			document.getElementById('flame-card').className = 'card ' + (d.flame ? 'flame-on' : 'flame-off');
+			document.getElementById('flame-card').className = `card ${d.flame ? 'flame-on' : 'flame-off'}`;
 			document.getElementById('fan').textContent = d.fan;
 			document.getElementById('temp').textContent = d.temp;
 			document.getElementById('err').textContent = d.err;
 			document.getElementById('flame-hours').textContent = (d.flame_secs / 3600).toFixed(1);
 
 			fetch('/api/subscribers')
-				.then(function(r) { return r.json(); })
-				.then(function(s) {
+				.then((r) => r.json())
+				.then((s) => {
 					if (typeof s.count !== 'undefined') {
 						document.getElementById('subscribers').textContent = s.count;
 					}
 				})
-				.catch(function() {});
+				.catch(() => {});
 
 			if (d.err > 0) {
-				setStatus('Error detected: code ' + d.err, 'error');
+				setStatus(`Error detected: code ${d.err}`, 'error');
 			} else if (!d.valid) {
 				setStatus('No data from burner', 'stale');
 			} else {
 				setStatus('Live \u2014 last update: ' + new Date().toLocaleTimeString(), 'ok');
 			}
 		})
-		.catch(function() {
+		.catch(() => {
 			setStatus('Connection lost \u2014 retrying...', 'stale');
 		});
 }
@@ -75,9 +75,9 @@ function startPolling() {
 }
 
 function setStatus(msg, cls) {
-	let el = document.getElementById('status');
+	const el = document.getElementById('status');
 	el.textContent = msg;
-	el.className = 'status ' + cls;
+	el.className = `status ${cls}`;
 }
 
 async function subscribePush() {
@@ -86,10 +86,10 @@ async function subscribePush() {
 		return;
 	}
 	try {
-		var r = await fetch('/api/vapid-public-key');
-		var keyData = await r.json();
+		const r = await fetch('/api/vapid-public-key');
+		const keyData = await r.json();
 		sw = await navigator.serviceWorker.ready;
-		var perm = await Notification.requestPermission();
+		const perm = await Notification.requestPermission();
 		if (perm !== 'granted') {
 			alert('Notification permission denied.');
 			return;
@@ -109,7 +109,7 @@ async function subscribePush() {
 
 async function unsubscribePush() {
 	if (!sub) return;
-	var ep = sub.endpoint;
+	const ep = sub.endpoint;
 	try {
 		await sub.unsubscribe();
 	} catch (e) {
@@ -127,15 +127,15 @@ async function unsubscribePush() {
 
 async function sendSubscription() {
 	if (!sub) return;
-	var subJson = sub.toJSON();
-	var body = {
+	const subJson = sub.toJSON();
+	const body = {
 		endpoint: subJson.endpoint || '',
-		p256dh: (subJson.keys && subJson.keys.p256dh) ? subJson.keys.p256dh : '',
-		auth: (subJson.keys && subJson.keys.auth) ? subJson.keys.auth : '',
+		p256dh: subJson.keys?.p256dh ?? '',
+		auth: subJson.keys?.auth ?? '',
 		prefs: {
-			flame: !!document.getElementById('flameSub').checked,
-			error: !!document.getElementById('errorSub').checked,
-			clean: !!document.getElementById('cleanSub').checked
+			flame: !!document.getElementById('flameSub')?.checked,
+			error: !!document.getElementById('errorSub')?.checked,
+			clean: !!document.getElementById('cleanSub')?.checked
 		}
 	};
 	await fetch('/api/subscribe', {
@@ -157,7 +157,7 @@ async function updateSubscription() {
 	try {
 		await sendSubscription();
 		document.getElementById('pushBtn').textContent = 'Preferences Updated';
-		setTimeout(function() {
+		setTimeout(() => {
 			document.getElementById('pushBtn').textContent = 'Update Preferences';
 		}, 1500);
 	} catch (e) {
@@ -167,8 +167,8 @@ async function updateSubscription() {
 }
 
 function updatePushUI(subscribed) {
-	let btn = document.getElementById('pushBtn');
-	let unsub = document.getElementById('unsubBtn');
+	const btn = document.getElementById('pushBtn');
+	const unsub = document.getElementById('unsubBtn');
 	if (subscribed) {
 		btn.textContent = 'Update Preferences';
 		btn.className = 'btn btn-push subscribed';
@@ -181,11 +181,11 @@ function updatePushUI(subscribed) {
 }
 
 async function updatePushSource() {
-	let el = document.getElementById('pushSource');
+	const el = document.getElementById('pushSource');
 	if (!el) return;
 	try {
-		var r = await fetch('/api/vapid-public-key');
-		var data = await r.json();
+		const r = await fetch('/api/vapid-public-key');
+		const data = await r.json();
 		let msg;
 		if (data.source === 'pico') {
 			msg = 'Push: handled by device (Pico)';
@@ -203,20 +203,17 @@ async function updatePushSource() {
 }
 
 function urlBase64ToUint8Array(b64) {
-	var p = b64.replace(/-/g, '+').replace(/_/g, '/');
-	while (p.length % 4) p += '=';
-	var r = atob(p);
-	var o = new Uint8Array(r.length);
-	for (var i = 0; i < r.length; ++i) o[i] = r.charCodeAt(i);
-	return o;
+	const p = b64.replace(/-/g, '+').replace(/_/g, '/');
+	const paddingLength = (4 - (p.length % 4)) % 4;
+	const padded = p.padEnd(p.length + paddingLength, '=');
+	const r = atob(padded);
+	return Uint8Array.from(r, (char) => char.charCodeAt(0));
 }
 
 if ('serviceWorker' in navigator) {
 	navigator.serviceWorker.register('/sw.js')
-		.then(function(r) {
-			return r.pushManager.getSubscription();
-		})
-		.then(function(s) {
+		.then((r) => r.pushManager.getSubscription())
+		.then((s) => {
 			if (s) {
 				sub = s;
 				updatePushUI(true);
@@ -226,6 +223,6 @@ if ('serviceWorker' in navigator) {
 
 startPolling();
 
-window.addEventListener('load', function () {
+window.addEventListener('load', () => {
 	updatePushSource();
 });
