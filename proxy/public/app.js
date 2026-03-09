@@ -1,4 +1,5 @@
 var pollTimer = null;
+var seasonTimer = null;
 var sw = null;
 var sub = null;
 var MS_PER_DAY = 86400000;
@@ -6,9 +7,13 @@ var MS_PER_DAY = 86400000;
 function updateSeasonCountdown(timestamp) {
 	var today = new Date(timestamp || Date.now());
 	var todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+	var countdownEl = document.getElementById('season-countdown');
+	var targetEl = document.getElementById('season-target');
 	var target;
 	var label;
 	var days;
+
+	if (!countdownEl || !targetEl) return;
 
 	if (todayStart < new Date(todayStart.getFullYear(), 3, 1)) {
 		target = new Date(todayStart.getFullYear(), 3, 1);
@@ -21,11 +26,10 @@ function updateSeasonCountdown(timestamp) {
 		label = 'days until 1 Apr (turn off)';
 	}
 
-	days = (Date.UTC(target.getFullYear(), target.getMonth(), target.getDate()) -
-		Date.UTC(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate())) / MS_PER_DAY;
+	days = Math.floor((target - todayStart) / MS_PER_DAY);
 
-	document.getElementById('season-countdown').textContent = days;
-	document.getElementById('season-target').textContent = label;
+	countdownEl.textContent = days;
+	targetEl.textContent = label;
 }
 
 function poll() {
@@ -65,10 +69,9 @@ function startPolling() {
 	updateSeasonCountdown();
 	poll();
 	if (pollTimer) clearInterval(pollTimer);
-	pollTimer = setInterval(function() {
-		updateSeasonCountdown();
-		poll();
-	}, 2000);
+	if (seasonTimer) clearInterval(seasonTimer);
+	pollTimer = setInterval(poll, 2000);
+	seasonTimer = setInterval(updateSeasonCountdown, 60000);
 }
 
 function setStatus(msg, cls) {
