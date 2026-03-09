@@ -1,23 +1,28 @@
 var pollTimer = null;
 var sw = null;
 var sub = null;
+var MS_PER_DAY = 86400000;
 
-function updateSeasonCountdown(now) {
-	var today = new Date(now || Date.now());
+function updateSeasonCountdown(timestamp) {
+	var today = new Date(timestamp || Date.now());
 	var todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-	var april = new Date(todayStart.getFullYear(), 3, 1);
-	var november = new Date(todayStart.getFullYear(), 10, 1);
-	var target = todayStart < april ? april : november;
-	var label = todayStart < april ? 'days until 1 Apr (turn off)' : 'days until 1 Nov (turn on)';
+	var target;
+	var label;
 	var days;
 
-	if (todayStart >= november) {
+	if (todayStart < new Date(todayStart.getFullYear(), 3, 1)) {
+		target = new Date(todayStart.getFullYear(), 3, 1);
+		label = 'days until 1 Apr (turn off)';
+	} else if (todayStart < new Date(todayStart.getFullYear(), 10, 1)) {
+		target = new Date(todayStart.getFullYear(), 10, 1);
+		label = 'days until 1 Nov (turn on)';
+	} else {
 		target = new Date(todayStart.getFullYear() + 1, 3, 1);
 		label = 'days until 1 Apr (turn off)';
 	}
 
 	days = (Date.UTC(target.getFullYear(), target.getMonth(), target.getDate()) -
-		Date.UTC(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate())) / 86400000;
+		Date.UTC(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate())) / MS_PER_DAY;
 
 	document.getElementById('season-countdown').textContent = days;
 	document.getElementById('season-target').textContent = label;
