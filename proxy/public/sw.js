@@ -1,5 +1,5 @@
-var CACHE_NAME = 'viking-bio-v1';
-var ASSETS = [
+const CACHE_NAME = 'viking-bio-v1';
+const ASSETS = [
 	'/',
 	'/index.html',
 	'/style.css',
@@ -15,31 +15,27 @@ var ASSETS = [
 	'/favicon-16.png'
 ];
 
-self.addEventListener('install', function(e) {
+self.addEventListener('install', (e) => {
 	e.waitUntil(
-		caches.open(CACHE_NAME).then(function(cache) {
-			return cache.addAll(ASSETS);
-		}).then(function() {
-			return self.skipWaiting();
-		})
+		caches.open(CACHE_NAME)
+			.then((cache) => cache.addAll(ASSETS))
+			.then(() => self.skipWaiting())
 	);
 });
 
-self.addEventListener('activate', function(e) {
+self.addEventListener('activate', (e) => {
 	e.waitUntil(
-		caches.keys().then(function(names) {
+		caches.keys().then((names) => {
 			return Promise.all(
-				names.filter(function(n) { return n !== CACHE_NAME; })
-					.map(function(n) { return caches.delete(n); })
+				names.filter((n) => n !== CACHE_NAME)
+					.map((n) => caches.delete(n))
 			);
-		}).then(function() {
-			return clients.claim();
-		})
+		}).then(() => clients.claim())
 	);
 });
 
-self.addEventListener('fetch', function(e) {
-	var url = new URL(e.request.url);
+self.addEventListener('fetch', (e) => {
+	const url = new URL(e.request.url);
 
 	// API requests: network-only (never cache dynamic data)
 	if (url.pathname.startsWith('/api/')) {
@@ -48,15 +44,15 @@ self.addEventListener('fetch', function(e) {
 
 	// Static assets: cache-first, falling back to network
 	e.respondWith(
-		caches.match(e.request).then(function(cached) {
+		caches.match(e.request).then((cached) => {
 			if (cached) {
 				return cached;
 			}
-			return fetch(e.request).then(function(response) {
+			return fetch(e.request).then((response) => {
 				// Only cache successful same-origin responses
 				if (response.ok && url.origin === self.location.origin) {
-					var clone = response.clone();
-					caches.open(CACHE_NAME).then(function(cache) {
+					const clone = response.clone();
+					caches.open(CACHE_NAME).then((cache) => {
 						cache.put(e.request, clone);
 					});
 				}
@@ -66,11 +62,11 @@ self.addEventListener('fetch', function(e) {
 	);
 });
 
-self.addEventListener('push', function(e) {
-	var d = { title: 'Viking Bio Alert', body: 'Alert from burner', icon: '/icon-192.png', priority: 'high', type: 'error' };
+self.addEventListener('push', (e) => {
+	let d = { title: 'Viking Bio Alert', body: 'Alert from burner', icon: '/icon-192.png', priority: 'high', type: 'error' };
 	try { d = e.data.json(); } catch (ex) {}
 
-	var options = {
+	const options = {
 		body: d.body,
 		icon: d.icon || '/icon-192.png',
 		badge: '/icon-192.png',
@@ -94,11 +90,10 @@ self.addEventListener('push', function(e) {
 	e.waitUntil(self.registration.showNotification(d.title, options));
 });
 
-self.addEventListener('notificationclick', function(e) {
+self.addEventListener('notificationclick', (e) => {
 	e.notification.close();
-	e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-		for (var i = 0; i < clientList.length; i++) {
-			var c = clientList[i];
+	e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+		for (const c of clientList) {
 			if (new URL(c.url).pathname === '/' && 'focus' in c) return c.focus();
 		}
 		if (clients.openWindow) return clients.openWindow('/');
