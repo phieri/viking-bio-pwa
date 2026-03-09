@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.21)
 
 include(FetchContent)
 
@@ -20,7 +20,7 @@ include(pico_sdk_import.cmake)
 
 project(viking_bio_bridge C CXX ASM)
 
-set(C_STANDARD 17 CACHE STRING "C standard version to use (11, 17, or 23)")
+set(C_STANDARD 23 CACHE STRING "C standard version to use (11, 17, or 23)")
 set(CMAKE_C_STANDARD ${C_STANDARD})
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
