@@ -17,13 +17,13 @@ function updateSeasonCountdown(timestamp) {
 
 	if (todayStart < new Date(todayStart.getFullYear(), 3, 1)) {
 		target = new Date(todayStart.getFullYear(), 3, 1);
-		label = 'days until 1 Apr (turn off)';
+		label = 'days until turn off';
 	} else if (todayStart < new Date(todayStart.getFullYear(), 10, 1)) {
 		target = new Date(todayStart.getFullYear(), 10, 1);
-		label = 'days until 1 Nov (turn on)';
+		label = 'days until turn on';
 	} else {
 		target = new Date(todayStart.getFullYear() + 1, 3, 1);
-		label = 'days until 1 Apr (turn off)';
+		label = 'days until turn off';
 	}
 
 	days = Math.floor((target - todayStart) / MS_PER_DAY);
@@ -186,7 +186,7 @@ async function updatePushSource() {
 	try {
 		var r = await fetch('/api/vapid-public-key');
 		var data = await r.json();
-		var msg;
+		let msg;
 		if (data.source === 'pico') {
 			msg = 'Push: handled by device (Pico)';
 		} else if (data.source === 'proxy') {
