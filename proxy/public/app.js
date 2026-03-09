@@ -17,13 +17,13 @@ function updateSeasonCountdown(timestamp = Date.now()) {
 
 	if (todayStart < new Date(todayStart.getFullYear(), 3, 1)) {
 		target = new Date(todayStart.getFullYear(), 3, 1);
-		label = 'days until turn off';
+		label = 'dagar till avstängning';
 	} else if (todayStart < new Date(todayStart.getFullYear(), 10, 1)) {
 		target = new Date(todayStart.getFullYear(), 10, 1);
-		label = 'days until turn on';
+		label = 'dagar till idrifttagning';
 	} else {
 		target = new Date(todayStart.getFullYear() + 1, 3, 1);
-		label = 'days until turn off';
+		label = 'dagar till avstängning';
 	}
 
 	days = Math.floor((target - todayStart) / MS_PER_DAY);
@@ -36,7 +36,7 @@ function poll() {
 	fetch('/api/data')
 		.then((r) => r.json())
 		.then((d) => {
-			document.getElementById('flame').textContent = d.flame ? 'ON' : 'OFF';
+			document.getElementById('flame').textContent = d.flame ? 'PÅ' : 'AV';
 			document.getElementById('flame-card').className = `card ${d.flame ? 'flame-on' : 'flame-off'}`;
 			document.getElementById('fan').textContent = d.fan;
 			document.getElementById('temp').textContent = d.temp;
@@ -53,15 +53,15 @@ function poll() {
 				.catch(() => {});
 
 			if (d.err > 0) {
-				setStatus(`Error detected: code ${d.err}`, 'error');
+				setStatus(`Fel detekterat: kod ${d.err}`, 'error');
 			} else if (!d.valid) {
-				setStatus('No data from burner', 'stale');
+				setStatus('Ingen data från pannan', 'stale');
 			} else {
-				setStatus('Live \u2014 last update: ' + new Date().toLocaleTimeString(), 'ok');
+				setStatus('Live \u2014 senast uppdaterad: ' + new Date().toLocaleTimeString(), 'ok');
 			}
 		})
 		.catch(() => {
-			setStatus('Connection lost \u2014 retrying...', 'stale');
+			setStatus('Anslutning förlorad \u2014 försöker igen...', 'stale');
 		});
 }
 
@@ -82,7 +82,7 @@ function setStatus(msg, cls) {
 
 async function subscribePush() {
 	if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-		alert('Push notifications not supported in this browser.');
+		alert('Push-aviseringar stöds inte i den här webbläsaren.');
 		return;
 	}
 	try {
@@ -91,7 +91,7 @@ async function subscribePush() {
 		sw = await navigator.serviceWorker.ready;
 		const perm = await Notification.requestPermission();
 		if (perm !== 'granted') {
-			alert('Notification permission denied.');
+			alert('Aviseringstillstånd nekades.');
 			return;
 		}
 		sub = await sw.pushManager.subscribe({
@@ -103,7 +103,7 @@ async function subscribePush() {
 		updatePushSource();
 	} catch (e) {
 		console.error('Push subscription failed:', e);
-		alert('Push subscription failed: ' + e.message);
+		alert('Push-prenumeration misslyckades: ' + e.message);
 	}
 }
 
@@ -147,7 +147,7 @@ async function sendSubscription() {
 
 async function updateSubscription() {
 	if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-		alert('Push notifications not supported in this browser.');
+		alert('Push-aviseringar stöds inte i den här webbläsaren.');
 		return;
 	}
 	if (!sub) {
@@ -156,13 +156,13 @@ async function updateSubscription() {
 	}
 	try {
 		await sendSubscription();
-		document.getElementById('pushBtn').textContent = 'Preferences Updated';
+		document.getElementById('pushBtn').textContent = 'Inställningar uppdaterade';
 		setTimeout(() => {
-			document.getElementById('pushBtn').textContent = 'Update Preferences';
+			document.getElementById('pushBtn').textContent = 'Uppdatera inställningar';
 		}, 1500);
 	} catch (e) {
 		console.error('Updating subscription failed:', e);
-		alert('Updating subscription failed: ' + e.message);
+		alert('Uppdatering av prenumeration misslyckades: ' + e.message);
 	}
 }
 
@@ -170,11 +170,11 @@ function updatePushUI(subscribed) {
 	const btn = document.getElementById('pushBtn');
 	const unsub = document.getElementById('unsubBtn');
 	if (subscribed) {
-		btn.textContent = 'Update Preferences';
+		btn.textContent = 'Uppdatera inställningar';
 		btn.className = 'btn btn-push subscribed';
 		unsub.style.display = 'inline-block';
 	} else {
-		btn.textContent = 'Enable Notifications';
+		btn.textContent = 'Aktivera aviseringar';
 		btn.className = 'btn btn-push';
 		unsub.style.display = 'none';
 	}
@@ -188,13 +188,13 @@ async function updatePushSource() {
 		const data = await r.json();
 		let msg;
 		if (data.source === 'pico') {
-			msg = 'Push: handled by device (Pico)';
+			msg = 'Push: hanteras av enhet (Pico)';
 		} else if (data.source === 'proxy') {
-			msg = 'Push: handled by this proxy';
+			msg = 'Push: hanteras av denna proxy';
 		} else if (data.source === 'demo') {
-			msg = 'Push: demo mode \u2014 push requires Pico';
+			msg = 'Push: demoläge \u2014 push kräver Pico';
 		} else {
-			msg = 'Push: unknown';
+			msg = 'Push: okänd';
 		}
 		el.textContent = msg;
 	} catch (e) {

@@ -1,7 +1,7 @@
 {
-  "name": "Viking Bio 20 Dashboard",
+  "name": "Viking Bio 20 – instrumentpanel",
   "short_name": "VikingBio",
-  "description": "Real-time dashboard for Viking Bio 20 burner",
+  "description": "Realtidsinstrumentpanel för Viking Bio 20-brännare",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
