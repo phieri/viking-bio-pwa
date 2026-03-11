@@ -34,6 +34,10 @@ _MOCK_SCRIPT = """\
     if (url === '/api/country') {
       return Promise.resolve({ok: true, json: function () { return Promise.resolve({country: 'SE'}); }});
     }
+    if (url === '/api/subscribers') {
+      var s = samples[(idx - 1 + samples.length) % samples.length];
+      return Promise.resolve({ok: true, json: function () { return Promise.resolve({count: s.subscribers}); }});
+    }
     if (url === '/api/vapid-public-key') {
       return Promise.resolve({ok: true, json: function () { return Promise.resolve({key: '', source: 'demo'}); }});
     }
