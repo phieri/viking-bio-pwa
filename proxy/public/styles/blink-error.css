@@ -28,13 +28,3 @@
     box-shadow: inset 0 0 0 4px rgba(255, 77, 77, 0.15);
   }
 }
-
-/* Optional: small visible error banner style (useful if you blink body) */
-.error-banner {
-  background: #3d0000;
-  color: #ff6b6b;
-  padding: 10px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,0,0,0.3);
-  margin: 12px;
-}

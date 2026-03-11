@@ -45,8 +45,7 @@ function poll() {
 			document.getElementById('err').textContent = d.err;
 			document.getElementById('flame-hours').textContent = (d.flame_secs / 3600).toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 			document.body.classList.toggle('error-active', d.err > 0);
-			if (d.err > 0) window._blink?.startBlink(document.body);
-			else window._blink?.stopBlink(document.body);
+			document.body.classList.toggle('blink-error', d.err > 0);
 
 			fetch('/api/subscribers')
 				.then((r) => r.json())
