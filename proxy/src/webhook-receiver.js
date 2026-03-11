@@ -41,10 +41,10 @@ function createWebhookReceiver(state, pushManager) {
 
 		// Notify: flame on/off transitions
 		if (state.flame !== prevFlame) {
-			const title = state.flame ? 'Viking Bio: Flame ON' : 'Viking Bio: Flame OFF';
+			const title = state.flame ? 'Viking Bio: Låga tänd' : 'Viking Bio: Låga släckt';
 			const body  = state.flame
-				? `Burner ignited – ${state.temp}°C`
-				: 'Burner flame extinguished';
+				? `Pannan tänd \u2013 ${state.temp}\u00a0°C`
+				: 'Pannan har slocknat';
 			pushManager.notifyByType('flame', title, body);
 		}
 
@@ -52,8 +52,8 @@ function createWebhookReceiver(state, pushManager) {
 		if (state.err !== 0 && state.err !== prevErr && !errorNotified) {
 			errorNotified = true;
 			pushManager.notifyByType('error',
-				'Viking Bio: Error',
-				`Error code ${state.err} detected`);
+				'Viking Bio: Fel',
+				`Felkod ${state.err} detekterad`);
 		} else if (state.err === 0) {
 			errorNotified = false;
 		}

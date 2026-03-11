@@ -48,8 +48,8 @@ function createScheduler(pushManager) {
 			console.log('scheduler: sending cleaning reminder');
 			pushManager.notifyByType(
 				'clean',
-				'Viking Bio: Cleaning Reminder',
-				'Time to clean the burner. Regular cleaning keeps it running efficiently.'
+				'Viking Bio: Rengöringspåminnelse',
+				'Dags att rengöra pannan. Regelbunden rengöring håller den i gott skick.'
 			);
 		}
 	}
