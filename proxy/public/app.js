@@ -41,7 +41,7 @@ function poll() {
 			document.getElementById('fan').textContent = d.fan;
 			document.getElementById('temp').textContent = d.temp;
 			document.getElementById('err').textContent = d.err;
-			document.getElementById('flame-hours').textContent = (d.flame_secs / 3600).toFixed(1);
+			document.getElementById('flame-hours').textContent = (d.flame_secs / 3600).toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 			fetch('/api/subscribers')
 				.then((r) => r.json())

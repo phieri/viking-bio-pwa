@@ -63,7 +63,7 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (e) => {
-	let d = { title: 'Viking Bio Alert', body: 'Alert from burner', icon: '/icon-192.png', priority: 'high', type: 'error' };
+	let d = { title: 'Viking Bio-avisering', body: 'Avisering från pannan', icon: '/icon-192.png', priority: 'high', type: 'error' };
 	try { d = e.data.json(); } catch (ex) {}
 
 	const options = {
