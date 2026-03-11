@@ -18,7 +18,7 @@ h1{text-align:center;margin-bottom:24px;font-size:1.8em}
 .btn-unsub{background:#3d0000;color:#ff6b6b;border:1px solid #ff6b6b}
 .btn-unsub:hover{background:#5a0000}
 .actions{text-align:center;margin:16px auto;max-width:800px}
-.flame-on .value{font-size: 2.75em;}
+.flame-on .value{font-size: 2.5em;}
 .flame-off .value{color:#555}
 .subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#252b33;padding:10px;border-radius:10px;border:1px solid #3a4048}
 .subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#fff;font-size:0.95em}
