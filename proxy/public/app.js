@@ -37,7 +37,7 @@ function poll() {
 		.then((r) => r.json())
 		.then((d) => {
 			const flameEl = document.getElementById('flame');
-			flameEl.textContent = d.flame ? '🔥 PÅ' : 'AV';
+			flameEl.textContent = d.flame ? '🔥' : 'AV';
 			flameEl.setAttribute('aria-label', d.flame ? 'Låga på' : 'Låga av');
 			document.getElementById('flame-card').className = `card ${d.flame ? 'flame-on' : 'flame-off'}`;
 			document.getElementById('fan').textContent = d.fan;
