@@ -215,7 +215,7 @@ function urlBase64ToUint8Array(b64) {
 }
 
 if ('serviceWorker' in navigator) {
-	navigator.serviceWorker.register('/sw.js')
+	navigator.serviceWorker.register('sw.js')
 		.then((r) => r.pushManager.getSubscription())
 		.then((s) => {
 			if (s) {
