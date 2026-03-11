@@ -17,12 +17,12 @@ _MOCK_SCRIPT = """\
 /* Demo mode: intercept API calls and return simulated burner data */
 (function () {
   var samples = [
-    {flame: true,  fan: 65, temp: 72, err: 0, valid: true, flame_secs: 7320},
-    {flame: true,  fan: 70, temp: 74, err: 0, valid: true, flame_secs: 7322},
-    {flame: true,  fan: 60, temp: 71, err: 0, valid: true, flame_secs: 7324},
-    {flame: false, fan: 0,  temp: 68, err: 0, valid: true, flame_secs: 7324},
-    {flame: false, fan: 0,  temp: 15, err: 1, valid: true, flame_secs: 7324},
-    {flame: false, fan: 0,  temp: 65, err: 0, valid: true, flame_secs: 7324}
+    {flame: true,  fan: 65, temp: 72, err: 0, valid: true, subscribers: 2, flame_secs: 7320},
+    {flame: true,  fan: 70, temp: 74, err: 0, valid: true, subscribers: 2, flame_secs: 7322},
+    {flame: true,  fan: 60, temp: 71, err: 0, valid: true, subscribers: 2, flame_secs: 7324},
+    {flame: false, fan: 0,  temp: 68, err: 0, valid: true, subscribers: 2, flame_secs: 7324},
+    {flame: false, fan: 0,  temp: 15, err: 1, valid: true, subscribers: 2, flame_secs: 7324},
+    {flame: false, fan: 0,  temp: 65, err: 0, valid: true, subscribers: 2, flame_secs: 7324}
   ];
   var idx = 0;
   var _fetch = window.fetch.bind(window);

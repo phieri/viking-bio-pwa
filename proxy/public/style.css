@@ -1,6 +1,6 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:100vh;padding:20px;transition:background 0.4s}
-h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
+h1{text-align:center;margin-bottom:24px;font-size:1.8em}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;max-width:800px;margin:0 auto}
 .card{background:#252b33;border-radius:12px;padding:24px;text-align:center;border:1px solid #3a4048}
 .card .label{font-size:.8em;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
@@ -18,17 +18,12 @@ h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
 .btn-unsub{background:#3d0000;color:#ff6b6b;border:1px solid #ff6b6b}
 .btn-unsub:hover{background:#5a0000}
 .actions{text-align:center;margin:16px auto;max-width:800px}
-.flame-on .value{color:#ff6b35}
+.flame-on .value{font-size: 120%;}
 .flame-off .value{color:#555}
 .subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#252b33;padding:10px;border-radius:10px;border:1px solid #3a4048}
 .subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#fff;font-size:0.95em}
 .subs-checkboxes label{margin:2px 0}
-#country-card .label{color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-#country-card .value{font-weight:bold;color:#e94560}
-#country-card .note{font-size:.75em;color:#bbb;margin-top:8px}
-/* Error state: reddish page background */
 body.error-active{background:#f00}
-/* Hide subscription area in fullscreen */
 :fullscreen .actions{display:none}
 :-webkit-full-screen .actions{display:none}
 :-moz-full-screen .actions{display:none}
