@@ -12,19 +12,6 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="styles/blink-error.css">
 <script src="app.js" defer></script>
-<script type="module">
-import { startBlink, stopBlink, setUserBlinkOptOut, isUserOptedOut } from '/scripts/continuousBlink.js';
-window._blink = { startBlink, stopBlink };
-const toggle = document.getElementById('blinkDisableToggle');
-if (toggle) {
-	toggle.checked = isUserOptedOut();
-	toggle.addEventListener('change', () => {
-		setUserBlinkOptOut(toggle.checked);
-		if (toggle.checked) stopBlink(document.body); // opted out: stop immediately
-		else if (document.body.classList.contains('error-active')) startBlink(document.body); // re-enable if error is active
-	});
-}
-</script>
 <title>Viking Bio 20 – instrumentpanel</title>
 </head>
 <body>
@@ -72,7 +59,6 @@ if (toggle) {
 			<label><input type="checkbox" id="flameSub"> Låga på/av</label>
 			<label><input type="checkbox" id="errorSub"> Fel</label>
 			<label><input type="checkbox" id="cleanSub"> Städpåminnelse (lör 07:00, nov&ndash;mar)</label>
-			<label><input type="checkbox" id="blinkDisableToggle"> Inaktivera blinkning vid fel</label>
 		</div>
 		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Aktivera aviseringar</button>
 		<button class="btn btn-unsub" id="unsubBtn" onclick="unsubscribePush()" style="display:none">Avregistrera</button>
