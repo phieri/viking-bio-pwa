@@ -56,7 +56,7 @@ _PUSH_OVERRIDE_SCRIPT = """\
 <script>
 /* Demo mode: replace push-notification toggle with an informational message */
 window.togglePush = function () {
-  alert('Push notifications require the actual Pico W device.\nThis is a demo running simulated data.');
+  alert('Push notifications require the actual Pico W device.\\nThis is a demo running simulated data.');
 };
 </script>
 """
