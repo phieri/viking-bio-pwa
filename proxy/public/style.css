@@ -1,34 +1,40 @@
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;padding:20px}
+body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:100vh;padding:20px;transition:background 0.4s}
 h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;max-width:800px;margin:0 auto}
-.card{background:#16213e;border-radius:12px;padding:24px;text-align:center;border:1px solid #0f3460}
+.card{background:#252b33;border-radius:12px;padding:24px;text-align:center;border:1px solid #3a4048}
 .card .label{font-size:.8em;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 .card .value{font-size:2em;font-weight:bold;color:#e94560}
-.card .unit{font-size:.9em;color:#888;margin-top:4px}
+.card .unit{font-size:.9em;color:#bbb;margin-top:4px}
 .status{text-align:center;margin:16px auto;max-width:800px;padding:12px;border-radius:8px;font-size:.9em}
 .status.ok{background:#0f3460;color:#4ecdc4}
 .status.error{background:#3d0000;color:#ff6b6b}
 .status.stale{background:#2d2d00;color:#ffd93d}
-.status.connecting{background:#1a1a2e;color:#aaa}
+.status.connecting{background:#1e242a;color:#aaa}
 .btn{display:inline-block;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:.9em;margin:4px}
-.btn-push{background:#0f3460;color:#e94560;border:1px solid #e94560}
-.btn-push:hover{background:#1a3a6e}
+.btn-push{background:#2a3038;color:#e94560;border:1px solid #e94560}
+.btn-push:hover{background:#353d47}
 .btn-push.subscribed{background:#0d3d2e;color:#4ecdc4;border-color:#4ecdc4}
 .btn-unsub{background:#3d0000;color:#ff6b6b;border:1px solid #ff6b6b}
 .btn-unsub:hover{background:#5a0000}
 .actions{text-align:center;margin:16px auto;max-width:800px}
 .flame-on .value{color:#ff6b35}
 .flame-off .value{color:#555}
-.subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#16213e;padding:10px;border-radius:10px;border:1px solid #0f3460}
-.subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#eee;font-size:0.95em}
+.subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#252b33;padding:10px;border-radius:10px;border:1px solid #3a4048}
+.subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#fff;font-size:0.95em}
 .subs-checkboxes label{margin:2px 0}
 #country-card .label{color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 #country-card .value{font-weight:bold;color:#e94560}
-#country-card .note{font-size:.75em;color:#888;margin-top:8px}
+#country-card .note{font-size:.75em;color:#bbb;margin-top:8px}
+/* Error state: reddish page background */
+body.error-active{background:#2a1818}
+/* Hide subscription area in fullscreen */
+:fullscreen .actions{display:none}
+:-webkit-full-screen .actions{display:none}
+:-moz-full-screen .actions{display:none}
 @media (max-width:520px){
 	.subscription{flex-direction:column;align-items:stretch}
 	.subs-checkboxes{align-items:flex-start}
 	.subscription .btn{width:100%}
 }
-.push-source{font-size:.8em;color:#888;margin-top:6px;text-align:center;width:100%}
+.push-source{font-size:.8em;color:#aaa;margin-top:6px;text-align:center;width:100%}
