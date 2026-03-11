@@ -27,7 +27,7 @@ h1{text-align:center;color:#e94560;margin-bottom:24px;font-size:1.8em}
 #country-card .value{font-weight:bold;color:#e94560}
 #country-card .note{font-size:.75em;color:#bbb;margin-top:8px}
 /* Error state: reddish page background */
-body.error-active{background:#2a1818}
+body.error-active{background:#f00}
 /* Hide subscription area in fullscreen */
 :fullscreen .actions{display:none}
 :-webkit-full-screen .actions{display:none}
