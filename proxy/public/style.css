@@ -23,7 +23,6 @@ h1{text-align:center;margin-bottom:24px;font-size:1.8em}
 .subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#252b33;padding:10px;border-radius:10px;border:1px solid #3a4048}
 .subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#fff;font-size:0.95em}
 .subs-checkboxes label{margin:2px 0}
-body.error-active{background:#f00}
 :fullscreen .actions{display:none}
 :-webkit-full-screen .actions{display:none}
 :-moz-full-screen .actions{display:none}
