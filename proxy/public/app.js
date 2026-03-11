@@ -36,12 +36,15 @@ function poll() {
 	fetch('/api/data')
 		.then((r) => r.json())
 		.then((d) => {
-			document.getElementById('flame').textContent = d.flame ? 'PÅ' : 'AV';
+			const flameEl = document.getElementById('flame');
+			flameEl.textContent = d.flame ? '🔥 PÅ' : 'AV';
+			flameEl.setAttribute('aria-label', d.flame ? 'Låga på' : 'Låga av');
 			document.getElementById('flame-card').className = `card ${d.flame ? 'flame-on' : 'flame-off'}`;
 			document.getElementById('fan').textContent = d.fan;
 			document.getElementById('temp').textContent = d.temp;
 			document.getElementById('err').textContent = d.err;
 			document.getElementById('flame-hours').textContent = (d.flame_secs / 3600).toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+			document.body.classList.toggle('error-active', d.err > 0);
 
 			fetch('/api/subscribers')
 				.then((r) => r.json())
