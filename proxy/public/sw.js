@@ -63,14 +63,19 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (e) => {
-	let d = { title: 'Viking Bio-avisering', body: 'Avisering från pannan', icon: '/icon-192.png', priority: 'high', type: 'error' };
+	let d = { title: 'Viking Bio-avisering', body: 'Avisering från pannan', icon: '/icon-192.png', priority: 'high', type: 'error', ts: Date.now() };
 	try { d = e.data.json(); } catch (ex) {}
 
+	// Use payload timestamp (ms since epoch) if present, otherwise fall back to now
+	const ts = (typeof d.ts === 'number') ? d.ts : Date.now();
 	const options = {
 		body: d.body,
 		icon: d.icon || '/icon-192.png',
 		badge: '/icon-192.png',
-		tag: 'viking-bio'
+		tag: 'viking-bio',
+		// Pass timestamp to native notification UI (Chromium) and to data for all browsers
+		timestamp: ts,
+		data: Object.assign({}, d.data || {}, { ts }),
 	};
 
 	// Low-priority on/off/status messages: silent, non-intrusive
