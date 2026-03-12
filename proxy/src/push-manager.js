@@ -115,13 +115,16 @@ function createPushManager() {
 	 * @param {string} body   Notification body
 	 */
 	async function notifyByType(type, title, body) {
-		const payload = JSON.stringify({
+		// Include ms-since-epoch timestamp for display and ordering on the client
+		const payloadObj = {
 			title,
 			body,
 			icon: '/icon-192.png',
 			type,
 			priority: type === 'error' ? 'high' : 'low',
-		});
+			ts: Date.now(),
+		};
+		const payload = JSON.stringify(payloadObj);
 
 		const failed = [];
 

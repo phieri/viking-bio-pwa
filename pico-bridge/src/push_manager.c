@@ -900,12 +900,19 @@ static void push_start_delivery_for_sub(int sub_idx) {
 	}
 	const char *priority = (s_ctx.type == PUSH_NOTIFY_ERROR) ? "high" : "low";
 
+	// Get epoch seconds (proxy-synced or BUILD_UNIX_TIME fallback) and convert to ms.
+	// Reject values before Sep 2001 (1e9 s) as clearly un-synced/zero.
+	uint32_t now_s = http_client_get_epoch_time();
+	if (now_s < 1000000000UL) now_s = BUILD_UNIX_TIME;
+	uint64_t now_ms = (uint64_t)now_s * 1000ULL;
+
 	char payload[PUSH_PAYLOAD_MAX_LEN + 1];
 	int plen = snprintf(payload, sizeof(payload),
 	                    "{\"title\":\"%s\",\"body\":\"%s\","
 	                    "\"icon\":\"/icon.png\","
-	                    "\"type\":\"%s\",\"priority\":\"%s\"}",
-	                    s_ctx.title, s_ctx.body, type_str, priority);
+	                    "\"type\":\"%s\",\"priority\":\"%s\",\"ts\":%llu}",
+	                    s_ctx.title, s_ctx.body, type_str, priority,
+	                    (unsigned long long)now_ms);
 	if (plen <= 0 || plen >= (int)sizeof(payload)) {
 		printf("push_manager: payload overflow for sub %d\n", sub_idx);
 		push_advance_to_next_sub();
