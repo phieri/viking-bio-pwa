@@ -4,8 +4,8 @@
 
 This is a **monorepo** for the Viking Bio 20 pellet burner integration system. It consists of two components:
 
-1. **`pico-bridge/`** – Raspberry Pi Pico W firmware (C11, RP2040 + CYW43439 Wi-Fi) that reads serial data from the burner and forwards it via HTTP webhook to the proxy server.
-2. **`proxy/`** – Node.js Express server that receives burner telemetry via authenticated webhook, serves the PWA dashboard, and sends Web Push notifications.
+1. **`pico-bridge/`** – Raspberry Pi Pico W firmware (C11, RP2040 + CYW43439 Wi-Fi) that reads serial data from the burner and forwards it via HTTP webhook to the proxy server, and sends Web Push notifications.
+2. **`proxy/`** – Node.js Express server that receives burner telemetry via authenticated webhook, serves the PWA dashboard.
 
 ```
 Viking Bio 20 ──UART──► Pico W (pico-bridge)
