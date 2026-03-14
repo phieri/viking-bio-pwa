@@ -84,9 +84,64 @@ function setStatus(msg, cls) {
 	el.className = `status ${cls}`;
 }
 
+function isAppleMobileDevice() {
+	return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+		(/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+}
+
+function isStandalonePwa() {
+	return window.matchMedia('(display-mode: standalone)').matches ||
+		window.navigator.standalone === true;
+}
+
+function getPushAvailability() {
+	if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+		return {
+			canSubscribe: false,
+			cls: 'unsupported',
+			message: 'Push-aviseringar stöds inte i den här webbläsaren.'
+		};
+	}
+	if (isAppleMobileDevice() && !isStandalonePwa()) {
+		return {
+			canSubscribe: false,
+			cls: 'install',
+			message: 'Push kan aktiveras först när sidan har installerats som app. På iPhone/iPad: öppna Dela och välj Lägg till på hemskärmen.'
+		};
+	}
+	if (Notification.permission === 'denied') {
+		return {
+			canSubscribe: false,
+			cls: 'blocked',
+			message: 'Aviseringar är blockerade i webbläsaren. Tillåt aviseringar i inställningarna för att kunna prenumerera.'
+		};
+	}
+	return {
+		canSubscribe: true,
+		cls: 'available',
+		message: 'Push-prenumeration kan aktiveras på den här enheten.'
+	};
+}
+
+function updatePushAvailability() {
+	const el = document.getElementById('pushAvailability');
+	const btn = document.getElementById('pushBtn');
+	const { canSubscribe, cls, message } = getPushAvailability();
+	if (el) {
+		el.textContent = message;
+		el.className = `push-availability ${cls}`;
+	}
+	if (btn) {
+		btn.disabled = !canSubscribe;
+		btn.title = btn.disabled ? message : '';
+	}
+}
+
 async function subscribePush() {
-	if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-		alert('Push-aviseringar stöds inte i den här webbläsaren.');
+	const availability = getPushAvailability();
+	if (!availability.canSubscribe) {
+		alert(availability.message);
+		updatePushAvailability();
 		return;
 	}
 	try {
@@ -182,6 +237,7 @@ function updatePushUI(subscribed) {
 		btn.className = 'btn btn-push';
 		unsub.style.display = 'none';
 	}
+	updatePushAvailability();
 }
 
 async function updatePushSource() {
@@ -225,8 +281,13 @@ if ('serviceWorker' in navigator) {
 		});
 }
 
+updatePushAvailability();
 startPolling();
 
 window.addEventListener('load', () => {
+	updatePushAvailability();
 	updatePushSource();
 });
+
+window.addEventListener('focus', updatePushAvailability);
+window.matchMedia('(display-mode: standalone)').addEventListener('change', updatePushAvailability);

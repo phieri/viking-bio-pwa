@@ -16,6 +16,7 @@ h1{text-align:center;margin-bottom:24px;font-size:1.8em}
 .status.stale{background:#2d2d00;color:#ffd93d}
 .status.connecting{background:#1e242a;color:#aaa}
 .btn{display:inline-block;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:.9em;margin:4px}
+.btn:disabled{opacity:.6;cursor:not-allowed}
 .btn-push{background:#2a3038;color:#e94560;border:1px solid #e94560}
 .btn-push:hover{background:#353d47}
 .btn-push.subscribed{background:#0d3d2e;color:#4ecdc4;border-color:#4ecdc4}
@@ -27,6 +28,9 @@ h1{text-align:center;margin-bottom:24px;font-size:1.8em}
 .subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#252b33;padding:10px;border-radius:10px;border:1px solid #3a4048}
 .subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#fff;font-size:0.95em}
 .subs-checkboxes label{margin:2px 0}
+.push-availability{font-size:.85em;text-align:left;width:100%;padding:8px 10px;border-radius:8px;border:1px solid #3a4048;background:#1e242a;color:#bbb}
+.push-availability.available{border-color:#0f3460;color:#4ecdc4}
+.push-availability.install,.push-availability.blocked,.push-availability.unsupported{border-color:#6b5d1f;color:#ffd93d}
 :fullscreen .actions{display:none}
 :-webkit-full-screen .actions{display:none}
 :-moz-full-screen .actions{display:none}
