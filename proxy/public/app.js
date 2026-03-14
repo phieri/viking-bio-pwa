@@ -86,7 +86,7 @@ function setStatus(msg, cls) {
 
 function isAppleMobileDevice() {
 	return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-		(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+		(/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 }
 
 function isStandalonePwa() {
@@ -132,7 +132,7 @@ function updatePushAvailability() {
 		el.className = `push-availability ${cls}`;
 	}
 	if (btn) {
-		btn.disabled = !canSubscribe && !sub;
+		btn.disabled = !canSubscribe;
 		btn.title = btn.disabled ? message : '';
 	}
 }
@@ -281,7 +281,7 @@ if ('serviceWorker' in navigator) {
 		});
 }
 
-updatePushUI(false);
+updatePushAvailability();
 startPolling();
 
 window.addEventListener('load', () => {
@@ -290,10 +290,4 @@ window.addEventListener('load', () => {
 });
 
 window.addEventListener('focus', updatePushAvailability);
-
-const displayModeQuery = window.matchMedia('(display-mode: standalone)');
-if (displayModeQuery.addEventListener) {
-	displayModeQuery.addEventListener('change', updatePushAvailability);
-} else if (displayModeQuery.addListener) {
-	displayModeQuery.addListener(updatePushAvailability);
-}
+window.matchMedia('(display-mode: standalone)').addEventListener('change', updatePushAvailability);
