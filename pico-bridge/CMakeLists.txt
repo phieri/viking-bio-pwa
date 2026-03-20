@@ -157,9 +157,14 @@ target_link_libraries(viking_bio_bridge
     hardware_flash
     hardware_watchdog
     pico_unique_id
-    pico_cyw43_arch_lwip_poll
+    pico_cyw43_arch_lwip_threadsafe_background
     pico_mbedtls
     pico_lwip_mbedtls
+)
+
+# Use the CYW43 threadsafe/background arch: Wi-Fi and lwIP are serviced on core 1
+target_compile_definitions(viking_bio_bridge PRIVATE
+    PICO_CYW43_ARCH_THREADSAFE_BACKGROUND=1
 )
 
 # Enable USB output, disable UART output

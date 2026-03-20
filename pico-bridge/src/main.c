@@ -246,10 +246,11 @@ static bool wifi_connect(const char *ssid, const char *password) {
 
 	printf("WiFi connected\n");
 
-	// Wait up to 5 s for IPv6 link-local address to appear
+	// Wait up to 5 s for IPv6 link-local address to appear.
+	// Networking is serviced by the CYW43 arch background thread on core 1;
+	// cyw43_arch_poll() must not be called here.
 	absolute_time_t net_wait = make_timeout_time_ms(5000);
 	while (!time_reached(net_wait)) {
-		cyw43_arch_poll();
 		if (ip6_addr_isvalid(netif_ip6_addr_state(netif_default, 0))) break;
 		sleep_ms(50);
 	}
@@ -361,7 +362,12 @@ int main(void) {
 	while (true) {
 		if (watchdog_on) watchdog_update();
 
-		cyw43_arch_poll();
+		// Networking (Wi-Fi + lwIP) is serviced by the CYW43 arch background
+		// thread on core 1.  Do not call cyw43_arch_poll() here.
+		// Direct lwIP API calls from core 0 (e.g. tcp_connect, tcp_write)
+		// must be wrapped with cyw43_arch_lwip_begin() / cyw43_arch_lwip_end().
+		// lwIP callbacks (tcp_recv_fn, tcp_err_fn, etc.) are invoked on core 1
+		// inside the arch lock and do not need additional wrapping.
 
 		if (process_usb_commands()) {
 			// New credentials saved – flush USB output and reboot via watchdog

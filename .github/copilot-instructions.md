@@ -223,13 +223,12 @@ After first boot, run `STATUS` to get the device VAPID public key and set `PICO_
 
 ### Main Loop (pico-bridge)
 
-`pico-bridge/src/main.c` is a **cooperative polling loop**:
+`pico-bridge/src/main.c` runs a **cooperative application loop on core 0**. Wi-Fi and lwIP are serviced by the CYW43 arch background thread on **core 1** (threadsafe background mode); `cyw43_arch_poll()` is **not** called. Direct lwIP API calls from core 0 (e.g. `tcp_connect`, `tcp_write`) must be wrapped with `cyw43_arch_lwip_begin()` / `cyw43_arch_lwip_end()`; lwIP callbacks (`tcp_recv_fn`, `tcp_err_fn`, etc.) are invoked on core 1 inside the arch lock and do not need additional wrapping.
 1. Feed watchdog (8 s timeout)
-2. `cyw43_arch_poll()` – drive Wi-Fi/lwIP stack
-3. `process_usb_commands()` – USB serial config
-4. `serial_handler_data_available()` / `serial_handler_read()` – Viking Bio UART data
-5. `http_client_poll()` / `http_client_send_data()` – webhook delivery
-6. Event flags set by a 2-second `repeating_timer`: `EVENT_TIMEOUT_CHECK`, `EVENT_BROADCAST`
+2. `process_usb_commands()` – USB serial config
+3. `serial_handler_data_available()` / `serial_handler_read()` – Viking Bio UART data
+4. `http_client_poll()` / `http_client_send_data()` – webhook delivery
+5. Event flags set by a 2-second `repeating_timer`: `EVENT_TIMEOUT_CHECK`, `EVENT_BROADCAST`
 
 ### Viking Bio 20 Protocol
 
