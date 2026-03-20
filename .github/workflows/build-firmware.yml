@@ -20,10 +20,14 @@ env:
 
 jobs:
   build-bridge:
-    name: Build Bridge Firmware
+    name: Build Bridge Firmware (${{ matrix.board }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
+    strategy:
+      matrix:
+        board: [pico_w, pico2_w]
 
     steps:
     - name: Checkout repository
@@ -58,7 +62,7 @@ jobs:
 
     - name: Configure CMake
       working-directory: pico-bridge/build
-      run: cmake .. -DCMAKE_BUILD_TYPE=Release -DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"
+      run: cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=${{ matrix.board }} -DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"
 
     - name: Build firmware
       working-directory: pico-bridge/build
@@ -73,7 +77,7 @@ jobs:
     - name: Upload firmware artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: viking-bio-bridge-firmware
+        name: viking-bio-bridge-firmware-${{ matrix.board }}
         path: |
           pico-bridge/build/*.uf2
           pico-bridge/build/*.elf

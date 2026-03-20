@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 
 include(FetchContent)
 
-# This firmware requires Pico W for WiFi support
+# This firmware requires a Pico W variant for WiFi support
 if(NOT DEFINED PICO_BOARD OR PICO_BOARD STREQUAL "")
     set(PICO_BOARD pico_w CACHE STRING "Board type" FORCE)
     message(STATUS "Setting PICO_BOARD to pico_w (required for WiFi)")
-elseif(NOT PICO_BOARD STREQUAL "pico_w")
-    message(FATAL_ERROR "This firmware requires PICO_BOARD=pico_w (current: ${PICO_BOARD})")
+elseif(NOT PICO_BOARD STREQUAL "pico_w" AND NOT PICO_BOARD STREQUAL "pico2_w")
+    message(FATAL_ERROR "This firmware requires a WiFi-capable board (pico_w or pico2_w); current: ${PICO_BOARD}")
 endif()
 
 # Custom mbedTLS configuration (must be before pico_sdk_import.cmake)
