@@ -6,8 +6,8 @@
 #include <stddef.h>
 #include "lfs.h"
 
-// LittleFS filesystem size: 64KB (16 × 4KB blocks) at end of flash
-#define LFS_FLASH_SIZE    (64 * 1024)
+// LittleFS filesystem size: 256KB (64 × 4KB blocks) at end of flash
+#define LFS_FLASH_SIZE    (256 * 1024)
 
 /**
  * Initialize and mount the LittleFS filesystem.
