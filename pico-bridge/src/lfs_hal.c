@@ -8,7 +8,7 @@
 // Flash layout: LittleFS occupies the last LFS_FLASH_SIZE bytes of flash
 #define LFS_FLASH_OFFSET  (PICO_FLASH_SIZE_BYTES - LFS_FLASH_SIZE)
 #define LFS_BLOCK_SIZE    FLASH_SECTOR_SIZE   // 4096
-#define LFS_BLOCK_COUNT   (LFS_FLASH_SIZE / LFS_BLOCK_SIZE)  // 16
+#define LFS_BLOCK_COUNT   (LFS_FLASH_SIZE / LFS_BLOCK_SIZE)  // 64
 
 static lfs_t s_lfs;
 static bool s_mounted = false;
