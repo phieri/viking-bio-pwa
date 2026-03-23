@@ -21,6 +21,7 @@ const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
 // Web Push notifications directly.  Must use a bracketed IPv6 literal if the
 // address is IPv6.
 const PICO_BASE_URL = process.env.PICO_BASE_URL || '';
+const PICO_FORWARD_TIMEOUT_MS = 5000;
 
 // Optional: VAPID public key generated on the Pico W (output of 'STATUS' over
 // USB serial after first boot).  When set this key is returned to browsers so
@@ -64,6 +65,11 @@ const mdnsAdvertiser = createMdnsAdvertiser({
 });
 mdnsAdvertiser.start();
 
+let activeServer = null;
+let activeDdnsClient = null;
+let activeCertManager = null;
+let shutdownPromise = null;
+
 // ---------------------------------------------------------------------------
 // Pico W forwarding helper
 // ---------------------------------------------------------------------------
@@ -98,21 +104,33 @@ async function picoForward(urlPath, body) {
 	const transport = parsedUrl.protocol === 'https:' ? https : http;
 
 	return new Promise((resolve) => {
+		let settled = false;
+		const finish = (ok) => {
+			if (!settled) {
+				settled = true;
+				resolve(ok);
+			}
+		};
 		const req = transport.request({
 			hostname: parsedUrl.hostname,
 			port:     parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
 			path:     parsedUrl.pathname,
 			method:   'POST',
 			headers,
+			timeout:  PICO_FORWARD_TIMEOUT_MS,
 		}, (res) => {
 			res.resume(); // drain
 			const ok = res.statusCode >= 200 && res.statusCode < 300;
 			if (!ok) console.warn(`pico-forward: ${urlPath} → HTTP ${res.statusCode}`);
-			resolve(ok);
+			finish(ok);
+		});
+		req.on('timeout', () => {
+			console.warn(`pico-forward: ${urlPath} timed out after ${PICO_FORWARD_TIMEOUT_MS} ms`);
+			req.destroy(new Error('request timeout'));
 		});
 		req.on('error', (err) => {
 			console.warn(`pico-forward: ${urlPath} error: ${err.message}`);
-			resolve(false);
+			finish(false);
 		});
 		req.write(payload);
 		req.end();
@@ -155,7 +173,7 @@ app.post('/api/machine-data', webhookReceiver.middleware);
 // POST /api/subscribe - add or update a push subscription.
 // Stores subscription locally and, when PICO_BASE_URL is set, forwards it to
 // the Pico W so the device can send Web Push notifications directly.
-app.post('/api/subscribe', async (req, res) => {
+app.post('/api/subscribe', (req, res) => {
 	const { endpoint, p256dh, auth } = req.body;
 	const prefs = req.body.prefs || {};
 	if (!endpoint) {
@@ -166,8 +184,8 @@ app.post('/api/subscribe', async (req, res) => {
 		error: !!prefs.error,
 		clean: !!prefs.clean,
 	});
-	// Best-effort forward to Pico W (errors are non-fatal; picoForward returns a Promise)
-	picoForward('/api/subscribe', req.body).catch(() => {});
+	// Best-effort forward to Pico W (errors are non-fatal; picoForward logs failures)
+	void picoForward('/api/subscribe', req.body);
 	res.json({ status: ok ? 'ok' : 'full' });
 });
 
@@ -176,10 +194,42 @@ app.post('/api/unsubscribe', (req, res) => {
 	const { endpoint } = req.body;
 	if (endpoint) {
 		pushManager.removeSubscription(endpoint);
-		// Best-effort forward to Pico W (errors are non-fatal)
-		picoForward('/api/unsubscribe', { endpoint }).catch(() => {});
+		// Best-effort forward to Pico W (errors are non-fatal; picoForward logs failures)
+		void picoForward('/api/unsubscribe', { endpoint });
 	}
 	res.json({ status: 'ok' });
+});
+
+function shutdown(signal) {
+	if (!shutdownPromise) {
+		console.log(`${signal} received, shutting down`);
+		shutdownPromise = Promise.resolve()
+			.then(() => scheduler.stop())
+			.then(() => mdnsAdvertiser.stop())
+			.then(() => activeDdnsClient && activeDdnsClient.stop())
+			.then(() => activeCertManager && activeCertManager.stop())
+			.then(() => new Promise((resolve) => {
+				if (!activeServer) {
+					resolve();
+					return;
+				}
+				activeServer.close(() => resolve());
+			}))
+			.catch((err) => {
+				console.error(`Shutdown error: ${err.message}`);
+			})
+			.finally(() => {
+				process.exit(0);
+			});
+	}
+	return shutdownPromise;
+}
+
+process.once('SIGINT', () => {
+	void shutdown('SIGINT');
+});
+process.once('SIGTERM', () => {
+	void shutdown('SIGTERM');
 });
 
 // ---------------------------------------------------------------------------
@@ -193,6 +243,7 @@ app.post('/api/unsubscribe', (req, res) => {
 
 async function startServer() {
 	const ddns    = createDdnsClient();
+	activeDdnsClient = ddns;
 	const certPath = process.env.TLS_CERT_PATH;
 	const keyPath  = process.env.TLS_KEY_PATH;
 
@@ -203,6 +254,7 @@ async function startServer() {
 		ddns.start();
 
 		const certMgr = createCertManager({ domain: ddns.domain });
+		activeCertManager = certMgr;
 		const ready   = await certMgr.initialize();
 
 		if (ready) {
@@ -239,6 +291,7 @@ async function startServer() {
 					{ SNICallback: (_sni, cb) => cb(null, secureContext) },
 					app
 				);
+				activeServer = server;
 				server.listen(HTTP_PORT, '::', () => {
 					console.log(
 						`Viking Bio Proxy listening on https://${ddns.domain}:${HTTP_PORT}`
@@ -271,6 +324,7 @@ async function startServer() {
 			process.exit(1);
 		}
 		const server = https.createServer({ cert, key }, app);
+		activeServer = server;
 		server.listen(HTTP_PORT, '::', () => {
 			console.log(`Viking Bio Proxy listening on https://[::]:${HTTP_PORT} (TLS)`);
 			if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
@@ -283,6 +337,7 @@ async function startServer() {
 	// Option 3: plain HTTP (development / fallback)
 	// ------------------------------------------------------------------
 	const server = http.createServer(app);
+	activeServer = server;
 	server.listen(HTTP_PORT, '::', () => {
 		console.log(`Viking Bio Proxy listening on http://[::]:${HTTP_PORT}`);
 		if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
