@@ -9,7 +9,6 @@ const fs      = require('fs');
 const path    = require('path');
 const { createWebhookReceiver } = require('./webhook-receiver');
 const { createPushManager } = require('./push-manager');
-const { createScheduler } = require('./scheduler');
 const { createMdnsAdvertiser } = require('./mdns-advertiser');
 const { createDdnsClient } = require('./ddns-client');
 const { createCertManager } = require('./cert-manager');
@@ -46,14 +45,8 @@ const state = {
 // Push manager handles subscriptions and sending notifications (proxy side)
 const pushManager = createPushManager();
 
-// Scheduler handles the cleaning reminder
-const scheduler = createScheduler(pushManager);
-
 // Webhook receiver processes authenticated POST requests from the Pico bridge
 const webhookReceiver = createWebhookReceiver(state, pushManager);
-
-// Start cleaning reminder scheduler
-scheduler.start();
 
 // Advertise the proxy as a DNS-SD service (_viking-bio._tcp) so it can be
 // discovered by standard mDNS clients (Bonjour, Avahi, Windows mDNS).
@@ -204,7 +197,6 @@ function shutdown(signal) {
 	if (!shutdownPromise) {
 		console.log(`${signal} received, shutting down`);
 		shutdownPromise = Promise.resolve()
-			.then(() => scheduler.stop())
 			.then(() => mdnsAdvertiser.stop())
 			.then(() => activeDdnsClient && activeDdnsClient.stop())
 			.then(() => activeCertManager && activeCertManager.stop())
