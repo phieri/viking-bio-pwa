@@ -111,6 +111,12 @@ npm start
 
 Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured).
 
+Defensive validation notes:
+- `HTTP_PORT` and `ACME_HTTP_PORT` must be integers in the range `1..65535`
+- `PICO_BASE_URL`, when set, must be an absolute `http://` or `https://` URL
+- `POST /api/machine-data`, `POST /api/subscribe`, and `POST /api/unsubscribe`
+  reject malformed JSON or missing required fields with `400 Bad Request`
+
 ### IPv6-only environments
 
 The proxy binds to `::` (all IPv6 addresses) by default. On Linux this also accepts IPv4 connections via IPv4-mapped addresses unless `IPV6_V6ONLY` is forced. Use a bracketed IPv6 literal when composing the Pico's `SERVER=` address:
