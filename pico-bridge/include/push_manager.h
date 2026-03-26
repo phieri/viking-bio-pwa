@@ -104,4 +104,15 @@ void push_manager_notify_all(push_notify_type_t type, const char *title, const c
  */
 void push_manager_poll(void);
 
+/**
+ * Update the cleaning reminder scheduler.
+ * Must be called regularly from the main loop (e.g. on every EVENT_BROADCAST).
+ * Accumulates flame-on time and sends a cleaning reminder push notification on
+ * Saturday mornings (07:00–07:30) during the heating season (November–March).
+ * Requires proxy time-sync (http_client_get_epoch_time() ≥ 1e9).
+ *
+ * @param flame_on  true if the burner flame is currently detected
+ */
+void push_manager_tick_scheduler(bool flame_on);
+
 #endif // PUSH_MANAGER_H

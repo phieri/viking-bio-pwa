@@ -113,6 +113,17 @@ static push_pending_t s_pending;
 static struct altcp_tls_config *s_tls_config = NULL;
 
 // ---------------------------------------------------------------------------
+// Cleaning reminder scheduler state
+// ---------------------------------------------------------------------------
+
+// Accumulated flame-on seconds since the last cleaning reminder was sent
+static uint32_t s_flame_secs_since_reminder = 0;
+// Boot-relative seconds when flame tracking was last updated; 0 = not tracking
+static uint32_t s_last_flame_boot_s = 0;
+// Unix-epoch day (epoch/86400) when the last reminder was sent; 0 = never
+static uint32_t s_last_reminder_epoch_day = 0;
+
+// ---------------------------------------------------------------------------
 // CRC-32 (ISO 3309) helper
 // ---------------------------------------------------------------------------
 
@@ -1192,4 +1203,112 @@ void push_manager_poll(void) {
 		s_pending.valid = false;
 		push_notify_start(s_pending.type, s_pending.title, s_pending.body);
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Cleaning reminder scheduler
+// ---------------------------------------------------------------------------
+
+/**
+ * Decompose a Unix epoch timestamp into calendar fields.
+ *
+ * @param epoch   Seconds since 1970-01-01 00:00:00 UTC
+ * @param month   Output: 0=Jan .. 11=Dec
+ * @param dow     Output: 0=Sun .. 6=Sat
+ * @param hour    Output: 0-23
+ * @param min     Output: 0-59
+ *
+ * Uses Howard Hinnant's civil_from_days algorithm for the month/year part.
+ */
+static void epoch_to_fields(uint32_t epoch,
+                             int *month, int *dow, int *hour, int *min)
+{
+	*hour = (int)((epoch % 86400UL) / 3600UL);
+	*min  = (int)((epoch % 3600UL)  / 60UL);
+	/* 1970-01-01 was a Thursday = day 4 in Sun=0 scheme */
+	*dow = (int)((epoch / 86400UL + 4UL) % 7UL);
+
+	/*
+	 * Month from epoch days using the civil calendar (March-based era):
+	 *   mp=0→Mar, mp=1→Apr, …, mp=9→Dec, mp=10→Jan, mp=11→Feb
+	 * Final mapping: mp<10 → mp+2 (Mar–Dec), mp>=10 → mp-10 (Jan–Feb)
+	 *
+	 * 719468 is the number of days from the civil epoch (0000-03-01)
+	 * to the Unix epoch (1970-01-01).  The era length is 146097 days
+	 * (400 Gregorian years); the 146096 in the yoe term is intentional
+	 * – it fires the 400-year leap correction only on the last day of
+	 * each era (day 146096).  See: Howard Hinnant, "date_algorithms.html".
+	 */
+	uint32_t z   = epoch / 86400UL + 719468UL;
+	uint32_t era = z / 146097UL;
+	uint32_t doe = z - era * 146097UL;
+	uint32_t yoe = (doe - doe / 1460UL + doe / 36524UL - doe / 146096UL) / 365UL;
+	uint32_t doy = doe - (365UL * yoe + yoe / 4UL - yoe / 100UL);
+	uint32_t mp  = (5UL * doy + 2UL) / 153UL;
+	*month = (int)(mp < 10UL ? mp + 2UL : mp - 10UL);
+}
+
+/**
+ * Format a flame-on duration as a short ASCII string,
+ * e.g. "3 h 25 min" or "45 min" or "2 h".
+ */
+static void format_flame_secs(uint32_t secs, char *buf, size_t buf_len)
+{
+	unsigned h = (unsigned)(secs / 3600U);
+	unsigned m = (unsigned)((secs % 3600U) / 60U);
+	if (h == 0) {
+		snprintf(buf, buf_len, "%u min", m);
+	} else if (m == 0) {
+		snprintf(buf, buf_len, "%u h", h);
+	} else {
+		snprintf(buf, buf_len, "%u h %u min", h, m);
+	}
+}
+
+void push_manager_tick_scheduler(bool flame_on)
+{
+	uint32_t now_boot_s =
+		(uint32_t)(to_us_since_boot(get_absolute_time()) / 1000000ULL);
+
+	/* Accumulate flame-on time since the previous tick */
+	if (flame_on && s_last_flame_boot_s != 0) {
+		s_flame_secs_since_reminder += now_boot_s - s_last_flame_boot_s;
+	}
+	s_last_flame_boot_s = flame_on ? now_boot_s : 0;
+
+	/* Epoch must be proxy-synced before we can check the calendar */
+	uint32_t epoch = http_client_get_epoch_time();
+	if (epoch < 1000000000UL) return;
+
+	int month, dow, hour, min;
+	epoch_to_fields(epoch, &month, &dow, &hour, &min);
+
+	/* Heating season: November (10), December (11), January (0), February (1), March (2) */
+	bool in_season = (month == 10 || month == 11 ||
+	                  month == 0  || month == 1  || month == 2);
+	/* Saturday 07:00–07:29 */
+	bool is_sat_morning = (dow == 6 && hour == 7 && min < 30);
+
+	if (!in_season || !is_sat_morning) return;
+
+	/* Send at most once per week (debounce within the 30-minute window) */
+	uint32_t today = epoch / 86400UL;
+	if (s_last_reminder_epoch_day != 0 &&
+	    today - s_last_reminder_epoch_day < 7) return;
+
+	/* Build and send the notification */
+	char time_str[32];
+	format_flame_secs(s_flame_secs_since_reminder, time_str, sizeof(time_str));
+	char body[128];
+	snprintf(body, sizeof(body),
+	         "Clean the burner. Flame-on since last reminder: %s.", time_str);
+
+	printf("push_manager: sending cleaning reminder (flame-on: %s)\n", time_str);
+	push_manager_notify_all(PUSH_NOTIFY_CLEAN,
+	                        "Viking Bio: Cleaning Reminder", body);
+
+	/* Reset accumulator and record this week as done */
+	s_flame_secs_since_reminder = 0;
+	s_last_flame_boot_s = flame_on ? now_boot_s : 0;
+	s_last_reminder_epoch_day = today;
 }
