@@ -33,8 +33,14 @@ function createPushManager() {
 	if (fs.existsSync(VAPID_FILE)) {
 		try {
 			vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
+			if (!vapidKeys ||
+			    typeof vapidKeys.publicKey !== 'string' ||
+			    typeof vapidKeys.privateKey !== 'string') {
+				throw new Error('invalid VAPID key file format');
+			}
 			console.log('push-manager: loaded VAPID keys from disk');
-		} catch {
+		} catch (err) {
+			console.warn(`push-manager: failed to load VAPID keys: ${err.message}`);
 			vapidKeys = null;
 		}
 	}
@@ -58,8 +64,12 @@ function createPushManager() {
 	if (fs.existsSync(SUBS_FILE)) {
 		try {
 			subscriptions = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf8'));
+			if (!Array.isArray(subscriptions)) {
+				throw new Error('subscription file must contain an array');
+			}
 			console.log(`push-manager: loaded ${subscriptions.length} subscription(s)`);
-		} catch {
+		} catch (err) {
+			console.warn(`push-manager: failed to load subscriptions: ${err.message}`);
 			subscriptions = [];
 		}
 	}

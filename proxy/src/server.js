@@ -13,13 +13,48 @@ const { createMdnsAdvertiser } = require('./mdns-advertiser');
 const { createDdnsClient } = require('./ddns-client');
 const { createCertManager } = require('./cert-manager');
 
-const HTTP_PORT = parseInt(process.env.HTTP_PORT || '3000', 10);
+function parsePort(value, fallback, envName) {
+	const raw = String(value ?? fallback).trim();
+	if (!/^\d+$/.test(raw)) {
+		console.error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
+		process.exit(1);
+	}
+	const port = parseInt(raw, 10);
+	if (port < 1 || port > 65535) {
+		console.error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
+		process.exit(1);
+	}
+	return port;
+}
+
+function requireHttpUrl(value, envName) {
+	if (!value) return '';
+	const trimmedValue = value.trim();
+	let parsed;
+	try {
+		parsed = new URL(trimmedValue);
+	} catch (err) {
+		console.error(`Invalid ${envName}: ${err.message}`);
+		process.exit(1);
+	}
+	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+		console.error(`${envName} must use http:// or https:// (got: ${parsed.protocol})`);
+		process.exit(1);
+	}
+	return trimmedValue;
+}
+
+function isPlainObject(value) {
+	return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+const HTTP_PORT = parsePort(process.env.HTTP_PORT, 3000, 'HTTP_PORT');
 
 // Optional: base URL of the Pico W's webhook API (e.g. http://[fe80::1%25eth0]:8080).
 // When set the proxy forwards push subscriptions to the Pico so it can send
 // Web Push notifications directly.  Must use a bracketed IPv6 literal if the
 // address is IPv6.
-const PICO_BASE_URL = process.env.PICO_BASE_URL || '';
+const PICO_BASE_URL = requireHttpUrl(process.env.PICO_BASE_URL || '', 'PICO_BASE_URL');
 const PICO_FORWARD_TIMEOUT_MS = 5000;
 
 // Optional: VAPID public key generated on the Pico W (output of 'STATUS' over
@@ -167,30 +202,60 @@ app.post('/api/machine-data', webhookReceiver.middleware);
 // Stores subscription locally and, when PICO_BASE_URL is set, forwards it to
 // the Pico W so the device can send Web Push notifications directly.
 app.post('/api/subscribe', (req, res) => {
-	const { endpoint, p256dh, auth } = req.body;
-	const prefs = req.body.prefs || {};
+	if (!isPlainObject(req.body)) {
+		return res.status(400).json({ error: 'bad request' });
+	}
+
+	const endpoint = typeof req.body.endpoint === 'string' ? req.body.endpoint.trim() : '';
+	const p256dh   = typeof req.body.p256dh === 'string' ? req.body.p256dh : '';
+	const auth     = typeof req.body.auth === 'string' ? req.body.auth : '';
+	const prefs    = isPlainObject(req.body.prefs) ? req.body.prefs : {};
 	if (!endpoint) {
 		return res.status(400).json({ error: 'bad request' });
 	}
-	const ok = pushManager.addSubscription(endpoint, p256dh, auth, {
-		flame: !!prefs.flame,
-		error: !!prefs.error,
-		clean: !!prefs.clean,
-	});
+	const subscription = {
+		endpoint,
+		p256dh,
+		auth,
+		prefs: {
+			flame: !!prefs.flame,
+			error: !!prefs.error,
+			clean: !!prefs.clean,
+		},
+	};
+	const ok = pushManager.addSubscription(
+		subscription.endpoint,
+		subscription.p256dh,
+		subscription.auth,
+		subscription.prefs
+	);
 	// Best-effort forward to Pico W (errors are non-fatal; picoForward logs failures)
-	void picoForward('/api/subscribe', req.body);
+	void picoForward('/api/subscribe', subscription);
 	res.json({ status: ok ? 'ok' : 'full' });
 });
 
 // POST /api/unsubscribe - remove a push subscription
 app.post('/api/unsubscribe', (req, res) => {
-	const { endpoint } = req.body;
-	if (endpoint) {
-		pushManager.removeSubscription(endpoint);
-		// Best-effort forward to Pico W (errors are non-fatal; picoForward logs failures)
-		void picoForward('/api/unsubscribe', { endpoint });
+	if (!isPlainObject(req.body)) {
+		return res.status(400).json({ error: 'bad request' });
 	}
+
+	const endpoint = typeof req.body.endpoint === 'string' ? req.body.endpoint.trim() : '';
+	if (!endpoint) {
+		return res.status(400).json({ error: 'bad request' });
+	}
+
+	pushManager.removeSubscription(endpoint);
+	// Best-effort forward to Pico W (errors are non-fatal; picoForward logs failures)
+	void picoForward('/api/unsubscribe', { endpoint });
 	res.json({ status: 'ok' });
+});
+
+app.use((err, req, res, next) => {
+	if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+		return res.status(400).json({ error: 'bad request' });
+	}
+	return next(err);
 });
 
 function shutdown(signal) {

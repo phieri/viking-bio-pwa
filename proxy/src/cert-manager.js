@@ -45,6 +45,18 @@ const DATA_DIR          = path.join(__dirname, '..', 'data');
 const RENEW_BEFORE_DAYS = 30;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+function parsePort(value, fallback, envName) {
+	const raw = String(value ?? fallback).trim();
+	if (!/^\d+$/.test(raw)) {
+		throw new Error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
+	}
+	const port = parseInt(raw, 10);
+	if (port < 1 || port > 65535) {
+		throw new Error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
+	}
+	return port;
+}
+
 /**
  * Create a Let's Encrypt certificate manager.
  *
@@ -63,8 +75,8 @@ function createCertManager(opts = {}) {
 		? !!opts.staging
 		: (process.env.ACME_STAGING === '1' || process.env.ACME_STAGING === 'true');
 	const certDir       = opts.certDir       || process.env.ACME_CERT_DIR || DATA_DIR;
-	const challengePort = opts.challengePort
-		|| parseInt(process.env.ACME_HTTP_PORT || '80', 10);
+	const challengePort = parsePort(opts.challengePort ?? process.env.ACME_HTTP_PORT, 80,
+		'ACME_HTTP_PORT');
 
 	const certPath       = path.join(certDir, 'server.crt');
 	const keyPath        = path.join(certDir, 'server.key');

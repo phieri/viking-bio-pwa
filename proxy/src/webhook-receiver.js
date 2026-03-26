@@ -17,16 +17,42 @@ function createWebhookReceiver(state, pushManager) {
 	// Notification debounce flag
 	let errorNotified = false;
 
+	function isFiniteNumber(value) {
+		return typeof value === 'number' && Number.isFinite(value);
+	}
+
+	function normaliseMessage(msg) {
+		if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
+			return null;
+		}
+
+		if (typeof msg.flame !== 'boolean' ||
+		    !isFiniteNumber(msg.fan) ||
+		    !isFiniteNumber(msg.temp) ||
+		    !isFiniteNumber(msg.err) ||
+		    typeof msg.valid !== 'boolean') {
+			return null;
+		}
+
+		return {
+			flame: msg.flame,
+			fan:   msg.fan,
+			temp:  msg.temp,
+			err:   msg.err,
+			valid: msg.valid,
+		};
+	}
+
 	function handleMessage(msg) {
 		const prevFlame = state.flame;
 		const prevErr   = state.err;
 
 		// Update shared state
-		state.flame = !!msg.flame;
-		state.fan   = typeof msg.fan  === 'number' ? msg.fan  : 0;
-		state.temp  = typeof msg.temp === 'number' ? msg.temp : 0;
-		state.err   = typeof msg.err  === 'number' ? msg.err  : 0;
-		state.valid = !!msg.valid;
+		state.flame = msg.flame;
+		state.fan   = msg.fan;
+		state.temp  = msg.temp;
+		state.err   = msg.err;
+		state.valid = msg.valid;
 		state.updated_at = Date.now();
 
 		// Accumulate flame-on seconds
@@ -76,8 +102,8 @@ function createWebhookReceiver(state, pushManager) {
 			}
 		}
 
-		const msg = req.body;
-		if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
+		const msg = normaliseMessage(req.body);
+		if (!msg) {
 			return res.status(400).json({ error: 'bad request' });
 		}
 
