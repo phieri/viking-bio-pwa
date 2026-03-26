@@ -45,7 +45,7 @@ function requireHttpUrl(value, envName) {
 }
 
 function isPlainObject(value) {
-	return !!value && typeof value === 'object' && !Array.isArray(value);
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 const HTTP_PORT = parsePort(process.env.HTTP_PORT, 3000, 'HTTP_PORT');
