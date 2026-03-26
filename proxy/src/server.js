@@ -47,7 +47,7 @@ const state = {
 const pushManager = createPushManager();
 
 // Scheduler handles the cleaning reminder
-const scheduler = createScheduler(pushManager);
+const scheduler = createScheduler(pushManager, state);
 
 // Webhook receiver processes authenticated POST requests from the Pico bridge
 const webhookReceiver = createWebhookReceiver(state, pushManager);

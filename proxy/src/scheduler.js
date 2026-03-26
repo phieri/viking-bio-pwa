@@ -1,15 +1,32 @@
 'use strict';
 
 /**
+ * Format a duration given in seconds as a human-readable Swedish string,
+ * e.g. "3 tim 25 min" or "45 min".
+ *
+ * @param {number} secs
+ * @returns {string}
+ */
+function formatFlameSecs(secs) {
+	const h = Math.floor(secs / 3600);
+	const m = Math.floor((secs % 3600) / 60);
+	if (h === 0) return `${m} min`;
+	if (m === 0) return `${h} tim`;
+	return `${h} tim ${m} min`;
+}
+
+/**
  * Scheduler for periodic push notifications.
  *
  * Currently implements a cleaning reminder sent every Saturday at 07:00
  * during the heating season (November through March).
  *
  * @param {object} pushManager - Push manager instance
+ * @param {object} state       - Shared burner state; flame_secs is read and
+ *                               reset to 0 each time a reminder is sent.
  * @returns {{ start: function, stop: function }}
  */
-function createScheduler(pushManager) {
+function createScheduler(pushManager, state) {
 	let timer = null;
 
 	/**
@@ -33,7 +50,7 @@ function createScheduler(pushManager) {
 	let reminderSentThisWeek = false;
 	let lastCheckedWeek = -1;
 
-	function tick() {
+	async function tick() {
 		const now = new Date();
 		const week = getISOWeek(now);
 
@@ -45,12 +62,20 @@ function createScheduler(pushManager) {
 
 		if (!reminderSentThisWeek && shouldSendCleaningReminder(now)) {
 			reminderSentThisWeek = true;
-			console.log('scheduler: sending cleaning reminder');
-			pushManager.notifyByType(
-				'clean',
-				'Viking Bio: Rengöringspåminnelse',
-				'Dags att rengöra pannan. Regelbunden rengöring håller den i gott skick.'
-			);
+			const flameSecs = (state && typeof state.flame_secs === 'number')
+				? state.flame_secs : 0;
+			const flameStr = formatFlameSecs(flameSecs);
+			console.log(`scheduler: sending cleaning reminder (flame time since last: ${flameStr})`);
+			try {
+				await pushManager.notifyByType(
+					'clean',
+					'Viking Bio: Rengöringspåminnelse',
+					`Dags att rengöra pannan. Bränntid sedan förra påminnelsen: ${flameStr}.`
+				);
+				if (state) state.flame_secs = 0;
+			} catch (err) {
+				console.error(`scheduler: failed to send cleaning reminder: ${err.message}`);
+			}
 		}
 	}
 
