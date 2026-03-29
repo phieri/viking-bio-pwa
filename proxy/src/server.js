@@ -12,20 +12,7 @@ const { createPushManager } = require('./push-manager');
 const { createMdnsAdvertiser } = require('./mdns-advertiser');
 const { createDdnsClient } = require('./ddns-client');
 const { createCertManager } = require('./cert-manager');
-
-function parsePort(value, fallback, envName) {
-	const raw = String(value ?? fallback).trim();
-	if (!/^\d+$/.test(raw)) {
-		console.error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
-		process.exit(1);
-	}
-	const port = parseInt(raw, 10);
-	if (port < 1 || port > 65535) {
-		console.error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
-		process.exit(1);
-	}
-	return port;
-}
+const { parsePort, isPlainObject } = require('./utils');
 
 function requireHttpUrl(value, envName) {
 	if (!value) return '';
@@ -44,11 +31,13 @@ function requireHttpUrl(value, envName) {
 	return trimmedValue;
 }
 
-function isPlainObject(value) {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
+let HTTP_PORT;
+try {
+	HTTP_PORT = parsePort(process.env.HTTP_PORT, 3000, 'HTTP_PORT');
+} catch (err) {
+	console.error(err.message);
+	process.exit(1);
 }
-
-const HTTP_PORT = parsePort(process.env.HTTP_PORT, 3000, 'HTTP_PORT');
 
 // Optional: base URL of the Pico W's webhook API (e.g. http://[fe80::1%25eth0]:8080).
 // When set the proxy forwards push subscriptions to the Pico so it can send
@@ -298,6 +287,12 @@ process.once('SIGTERM', () => {
 //   3. fallback                       → plain HTTP (development only)
 // ---------------------------------------------------------------------------
 
+function logStartupInfo(listenUrl) {
+	console.log(`Viking Bio Proxy listening on ${listenUrl}`);
+	if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
+	if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
+}
+
 async function startServer() {
 	const ddns    = createDdnsClient();
 	activeDdnsClient = ddns;
@@ -350,12 +345,7 @@ async function startServer() {
 				);
 				activeServer = server;
 				server.listen(HTTP_PORT, '::', () => {
-					console.log(
-						`Viking Bio Proxy listening on https://${ddns.domain}:${HTTP_PORT}`
-						+ ` (Let's Encrypt)`
-					);
-					if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
-					if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
+					logStartupInfo(`https://${ddns.domain}:${HTTP_PORT} (Let's Encrypt)`);
 				});
 				return;
 			}
@@ -383,9 +373,7 @@ async function startServer() {
 		const server = https.createServer({ cert, key }, app);
 		activeServer = server;
 		server.listen(HTTP_PORT, '::', () => {
-			console.log(`Viking Bio Proxy listening on https://[::]:${HTTP_PORT} (TLS)`);
-			if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
-			if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
+			logStartupInfo(`https://[::]:${HTTP_PORT} (TLS)`);
 		});
 		return;
 	}
@@ -396,9 +384,7 @@ async function startServer() {
 	const server = http.createServer(app);
 	activeServer = server;
 	server.listen(HTTP_PORT, '::', () => {
-		console.log(`Viking Bio Proxy listening on http://[::]:${HTTP_PORT}`);
-		if (PICO_BASE_URL)         console.log(`  Pico W base URL:        ${PICO_BASE_URL}`);
-		if (PICO_VAPID_PUBLIC_KEY) console.log('  Using Pico W VAPID key');
+		logStartupInfo(`http://[::]:${HTTP_PORT}`);
 	});
 }
 
