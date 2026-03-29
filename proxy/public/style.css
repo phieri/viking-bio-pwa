@@ -7,9 +7,9 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 h1{text-align:center;margin-bottom:24px;font-size:1.8em}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;max-width:800px;margin:0 auto}
 .card{background:#252b33;border-radius:12px;padding:24px;text-align:center;border:1px solid #3a4048}
-.card .label{font-size:.8em;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.card .label{font-size:0.8em;color:#ccc;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
 .card .value{font-size:2em;font-weight:bold;color:#e94560}
-.card .unit{font-size:.9em;color:#bbb;margin-top:4px}
+.card .unit{font-size:0.9em;color:#ccc;margin-top:4px}
 .status{text-align:center;margin:16px auto;max-width:800px;padding:12px;border-radius:8px;font-size:.9em}
 .status.ok{background:#0f3460;color:#4ecdc4}
 .status.error{background:#3d0000;color:#ff6b6b}
