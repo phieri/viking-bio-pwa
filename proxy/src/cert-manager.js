@@ -40,22 +40,11 @@ const fs     = require('fs');
 const http   = require('http');
 const path   = require('path');
 const crypto = require('crypto');
+const { parsePort } = require('./utils');
 
 const DATA_DIR          = path.join(__dirname, '..', 'data');
 const RENEW_BEFORE_DAYS = 30;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
-
-function parsePort(value, fallback, envName) {
-	const raw = String(value ?? fallback).trim();
-	if (!/^\d+$/.test(raw)) {
-		throw new Error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
-	}
-	const port = parseInt(raw, 10);
-	if (port < 1 || port > 65535) {
-		throw new Error(`${envName} must be an integer between 1 and 65535 (got: ${raw})`);
-	}
-	return port;
-}
 
 /**
  * Create a Let's Encrypt certificate manager.
