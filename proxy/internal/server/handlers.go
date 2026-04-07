@@ -126,13 +126,13 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 
 	h.state.mu.Lock()
 	prevFlame := h.state.Flame
-	prevErr   := h.state.Err
+	prevErr := h.state.Err
 
-	h.state.Flame     = *body.Flame
-	h.state.Fan       = *body.Fan
-	h.state.Temp      = *body.Temp
-	h.state.Err       = *body.Err
-	h.state.Valid     = *body.Valid
+	h.state.Flame = *body.Flame
+	h.state.Fan = *body.Fan
+	h.state.Temp = *body.Temp
+	h.state.Err = *body.Err
+	h.state.Valid = *body.Valid
 	h.state.UpdatedAt = time.Now().UnixMilli()
 
 	// Accumulate flame-on seconds (tracked in ms for accuracy)
@@ -149,11 +149,11 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flameChanged := h.state.Flame != prevFlame
-	newErr       := h.state.Err != 0 && h.state.Err != prevErr && !h.state.errorNotified
-	errCleared   := h.state.Err == 0
-	curFlame     := h.state.Flame
-	curTemp      := h.state.Temp
-	curErr       := h.state.Err
+	newErr := h.state.Err != 0 && h.state.Err != prevErr && !h.state.errorNotified
+	errCleared := h.state.Err == 0
+	curFlame := h.state.Flame
+	curTemp := h.state.Temp
+	curErr := h.state.Err
 
 	if newErr {
 		h.state.errorNotified = true
@@ -170,10 +170,10 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 		var title, body string
 		if curFlame {
 			title = "Viking Bio: Låga tänd"
-			body  = fmt.Sprintf("Pannan tänd \u2013 %.0f\u00a0°C", curTemp)
+			body = fmt.Sprintf("Pannan tänd \u2013 %.0f\u00a0°C", curTemp)
 		} else {
 			title = "Viking Bio: Låga släckt"
-			body  = "Pannan har slocknat"
+			body = "Pannan har slocknat"
 		}
 		go h.pushMgr.NotifyByType("flame", title, body)
 	}

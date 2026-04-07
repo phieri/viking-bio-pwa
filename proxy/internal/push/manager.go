@@ -27,15 +27,15 @@ func New(dataDir, contactEmail string, store *storage.Store) (*Manager, error) {
 		return nil, fmt.Errorf("push: mkdir %s: %w", dataDir, err)
 	}
 
-	pubPath  := filepath.Join(dataDir, "server-vapid.pub")
+	pubPath := filepath.Join(dataDir, "server-vapid.pub")
 	privPath := filepath.Join(dataDir, "server-vapid.priv")
 
 	var pub, priv string
-	pubBytes, pubErr   := os.ReadFile(pubPath)
+	pubBytes, pubErr := os.ReadFile(pubPath)
 	privBytes, privErr := os.ReadFile(privPath)
 
 	if pubErr == nil && privErr == nil {
-		pub  = string(pubBytes)
+		pub = string(pubBytes)
 		priv = string(privBytes)
 		log.Println("push: loaded VAPID keys from disk")
 	} else {
