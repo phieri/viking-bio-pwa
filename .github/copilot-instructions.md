@@ -10,7 +10,7 @@ There are two active components:
    the proxy over HTTP, and stores the proxy VAPID public key for use by the PWA.
 2. **`proxy/`** - Go proxy server and PWA dashboard. It receives burner telemetry, serves
    the web UI, manages browser subscriptions, can forward subscriptions back to the Pico,
-   and can send proxy-side Web Push notifications as a fallback.
+   and sends Web Push notifications using proxy-managed VAPID keys.
 
 The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
 Node.js implementation; verify against the current Go code before acting.
@@ -63,13 +63,13 @@ Node.js implementation; verify against the current Go code before acting.
 Viking Bio 20 ──UART──► Pico W firmware
                          ├── POST /api/machine-data to proxy
                          ├── passive mDNS listener for _viking-bio._tcp
-                         └── optional direct Web Push delivery
+                         └── cached proxy VAPID public key + forwarded subscriptions
 
 Proxy (Go)
 ├── GET /                     PWA dashboard
 ├── GET /api/data             current burner state
 ├── POST /api/machine-data    authenticated webhook from Pico
-├── GET /api/vapid-public-key active VAPID key source
+├── GET /api/vapid-public-key proxy VAPID public key
 ├── GET /api/subscribers      subscription count
 ├── POST /api/subscribe       add/update browser subscription
 └── POST /api/unsubscribe     remove browser subscription

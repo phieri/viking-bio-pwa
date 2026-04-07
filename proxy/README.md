@@ -50,8 +50,8 @@ make run
 
 ## .env File
 
-Place a `.env` file next to the binary (or in the working directory). Variables
-already set in the environment take precedence:
+Place a `.env` file in the current working directory before starting the proxy.
+Variables already set in the environment take precedence:
 
 ```env
 HTTP_PORT=3000
