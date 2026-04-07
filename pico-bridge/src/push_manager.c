@@ -9,10 +9,6 @@
 // LittleFS file for persisted proxy VAPID public key (base64url string)
 #define VAPID_PUB_FILE "/vapid_pub.dat"
 
-// Maximum base64url length of a P-256 uncompressed public key
-// (65 bytes → ceil(65*4/3) = 88 chars, no padding in base64url)
-#define VAPID_PUB_MAX_LEN 88
-
 // LittleFS file for persisted push subscriptions
 #define SUBS_FILE  "/subs.dat"
 

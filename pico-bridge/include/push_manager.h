@@ -7,6 +7,10 @@
 // Maximum number of push subscriptions (persisted in LittleFS flash)
 #define PUSH_MAX_SUBSCRIPTIONS 4
 
+// Maximum base64url length of a P-256 uncompressed public key
+// (65 bytes → ceil(65*4/3) = 88 chars, no padding in base64url)
+#define VAPID_PUB_MAX_LEN 88
+
 // Maximum length of a push endpoint URL
 #define PUSH_ENDPOINT_MAX_LEN  512
 
@@ -49,7 +53,7 @@ bool push_manager_init(void);
  * Return the proxy VAPID public key as a base64url-encoded string into out_buf.
  * The key is fetched from the proxy and stored locally; returns an empty string
  * until the first successful webhook response is received.
- * @param out_buf  Output buffer (must be at least 92 bytes)
+ * @param out_buf  Output buffer (must be at least VAPID_PUB_MAX_LEN + 1 bytes)
  * @param buf_len  Size of output buffer
  * @return true if a key is available (non-empty), false otherwise
  */
