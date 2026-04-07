@@ -2,312 +2,260 @@
 
 ## Project Overview
 
-This is a **monorepo** for the Viking Bio 20 pellet burner integration system. It consists of two components:
+This repository is a monorepo for the Viking Bio 20 pellet burner integration system.
+There are two active components:
 
-1. **`pico-bridge/`** – Raspberry Pi Pico W firmware (C11, RP2040 + CYW43439 Wi-Fi) that reads serial data from the burner and forwards it via HTTP webhook to the proxy server, and sends Web Push notifications.
-2. **`proxy/`** – Node.js Express server that receives burner telemetry via authenticated webhook, serves the PWA dashboard.
+1. **`pico-bridge/`** - Raspberry Pi Pico W / Pico 2 W firmware in C. It reads burner data
+   over UART, stores config in LittleFS, discovers the proxy over mDNS, posts telemetry to
+   the proxy over HTTP, and can send Web Push notifications directly from the device.
+2. **`proxy/`** - Go proxy server and PWA dashboard. It receives burner telemetry, serves
+   the web UI, manages browser subscriptions, can forward subscriptions back to the Pico,
+   and can send proxy-side Web Push notifications as a fallback.
 
-```
-Viking Bio 20 ──UART──► Pico W (pico-bridge)
-                              │
-                     HTTP POST /api/machine-data
-                     X-Hook-Auth: <token>  (IPv6)
-                              │
-                         Node.js Proxy (proxy)
-                         ├── GET /                     Dashboard PWA
-                         ├── GET /api/data             Burner state (JSON)
-                         ├── POST /api/machine-data    Webhook from Pico
-                         ├── GET /api/vapid-public-key VAPID key
-                         ├── GET /api/subscribers      Subscription count
-                         ├── POST /api/subscribe       Add/update subscription
-                         └── POST /api/unsubscribe     Remove subscription
-```
+The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
+Node.js implementation; verify against the current Go code before acting.
 
 ## Repository Structure
 
-```
+```text
 .
-├── pico-bridge/                    # Raspberry Pi Pico W firmware
-│   ├── CMakeLists.txt              # Build file (CMake, fetches LittleFS via FetchContent)
-│   ├── CMakePresets.json           # CMake presets (pico-default, PICO_BOARD=pico_w)
-│   ├── pico_sdk_import.cmake       # Pico SDK bootstrap include
-│   ├── cmake/
-│   │   └── gen_demo_page.py        # Generates GitHub Pages demo from proxy/public/index.html
-│   ├── include/                    # Public headers for all modules
-│   │   ├── http_client.h           # HTTP webhook client (POST to proxy)
-│   │   ├── push_manager.h          # VAPID key management, push subscriptions
-│   │   ├── wifi_config.h           # WiFi + server + token config (AES-GCM encrypted)
-│   │   ├── lfs_hal.h               # LittleFS HAL API
-│   │   ├── serial_handler.h        # UART0 receive handler
-│   │   ├── viking_bio_protocol.h   # Binary/text protocol parser
-│   │   └── version.h               # Firmware version string
+├── pico-bridge/
+│   ├── CMakeLists.txt              # Firmware build, Pico SDK setup, LittleFS FetchContent
+│   ├── CMakePresets.json           # CMake presets for pico_w / pico2_w
+│   ├── include/                    # Firmware public headers
 │   ├── src/
-│   │   ├── main.c                  # Entry point, main loop, USB serial config
-│   │   ├── http_client.c           # lwIP TCP client – POSTs JSON to proxy webhook
-│   │   ├── push_manager.c          # VAPID key management, subscription persistence
-│   │   ├── wifi_config.c           # AES-128-GCM encrypted credentials (LittleFS)
-│   │   ├── lfs_hal.c               # LittleFS HAL (flash read/prog/erase via Pico SDK)
-│   │   ├── serial_handler.c        # UART0 receive handler (GP1, 9600 baud)
-│   │   ├── viking_bio_protocol.c   # Binary/text protocol parser for burner data
-│   │   └── version.c               # Firmware version string printing
+│   │   ├── main.c                  # Main loop, USB commands, Wi-Fi startup
+│   │   ├── http_client.c           # HTTP webhook client + proxy time sync
+│   │   ├── push_manager.c          # Web Push delivery + cleaning reminder scheduler
+│   │   ├── wifi_config.c           # Encrypted Wi-Fi/server/token storage
+│   │   ├── lfs_hal.c               # LittleFS flash backend
+│   │   └── dns_sd_browser.c        # Passive mDNS/DNS-SD listener for proxy discovery
 │   └── platform/
-│       ├── lwipopts.h              # lwIP configuration (IPv6-only, mDNS, TCP client)
-│       ├── mbedtls_config.h        # mbedTLS configuration (ECP P-256, AES-GCM)
-│       └── mbedtls_time.c          # mbedTLS time stub (no RTC on Pico)
-├── proxy/                          # Node.js Express proxy + PWA dashboard
-│   ├── package.json                # Dependencies: express, web-push
-│   ├── .env.example                # Environment variable reference
-│   ├── src/
-│   │   ├── server.js               # Express app, API routes, TLS, IPv6 binding
-│   │   ├── webhook-receiver.js     # Authenticated POST /api/machine-data handler
-│   │   ├── push-manager.js         # VAPID keys, subscription management, web-push
-│   │   ├── scheduler.js            # Cleaning reminder scheduler (Sat 07:00, Nov–Mar)
-│   │   └── tcp-receiver.js         # Legacy TCP receiver (superseded by webhook)
-│   └── public/                     # Static PWA files served by Express
-│       ├── index.html              # Dashboard PWA
-│       ├── app.js                  # Dashboard JavaScript
-│       ├── style.css               # Dashboard styles
-│       ├── sw.js                   # Service Worker for push notifications
-│       └── manifest.json           # PWA manifest
-└── .github/
-    └── workflows/
-        ├── build-firmware.yml      # CI: builds pico-bridge with Pico SDK 2.2.0
-        ├── build-proxy.yml         # CI: installs proxy deps and smoke-tests the server
-        └── pages.yml               # CI: deploys demo page to GitHub Pages
+│       ├── lwipopts.h              # lwIP options for IPv6 + TLS client
+│       └── mbedtls_config.h        # mbedTLS config used by firmware
+├── proxy/
+│   ├── cmd/proxy/main.go           # Entry point, .env loading, --configure mode
+│   ├── internal/
+│   │   ├── server/                 # HTTP routes, handlers, tests
+│   │   ├── config/                 # Environment parsing and validation
+│   │   ├── push/                   # VAPID keys and push delivery
+│   │   ├── storage/                # subscriptions.json persistence
+│   │   ├── serial/                 # USB serial bridge for Pico configurator
+│   │   ├── configure/              # Interactive TUI for device setup
+│   │   ├── mdns/                   # Proxy DNS-SD advertisement
+│   │   ├── ddns/                   # DuckDNS updater for ACME mode
+│   │   └── cert/                   # Let's Encrypt / TLS support
+│   ├── public/                     # Static PWA files (served from disk or embedded)
+│   ├── assets.go                   # go:embed for proxy/public
+│   ├── Makefile                    # build/run/test/configure shortcuts
+│   └── README.md                   # Proxy-specific runtime docs
+└── .github/workflows/
+    ├── build-firmware.yml          # Builds firmware for pico_w and pico2_w
+    ├── build-proxy.yml             # go vet/test/build/smoke test/cross-compile
+    └── pages.yml                   # Publishes demo page from proxy/public
 ```
 
-## Building the Firmware (pico-bridge)
+## Architecture Notes
 
-### Prerequisites
+### Data flow
 
-- **Pico SDK 2.2.0** (set `PICO_SDK_PATH` env var)
-- `cmake`, `gcc-arm-none-eabi`, `libnewlib-arm-none-eabi`, `build-essential`
-- Python 3 (for `cmake/gen_demo_page.py`, invoked automatically by the pages workflow)
+```text
+Viking Bio 20 ──UART──► Pico W firmware
+                         ├── POST /api/machine-data to proxy
+                         ├── passive mDNS listener for _viking-bio._tcp
+                         └── optional direct Web Push delivery
 
-```bash
-# Install toolchain
-sudo apt-get install cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
-
-# Clone Pico SDK 2.2.0
-git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git
-cd pico-sdk && git submodule update --init && cd ..
-export PICO_SDK_PATH=$(pwd)/pico-sdk
+Proxy (Go)
+├── GET /                     PWA dashboard
+├── GET /api/data             current burner state
+├── POST /api/machine-data    authenticated webhook from Pico
+├── GET /api/vapid-public-key active VAPID key source
+├── GET /api/subscribers      subscription count
+├── POST /api/subscribe       add/update browser subscription
+└── POST /api/unsubscribe     remove browser subscription
 ```
 
-### Build Command
+### Proxy details
+
+- Main entry point is `proxy/cmd/proxy/main.go`.
+- HTTP routes are registered in `proxy/internal/server/server.go`.
+- Request handling, shared burner state, webhook auth, push triggering, and Pico forwarding
+  live in `proxy/internal/server/handlers.go`.
+- Static files are served from disk when `proxy/public/` exists locally; otherwise the
+  binary serves embedded assets from `proxy/assets.go`.
+- Subscriptions are stored in `proxy/data/subscriptions.json`.
+- Proxy VAPID keys are stored in `proxy/data/server-vapid.pub` and
+  `proxy/data/server-vapid.priv`.
+- The proxy advertises `_viking-bio._tcp` with TXT `path=/api/data` via
+  `proxy/internal/mdns/advertiser.go`.
+- `MDNS_DISABLE=1` disables mDNS advertisement and is used by CI smoke tests.
+
+### Firmware details
+
+- Main loop is in `pico-bridge/src/main.c`.
+- USB serial commands are handled directly in `process_usb_commands()` inside `main.c`.
+- LittleFS-backed persistent files include Wi-Fi credentials, country, proxy server/port,
+  webhook token, VAPID keys, and push subscriptions.
+- The default proxy port is `WIFI_SERVER_PORT_DEFAULT` in
+  `pico-bridge/include/wifi_config.h`, currently **3000**.
+- The Pico passively listens for unsolicited mDNS announcements from the proxy; it does
+  not actively query for services.
+- `pico-bridge/src/push_manager.c` contains the TLS/Web Push delivery machinery
+  (`altcp_tls`, VAPID handling, subscription persistence) plus the cleaning reminder
+  scheduler. Use that file as the source of truth when changing push behavior, because
+  older docs may still describe earlier partial implementations.
+- The old Node.js-era `scheduler.js` no longer exists in the active proxy; scheduled
+  cleaning reminders are driven from the firmware via `push_manager_tick_scheduler()`.
+
+## Build, Test, and Validation
+
+### Proxy
+
+Use these commands from `proxy/`:
 
 ```bash
-mkdir pico-bridge/build && cd pico-bridge/build
-cmake .. -DWIFI_SSID="your_network" -DWIFI_PASSWORD="your_password"
+go vet ./...
+go test ./...
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-proxy ./cmd/proxy
+```
+
+The existing CI smoke test is:
+
+```bash
+mkdir -p /tmp/proxy-data
+DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-proxy &
+SERVER_PID=$!
+sleep 2
+curl -sf http://localhost:3000/api/data
+curl -sf -X POST http://localhost:3000/api/machine-data \
+  -H "Content-Type: application/json" \
+  -d '{"flame":false,"fan":0,"temp":0,"err":0,"valid":true}'
+```
+
+Useful shortcuts:
+
+```bash
+make build
+make run
+make test
+make configure
+```
+
+### Firmware
+
+`build-firmware.yml` is the source of truth for firmware CI. Local build requires the Pico
+SDK and ARM toolchain:
+
+```bash
+mkdir -p pico-bridge/build
+cd pico-bridge/build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico_w -DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"
 make -j$(nproc)
 ```
 
-- `WIFI_SSID` / `WIFI_PASSWORD` are **optional** compile-time fallbacks; the primary configuration method is USB serial at runtime.
-- LittleFS is fetched automatically via `FetchContent` at cmake configure time.
-- Output: `pico-bridge/build/viking_bio_bridge-<git-version>.uf2` (and `.elf`, `.bin`, `.hex`).
-- `PICO_BOARD` must be `pico_w` (enforced in `pico-bridge/CMakeLists.txt`).
+The workflow builds both `pico_w` and `pico2_w`.
 
-### CI Build (Firmware)
+## Where to Make Changes
 
-`.github/workflows/build-firmware.yml` runs on `ubuntu-latest`, caches the Pico SDK, and builds `pico-bridge/` with `-DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"`. Triggers on push/PR to `main`/`develop`, ignoring `**.md`, `docs/**`, and `proxy/**`.
+### Proxy HTTP/API changes
 
-## Running the Proxy
+- Add or update routes in `proxy/internal/server/server.go`.
+- Implement logic in `proxy/internal/server/handlers.go`.
+- Update or add tests in `proxy/internal/server/handlers_test.go` and
+  `proxy/internal/server/server_test.go`.
 
-### Prerequisites
+### Proxy configuration changes
 
-- Node.js ≥ 18
+- Update parsing/validation in `proxy/internal/config/config.go`.
+- Keep `proxy/.env.example` and `proxy/README.md` aligned with any new env vars or runtime
+  behavior.
 
-### Run Command
+### Dashboard / PWA changes
 
-```bash
-cd proxy
-npm install
-npm start       # production
-npm run dev     # development (auto-restart on file changes via --watch)
-```
+- Edit files under `proxy/public/`.
+- There is no JS build step; the Go server serves these files directly or from embedded
+  assets.
+- For Pages, `.github/workflows/pages.yml` manually copies individual files from
+  `proxy/public/` after generating the demo HTML.
 
-With custom configuration:
+### Device configurator changes
 
-```bash
-HTTP_PORT=8080 \
-MACHINE_WEBHOOK_AUTH_TOKEN=mysecrettoken \
-PICO_VAPID_PUBLIC_KEY=<base64url-from-STATUS> \
-PICO_BASE_URL=http://[fe80::dead:beef%25eth0]:8080 \
-npm start
-```
+- CLI entry is `./viking-bio-proxy --configure`.
+- TUI lives in `proxy/internal/configure/tui.go`.
+- Serial transport and STATUS parsing live in `proxy/internal/serial/bridge.go`.
 
-The dashboard is at `http://[::]:3000/` (or `https://` when TLS is configured).
+### Firmware config or networking changes
 
-### Proxy Environment Variables (see `proxy/.env.example`)
+- Wi-Fi/server/token persistence lives in `pico-bridge/src/wifi_config.c`.
+- HTTP webhook logic lives in `pico-bridge/src/http_client.c`.
+- mDNS discovery logic lives in `pico-bridge/src/dns_sd_browser.c`.
+- Push delivery and scheduler logic live in `pico-bridge/src/push_manager.c`.
+- USB command behavior lives in `pico-bridge/src/main.c`.
 
-| Variable | Default | Description |
-|---|---|---|
-| `HTTP_PORT` | `3000` | HTTP/HTTPS server port |
-| `MACHINE_WEBHOOK_AUTH_TOKEN` | _(empty)_ | Webhook auth token; Pico must send same value in `X-Hook-Auth` header. Leave empty to disable auth (dev only). |
-| `TLS_CERT_PATH` / `TLS_KEY_PATH` | _(empty)_ | Paths to TLS cert/key; when both set, server starts HTTPS |
-| `PICO_BASE_URL` | _(empty)_ | Pico W base URL (e.g. `http://[::1]:9000`); when set, push subscriptions are forwarded to the device |
-| `PICO_VAPID_PUBLIC_KEY` | _(empty)_ | VAPID public key from the Pico (output of `STATUS`); when set, browsers subscribe using the Pico's on-device key |
+## Important Runtime Behavior
 
-### CI Build (Proxy)
+- `POST /api/machine-data` requires `Content-Type: application/json` and validates
+  `X-Hook-Auth` when `MACHINE_WEBHOOK_AUTH_TOKEN` is set.
+- `PICO_BASE_URL` must be a full `http://` or `https://` URL.
+- For IPv6 URLs, `PICO_BASE_URL` must use brackets, for example `http://[::1]:3000`.
+- For the Pico USB `SERVER=` command, use the bare IPv6 address without brackets.
+- The proxy binds to `[::]:<port>` and prefers IPv6.
+- The proxy serves static files from disk first, then falls back to embedded assets.
+- The proxy's subscription capacity is 32 (`proxy/internal/storage/subscriptions.go`).
+- The Pico's subscription capacity is 4 (`pico-bridge/include/push_manager.h`).
 
-`.github/workflows/build-proxy.yml` triggers on changes to `proxy/**`. Installs dependencies and smoke-tests that the server starts and the webhook endpoint is reachable.
+## Common Pitfalls
 
-## Architecture & Key Design Decisions
+1. **Do not assume Node.js tooling exists for the proxy.** The proxy is Go; use Go commands
+   and Go files.
+2. **Do not trust stale docs blindly.** Older text may still mention Node.js, port `9000`,
+   or push notifications handled only by the proxy.
+3. **When changing proxy routes, update tests too.** Existing tests are small and fast.
+4. **When editing dashboard assets, remember Pages copies files explicitly.** If you add a
+   new static asset needed by the demo page, update `.github/workflows/pages.yml`.
+5. **mDNS discovery on the Pico is passive.** If the Pico connects after the proxy is
+   already running, restart the proxy to force a fresh unsolicited announcement.
+6. **The firmware depends on regular polling.** Long-blocking logic does not fit the Pico
+   main loop.
 
-### pico-bridge: HTTP Webhook Client
+## Errors Encountered and Workarounds
 
-- The Pico acts as an **HTTP client**, not a server. It POSTs burner telemetry JSON to `POST /api/machine-data` on the proxy.
-- Implemented as a lwIP TCP state machine in `pico-bridge/src/http_client.c`.
-- Uses IPv6 (lwIP is IPv6-only; see `platform/lwipopts.h`).
-- Webhook path is fixed: `/api/machine-data`.
-- Adds `X-Hook-Auth: <token>` header when a token is configured.
-- DNS resolution is supported; bare IPv6 addresses (no brackets) are accepted in `SERVER=`.
-- Retry on failure with 5 s backoff (`HTTP_CLIENT_RETRY_MS`); 10 s connection/response timeout (`HTTP_CLIENT_TIMEOUT_MS`).
-- Only the latest data is queued; if a request is in-flight, the pending data is replaced with the most recent value.
+### 1. Local firmware build prerequisites are usually missing in the cloud agent
 
-### proxy: Webhook Receiver
+Observed while auditing this repository: `PICO_SDK_PATH` was unset and `arm-none-eabi-gcc`
+was not installed, so a local firmware build could not be started immediately.
 
-- `proxy/src/webhook-receiver.js` validates the `X-Hook-Auth` header with a **constant-time comparison** (`crypto.timingSafeEqual`) to prevent timing attacks.
-- Updates shared in-memory burner state and triggers push notifications on flame/error transitions.
-- Accumulates flame-on seconds in `state.flame_secs`.
+**Workaround:**
 
-### proxy: Push Notifications (fully implemented)
+- For proxy-only tasks, validate with the Go commands above.
+- For firmware tasks, follow `.github/workflows/build-firmware.yml`: install `cmake`,
+  `gcc-arm-none-eabi`, `libnewlib-arm-none-eabi`, `build-essential`, fetch Pico SDK 2.2.0,
+  and export `PICO_SDK_PATH` before running CMake.
 
-- `proxy/src/push-manager.js` uses the `web-push` npm package for actual RFC 8291/8292 Web Push delivery.
-- VAPID keys are auto-generated on first run and stored in `proxy/data/vapid.json`.
-- Subscriptions are persisted to `proxy/data/subscriptions.json` (up to 32 entries).
-- Three notification types: `flame` (flame on/off), `error` (non-zero error code), `clean` (periodic cleaning reminder).
-- The `scheduler.js` fires a cleaning reminder every Saturday at 07:00 during November–March (heating season).
+### 2. CI/local smoke tests can fail in environments without multicast support
 
-### pico-bridge: Push Notifications (partial)
+The proxy publishes mDNS by default, which is unnecessary in CI and can be noisy or
+unreliable in restricted environments.
 
-- VAPID P-256 keys are generated on first boot and stored in `/vapid.dat`.
-- Up to 4 subscriptions are stored in `/subs.dat` (persisted across reboots via LittleFS).
-- `push_manager_notify_all()` currently **logs only**; actual outbound HTTPS delivery requires TLS client support (`pico_lwip_mbedtls`) and RFC 8291 message encryption — marked `TODO` in `pico-bridge/src/push_manager.c`.
-- Proxy-side push (via `PICO_BASE_URL` forwarding) is the recommended path for actual delivery today.
+**Workaround:**
 
-### Flash / Persistent Storage (pico-bridge)
+- Run proxy smoke tests with `MDNS_DISABLE=1`, matching `build-proxy.yml`.
 
-- **LittleFS** filesystem occupies the **last 64 KB** (16 × 4 KB blocks) of flash.
-- HAL is in `pico-bridge/src/lfs_hal.c`; auto-formats on first boot or corruption.
-- Files stored:
-  - `/vapid.dat` – VAPID EC key pair (magic + private(32) + public(65) + CRC32(4) = 105 bytes)
-  - `/wifi.dat` – AES-128-GCM encrypted WiFi credentials (magic + nonce(12) + tag(16) + ciphertext(112) = 144 bytes)
-  - `/country.dat` – 2-byte Wi-Fi country code (e.g., `SE`)
-  - `/server.dat` – Proxy server IP string + uint16_t port (49 bytes)
-  - `/hook.dat` – Webhook auth token (up to 64 bytes)
-  - `/subs.dat` – Push subscriptions (magic + 4 × slot + CRC32 = 2596 bytes)
+### 3. Pico auto-discovery may appear broken when the proxy was already running
 
-### WiFi Credentials (pico-bridge)
+The Pico only listens for unsolicited mDNS announcements and does not send queries.
 
-- Stored **AES-128-GCM encrypted** in `/wifi.dat`; AES key derived via `SHA-256(board_id || "VIKINGBIO_WIFIKEY")`.
-- **Primary configuration**: USB serial (115200 baud) commands (see table below).
-- **Secondary (compile-time fallback)**: `-DWIFI_SSID=` / `-DWIFI_PASSWORD=` cmake options (only active if no stored credentials).
+**Workaround:**
 
-### USB Serial Commands (pico-bridge)
-
-Connect via USB serial at 115200 baud. All commands are line-terminated (`\n`).
-
-| Command | Description |
-|---|---|
-| `SSID=<ssid>` | Stage the WiFi SSID |
-| `PASS=<password>` | Save staged SSID + password and reboot |
-| `COUNTRY=<CC>` | Set Wi-Fi country code (2 uppercase letters, e.g. `SE`, `US`) |
-| `SERVER=<ip>` | Set proxy server IP/hostname (bare IPv6 without brackets, e.g. `fe80::1`) |
-| `PORT=<port>` | Set proxy server port (default: `9000`; must set `SERVER=` first) |
-| `TOKEN=<token>` | Set webhook `X-Hook-Auth` token (max 64 chars) |
-| `STATUS` | Show WiFi status, server/token config, subscription count, VAPID public key |
-| `CLEAR` | Erase stored credentials and reboot |
-
-After first boot, run `STATUS` to get the device VAPID public key and set `PICO_VAPID_PUBLIC_KEY` in the proxy's environment.
-
-### Main Loop (pico-bridge)
-
-`pico-bridge/src/main.c` is a **cooperative polling loop**:
-1. Feed watchdog (8 s timeout)
-2. `cyw43_arch_poll()` – drive Wi-Fi/lwIP stack
-3. `process_usb_commands()` – USB serial config
-4. `serial_handler_data_available()` / `serial_handler_read()` – Viking Bio UART data
-5. `http_client_poll()` / `http_client_send_data()` – webhook delivery
-6. Event flags set by a 2-second `repeating_timer`: `EVENT_TIMEOUT_CHECK`, `EVENT_BROADCAST`
-
-### Viking Bio 20 Protocol
-
-Two modes supported (`pico-bridge/src/viking_bio_protocol.c`):
-- **Binary**: `[0xAA] [FLAGS] [FAN_SPEED] [TEMP_HIGH] [TEMP_LOW] [0x55]`
-  - FLAGS bit 0 = flame detected, bits 1–7 = error code
-- **Text**: `F:1,S:50,T:75` (Flame 0/1, Speed %, Temperature °C)
-- UART0, GPIO1 (RX), 9600 baud, 8N1
-
-### LED Behavior (pico-bridge)
-
-- **Steady on**: Wi-Fi connected
-- **2 Hz blink**: Wi-Fi not connected
-- **Short 50 ms blink**: Serial data received from burner
-
-### mDNS (pico-bridge)
-
-- Device advertises as `viking-bio-XXYY.local` (last 2 bytes of Pico board ID).
-- No HTTP service is registered (the Pico does not serve HTTP).
-
-### lwIP Configuration
-
-- **IPv6-only** (`LWIP_IPV4 0`, `LWIP_IPV6 1`) — the CYW43 arch uses IPv6.
-- `MEMP_NUM_SYS_TIMEOUT 14` — must be ≥ 14; lower values cause an assertion panic during mDNS probe/announce startup.
-- No HTTP server (`pico_lwip_http` is not linked). Only TCP client + mDNS responder.
+- Restart the proxy after the Pico has connected to Wi-Fi so the proxy emits a fresh
+  `_viking-bio._tcp` announcement.
 
 ## Code Style
 
-Per `.editorconfig`:
-- **C/H files**: tabs for indentation, max line length 100
-- **CMake/Python files**: 4-space indentation
-- **YAML/JSON**: 2-space indentation
-- **JavaScript files**: tabs for indentation
-- All files: UTF-8, LF line endings, final newline, no trailing whitespace (except `.md`)
+From `.editorconfig`:
 
-Header guards use `#ifndef MODULE_H` / `#define MODULE_H` / `#endif // MODULE_H` style.
-
-## Common Tasks for a Coding Agent
-
-### Adding a new proxy API endpoint
-
-1. Add a route in `proxy/src/server.js` (e.g., `app.get('/api/newdata', ...)`).
-2. No firmware changes needed for proxy-only additions.
-
-### Modifying the dashboard UI
-
-1. Edit files in `proxy/public/` (`index.html`, `app.js`, `style.css`, `sw.js`, `manifest.json`).
-2. Run `npm start` in `proxy/` to test locally.
-
-### Adding a new LittleFS-persisted setting (pico-bridge)
-
-1. Define a new file path constant (e.g., `#define NEW_SETTING_FILE "/setting.dat"`).
-2. Use `lfs_hal_read_file` / `lfs_hal_write_file` / `lfs_hal_delete_file` from `pico-bridge/src/lfs_hal.c`.
-3. `lfs_hal_init()` must be called and succeed before any file operations (already called in `main()`).
-
-### Changing mbedTLS configuration (pico-bridge)
-
-Edit `pico-bridge/platform/mbedtls_config.h`. The `MBEDTLS_ALLOW_PRIVATE_ACCESS` define is set in `pico-bridge/CMakeLists.txt` via `add_compile_definitions` and is required for accessing `MBEDTLS_PRIVATE` struct members.
-
-### Changing lwIP configuration (pico-bridge)
-
-Edit `pico-bridge/platform/lwipopts.h`. **Do not reduce `MEMP_NUM_SYS_TIMEOUT` below 14** — see "Errors Encountered" below.
-
-## Known Limitations / TODOs
-
-- Outbound HTTPS Web Push from the Pico W (`push_manager_notify_all`) logs only; actual delivery to browser push services requires `pico_lwip_mbedtls` and RFC 8291 message encryption (marked `TODO` in `pico-bridge/src/push_manager.c`). Use the proxy for Web Push delivery today.
-- `pico-bridge/src/tcp_client.c` is a leftover from an older TCP transport approach and is no longer used.
-- IPv4 is not shown in the `STATUS` command (lwIP is IPv6-only; only IPv6 link-local addresses are printed).
-- The watchdog reboot (via `watchdog_enable(1, false)`) relies on the watchdog firing within 1 ms; USB stdio output before reboot may not fully flush.
-
-## Errors Encountered
-
-### mDNS startup panic: `MEMP_NUM_SYS_TIMEOUT` too low
-
-**Symptom:** Firmware panics (assertion failure or hard fault) immediately after WiFi connects, during the mDNS probe/announce sequence.
-
-**Root cause:** The lwIP mDNS responder allocates `sys_timeout` slots dynamically during the probe/announce sequence. With `MEMP_NUM_SYS_TIMEOUT` set to 6 (the default for a minimal lwIP build), the pool is exhausted.
-
-**Fix:** Set `MEMP_NUM_SYS_TIMEOUT 14` in `pico-bridge/platform/lwipopts.h`. The comment in that file explains the accounting. This was introduced in PR #22.
-
-**Lesson:** When adding new lwIP features that use timers (mDNS, SNTP, DHCP, etc.), verify that `MEMP_NUM_SYS_TIMEOUT` is large enough. Count: TCP retransmit timers + IPv6 ND/REASS/MLD + DNS + mDNS probe/announce slots.
+- C/C++: tabs, max line length 100
+- CMake/Python/shell: 4 spaces
+- Markdown: 2 spaces, trailing whitespace preserved
+- YAML/JSON: 2 spaces
+- UTF-8, LF, final newline everywhere
