@@ -1,0 +1,78 @@
+version: 2
+
+project_name: viking-bio-proxy
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: viking-bio-proxy
+    dir: proxy
+    main: ./cmd/proxy
+    binary: viking-bio-proxy
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # windows/arm64 not commonly needed, exclude it
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    flags:
+      - -trimpath
+
+archives:
+  - id: default
+    builds:
+      - viking-bio-proxy
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - proxy/README.md
+      - proxy/.env.example
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "Merge pull request"
+      - "Merge branch"
+
+nfpms:
+  - id: linux-packages
+    builds:
+      - viking-bio-proxy
+    package_name: viking-bio-proxy
+    vendor: Viking Bio
+    homepage: https://github.com/phieri/viking-bio-pwa
+    maintainer: Viking Bio contributors
+    description: Viking Bio 20 pellet burner proxy server and PWA dashboard
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: proxy/README.md
+        dst: /usr/share/doc/viking-bio-proxy/README.md
+      - src: proxy/.env.example
+        dst: /usr/share/doc/viking-bio-proxy/.env.example
+      - type: ghost
+        dst: /etc/viking-bio-proxy/.env

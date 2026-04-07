@@ -15,35 +15,50 @@ on:
 
 jobs:
   build-proxy:
-    name: Build Proxy
+    name: Build and Test Go Proxy
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v6
+    - name: Set up Go
+      uses: actions/setup-go@v5
       with:
-        node-version: '24'
-        cache: 'npm'
-        cache-dependency-path: proxy/package.json
+        go-version-file: proxy/go.mod
+        cache-dependency-path: proxy/go.sum
 
-    - name: Install dependencies
+    - name: go vet
       working-directory: proxy
-      run: npm install
+      run: go vet ./...
 
-    - name: Verify server starts and webhook works
+    - name: go test
       working-directory: proxy
+      run: go test ./...
+
+    - name: Build binary (linux/amd64)
+      working-directory: proxy
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-proxy ./cmd/proxy
+
+    - name: Smoke-test: server starts and API responds
       run: |
-        timeout 5 node src/server.js &
-        sleep 3
-        # Dashboard API
-        curl -sf http://localhost:3000/api/data || true
-        # Webhook endpoint: unauthenticated POST should succeed when no token is configured
+        mkdir -p /tmp/proxy-data
+        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-proxy &
+        SERVER_PID=$!
+        sleep 2
+        curl -sf http://localhost:3000/api/data
         curl -sf -X POST http://localhost:3000/api/machine-data \
           -H "Content-Type: application/json" \
-          -d '{"flame":false,"fan":0,"temp":0,"err":0,"valid":true}' || true
-        echo "Proxy started successfully"
+          -d '{"flame":false,"fan":0,"temp":0,"err":0,"valid":true}'
+        echo "Proxy started and responded successfully"
+        kill "$SERVER_PID" || true
+
+    - name: Cross-compile linux/arm64
+      working-directory: proxy
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /dev/null ./cmd/proxy
+
+    - name: Cross-compile windows/amd64
+      working-directory: proxy
+      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/proxy
