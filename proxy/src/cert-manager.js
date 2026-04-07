@@ -191,7 +191,7 @@ function createCertManager(opts = {}) {
 		fs.mkdirSync(certDir, { recursive: true, mode: 0o700 });
 		fs.writeFileSync(keyPath,  domainKey, { mode: 0o600 });
 		fs.writeFileSync(certPath, cert);
-		console.log(`cert-manager: certificate saved to ${certDir}`);
+		console.log('cert-manager: certificate saved');
 	}
 
 	/** Check expiry and renew if needed; fire onRenew callback on success. */
