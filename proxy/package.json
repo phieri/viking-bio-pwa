@@ -5,12 +5,14 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "configure": "node scripts/configure-device.js"
   },
   "dependencies": {
     "acme-client": "^5.4.0",
     "bonjour": "^3.5.1",
     "express": "^5.2.1",
+    "serialport": "^13.0.0",
     "web-push": "^3.6.7"
   },
   "engines": {

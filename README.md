@@ -83,6 +83,34 @@ The Node.js proxy server:
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
 - Web Push notifications via `web-push` (VAPID keys auto-generated on first start, or use Pico's key via `PICO_VAPID_PUBLIC_KEY`)
 - Subscriptions persisted to `proxy/data/subscriptions.json`; forwarded to Pico W when `PICO_BASE_URL` is set
+- **Device configurator TUI** (`npm run configure`) for first-time setup of the Pico W over USB serial
+
+### Device Configurator TUI
+
+The proxy includes an interactive terminal utility for configuring the Pico W
+bridge over USB serial – no separate serial terminal application required.
+
+```bash
+cd proxy
+npm run configure                # auto-detect Pico W USB port
+npm run configure /dev/ttyACM0   # specify port directly (Linux)
+npm run configure COM3           # Windows
+```
+
+The TUI guides you through:
+
+| Option | Description |
+|--------|-------------|
+| **Show status** | Reads WiFi state, server config, token status, and VAPID public key from the device |
+| **Configure WiFi** | Sets SSID + password (device reboots to connect) |
+| **Set country code** | Sets the Wi-Fi regulatory domain (e.g. `SE`, `US`, `GB`) |
+| **Set proxy server** | Sets the IP address and port of this proxy computer |
+| **Set auth token** | Sets the `X-Hook-Auth` token (must match `MACHINE_WEBHOOK_AUTH_TOKEN`) |
+| **Clear credentials** | Erases all stored credentials and reboots the device |
+
+After running **Show status**, copy the displayed VAPID public key and set it as
+`PICO_VAPID_PUBLIC_KEY` in the proxy `.env` file so browsers subscribe using the
+Pico's on-device key.
 
 ### PWA Dashboard
 
