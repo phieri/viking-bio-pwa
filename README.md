@@ -94,7 +94,7 @@ The proxy includes an interactive terminal utility for configuring the Pico W
 bridge over USB serial – no separate serial terminal application required.
 
 ```bash
-./viking-bio-proxy --configure                 # auto-detect Pico W USB port
+./viking-bio-proxy --configure                        # auto-detect Pico W USB port
 ./viking-bio-proxy --configure --port /dev/ttyACM0   # specify port directly (Linux)
 ./viking-bio-proxy --configure --port COM3           # Windows
 ```
