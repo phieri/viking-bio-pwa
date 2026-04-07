@@ -9,7 +9,8 @@
 // LittleFS file for persisted proxy VAPID public key (base64url string)
 #define VAPID_PUB_FILE "/vapid_pub.dat"
 
-// Maximum base64url length of a P-256 uncompressed public key (65 bytes → 88 chars)
+// Maximum base64url length of a P-256 uncompressed public key
+// (65 bytes → ceil(65*4/3) = 88 chars, no padding in base64url)
 #define VAPID_PUB_MAX_LEN 88
 
 // LittleFS file for persisted push subscriptions
@@ -208,8 +209,8 @@ bool push_manager_init(void) {
 
 	// Load the proxy VAPID public key if previously stored in flash.
 	// The key will be refreshed on the next successful webhook response.
-	char buf[VAPID_PUB_MAX_LEN + 2];
-	int n = lfs_hal_read_file(VAPID_PUB_FILE, buf, sizeof(buf) - 1);
+	char buf[VAPID_PUB_MAX_LEN + 1];
+	int n = lfs_hal_read_file(VAPID_PUB_FILE, buf, VAPID_PUB_MAX_LEN);
 	if (n > 0 && n <= VAPID_PUB_MAX_LEN) {
 		buf[n] = '\0';
 		// Validate: key should be non-empty base64url characters
