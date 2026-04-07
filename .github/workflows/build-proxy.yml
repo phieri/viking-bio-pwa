@@ -40,12 +40,12 @@ jobs:
 
     - name: Build binary (linux/amd64)
       working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-proxy ./cmd/proxy
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-proxy ./cmd/proxy
 
     - name: "Smoke-test: server starts and API responds"
       run: |
         mkdir -p /tmp/proxy-data
-        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-proxy &
+        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 proxy/dist/linux_amd64/viking-bio-proxy &
         SERVER_PID=$!
         sleep 2
         curl -sf http://localhost:3000/api/data
@@ -57,8 +57,18 @@ jobs:
 
     - name: Cross-compile linux/arm64
       working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /dev/null ./cmd/proxy
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/linux_arm64/viking-bio-proxy ./cmd/proxy
 
     - name: Cross-compile windows/amd64
       working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/proxy
+      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/windows_amd64/viking-bio-proxy.exe ./cmd/proxy
+
+    - name: Upload proxy binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: viking-bio-proxy-binaries
+        path: |
+          proxy/dist/linux_amd64/viking-bio-proxy
+          proxy/dist/linux_arm64/viking-bio-proxy
+          proxy/dist/windows_amd64/viking-bio-proxy.exe
+        retention-days: 30
