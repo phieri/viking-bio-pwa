@@ -98,24 +98,42 @@ func (s *Server) Start(ctx context.Context) error {
 	return s.startHTTP(ctx, mux, addr)
 }
 
-func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
-	srv := &http.Server{Addr: addr, Handler: mux}
-	s.httpSrv = srv
+func listen(addr string) (net.Listener, error) {
 	ln, err := net.Listen("tcp6", addr)
-	if err != nil {
-		ln, err = net.Listen("tcp", addr)
-		if err != nil {
-			return fmt.Errorf("listen %s: %w", addr, err)
-		}
+	if err == nil {
+		return ln, nil
 	}
-	log.Printf("Viking Bio Proxy listening on http://%s", addr)
-	logExtra(s.cfg)
+	ln, err = net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen %s: %w", addr, err)
+	}
+	return ln, nil
+}
+
+func shutdownOnContext(ctx context.Context, servers ...*http.Server) {
 	go func() {
 		<-ctx.Done()
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(shutCtx)
+		for _, srv := range servers {
+			if srv == nil {
+				continue
+			}
+			_ = srv.Shutdown(shutCtx)
+		}
 	}()
+}
+
+func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
+	srv := &http.Server{Addr: addr, Handler: mux}
+	s.httpSrv = srv
+	ln, err := listen(addr)
+	if err != nil {
+		return err
+	}
+	log.Printf("Viking Bio Proxy listening on http://%s", addr)
+	logExtra(s.cfg)
+	shutdownOnContext(ctx, srv)
 	return srv.Serve(ln)
 }
 
@@ -126,21 +144,13 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 	}
 	srv := &http.Server{Addr: addr, Handler: mux, TLSConfig: &tls.Config{Certificates: []tls.Certificate{tlsCert}}}
 	s.httpSrv = srv
-	ln, err := net.Listen("tcp6", addr)
+	ln, err := listen(addr)
 	if err != nil {
-		ln, err = net.Listen("tcp", addr)
-		if err != nil {
-			return fmt.Errorf("listen %s: %w", addr, err)
-		}
+		return err
 	}
 	log.Printf("Viking Bio Proxy listening on https://%s (manual TLS)", addr)
 	logExtra(s.cfg)
-	go func() {
-		<-ctx.Done()
-		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutCtx)
-	}()
+	shutdownOnContext(ctx, srv)
 	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
 }
 
@@ -162,22 +172,13 @@ func (s *Server) startACME(ctx context.Context, mux http.Handler, addr, domain s
 	}()
 	srv := &http.Server{Addr: addr, Handler: mux, TLSConfig: mgr.TLSConfig()}
 	s.httpSrv = srv
-	ln, err := net.Listen("tcp6", addr)
+	ln, err := listen(addr)
 	if err != nil {
-		ln, err = net.Listen("tcp", addr)
-		if err != nil {
-			return fmt.Errorf("listen %s: %w", addr, err)
-		}
+		return err
 	}
 	log.Printf("Viking Bio Proxy listening on https://%s:%d (Let's Encrypt)", domain, s.cfg.HTTPPort)
 	logExtra(s.cfg)
-	go func() {
-		<-ctx.Done()
-		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutCtx)
-		_ = challengeSrv.Shutdown(shutCtx)
-	}()
+	shutdownOnContext(ctx, srv, challengeSrv)
 	return srv.ServeTLS(ln, "", "")
 }
 
