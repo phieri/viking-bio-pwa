@@ -42,7 +42,7 @@ jobs:
       working-directory: proxy
       run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-proxy ./cmd/proxy
 
-    - name: Smoke-test: server starts and API responds
+    - name: "Smoke-test: server starts and API responds"
       run: |
         mkdir -p /tmp/proxy-data
         DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-proxy &
