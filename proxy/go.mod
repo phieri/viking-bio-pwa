@@ -2,8 +2,6 @@ module github.com/phieri/viking-bio-pwa/proxy
 
 go 1.23.0
 
-toolchain go1.24.13
-
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/grandcat/zeroconf v1.0.0
