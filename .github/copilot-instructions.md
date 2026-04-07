@@ -104,6 +104,8 @@ Proxy (Go)
   (`altcp_tls`, VAPID handling, subscription persistence) plus the cleaning reminder
   scheduler. Use that file as the source of truth when changing push behavior, because
   older docs may still describe earlier partial implementations.
+- The old Node.js-era `scheduler.js` no longer exists in the active proxy; scheduled
+  cleaning reminders are driven from the firmware via `push_manager_tick_scheduler()`.
 
 ## Build, Test, and Validation
 
@@ -207,7 +209,7 @@ The workflow builds both `pico_w` and `pico2_w`.
 1. **Do not assume Node.js tooling exists for the proxy.** The proxy is Go; use Go commands
    and Go files.
 2. **Do not trust stale docs blindly.** Older text may still mention Node.js, port `9000`,
-   or proxy-only push.
+   or push notifications handled only by the proxy.
 3. **When changing proxy routes, update tests too.** Existing tests are small and fast.
 4. **When editing dashboard assets, remember Pages copies files explicitly.** If you add a
    new static asset needed by the demo page, update `.github/workflows/pages.yml`.
