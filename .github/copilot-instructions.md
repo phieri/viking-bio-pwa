@@ -7,7 +7,7 @@ There are two active components:
 
 1. **`pico-bridge/`** - Raspberry Pi Pico W / Pico 2 W firmware in C. It reads burner data
    over UART, stores config in LittleFS, discovers the proxy over mDNS, posts telemetry to
-   the proxy over HTTP, and can send Web Push notifications directly from the device.
+   the proxy over HTTP, and stores the proxy VAPID public key for use by the PWA.
 2. **`proxy/`** - Go proxy server and PWA dashboard. It receives burner telemetry, serves
    the web UI, manages browser subscriptions, can forward subscriptions back to the Pico,
    and can send proxy-side Web Push notifications as a fallback.
@@ -95,14 +95,17 @@ Proxy (Go)
 - Main loop is in `pico-bridge/src/main.c`.
 - USB serial commands are handled directly in `process_usb_commands()` inside `main.c`.
 - LittleFS-backed persistent files include Wi-Fi credentials, country, proxy server/port,
-  webhook token, VAPID keys, and push subscriptions.
+  webhook token, proxy VAPID public key (`/vapid_pub.dat`), and push subscriptions.
 - The default proxy port is `WIFI_SERVER_PORT_DEFAULT` in
   `pico-bridge/include/wifi_config.h`, currently **3000**.
 - The Pico passively listens for unsolicited mDNS announcements from the proxy; it does
   not actively query for services.
-- `pico-bridge/src/push_manager.c` contains the TLS/Web Push delivery machinery
-  (`altcp_tls`, VAPID handling, subscription persistence) plus the cleaning reminder
-  scheduler. Use that file as the source of truth when changing push behavior, because
+- `pico-bridge/src/push_manager.c` contains the Web Push subscription persistence plus the
+  cleaning reminder scheduler. The VAPID private key is held exclusively by the proxy; the
+  firmware receives the proxy's VAPID public key via the webhook response
+  (`vapid_public_key` field) and stores it in `/vapid_pub.dat`. Direct HTTPS push delivery
+  from the firmware is not supported — all Web Push delivery is handled by the proxy.
+  Use that file as the source of truth when changing push behavior, because
   older docs may still describe earlier partial implementations.
 - The old Node.js-era `scheduler.js` no longer exists in the active proxy; scheduled
   cleaning reminders are driven from the firmware via `push_manager_tick_scheduler()`.

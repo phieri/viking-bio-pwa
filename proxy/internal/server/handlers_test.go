@@ -79,19 +79,6 @@ func TestGetVapidKey_ProxySource(t *testing.T) {
 	}
 }
 
-func TestGetVapidKey_PicoSource(t *testing.T) {
-	cfg := &config.Config{PicoVapidPublicKey: "TESTKEY123"}
-	h := newTestHandlers(t, cfg)
-	resp := getReq(t, h.HandleGetVapidKey)
-	m := decodeJSON(t, resp)
-	if m["source"] != "pico" {
-		t.Errorf("expected source=pico, got %v", m["source"])
-	}
-	if m["key"] != "TESTKEY123" {
-		t.Errorf("expected key=TESTKEY123, got %v", m["key"])
-	}
-}
-
 func TestSubscribe_Valid(t *testing.T) {
 	h := newTestHandlers(t, nil)
 	body := map[string]any{
@@ -129,6 +116,9 @@ func TestMachineData_ValidAuth(t *testing.T) {
 	m := decodeJSON(t, resp)
 	if m["status"] != "ok" {
 		t.Errorf("expected status=ok, got %v", m["status"])
+	}
+	if m["vapid_public_key"] == "" || m["vapid_public_key"] == nil {
+		t.Error("expected non-empty vapid_public_key in machine data response")
 	}
 }
 

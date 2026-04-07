@@ -36,7 +36,6 @@ make run
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
 | `PICO_BASE_URL` | _(empty)_ | Pico W base URL for subscription forwarding |
 | `PICO_FORWARD_TIMEOUT_MS` | `5000` | Pico W forward timeout (ms) |
-| `PICO_VAPID_PUBLIC_KEY` | _(empty)_ | VAPID public key from Pico W (`STATUS` command) |
 | `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt registration |
 | `ACME_STAGING` | `false` | Use Let's Encrypt staging (`1` or `true`) |
 | `ACME_CERT_DIR` | `<data_dir>` | Directory for ACME certificate cache |

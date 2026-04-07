@@ -78,13 +78,6 @@ func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetVapidKey serves GET /api/vapid-public-key.
 func (h *Handlers) HandleGetVapidKey(w http.ResponseWriter, r *http.Request) {
-	if h.cfg.PicoVapidPublicKey != "" {
-		writeJSON(w, http.StatusOK, map[string]string{
-			"key":    h.cfg.PicoVapidPublicKey,
-			"source": "pico",
-		})
-		return
-	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"key":    h.pushMgr.GetVapidPublicKey(),
 		"source": "proxy",
@@ -183,8 +176,9 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":      "ok",
-		"server_time": time.Now().Unix(),
+		"status":           "ok",
+		"server_time":      time.Now().Unix(),
+		"vapid_public_key": h.pushMgr.GetVapidPublicKey(),
 	})
 }
 

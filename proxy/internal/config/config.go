@@ -17,7 +17,6 @@ type Config struct {
 	TLSKeyPath           string
 	PicoBaseURL          string
 	PicoForwardTimeoutMs int
-	PicoVapidPublicKey   string
 	ACMEEmail            string
 	ACMEStaging          bool
 	ACMECertDir          string
@@ -125,7 +124,6 @@ func Load() (*Config, error) {
 		TLSKeyPath:           os.Getenv("TLS_KEY_PATH"),
 		PicoBaseURL:          picoBaseURL,
 		PicoForwardTimeoutMs: picoTimeoutMs,
-		PicoVapidPublicKey:   os.Getenv("PICO_VAPID_PUBLIC_KEY"),
 		ACMEEmail:            os.Getenv("ACME_EMAIL"),
 		ACMEStaging:          parseBool(os.Getenv("ACME_STAGING")),
 		ACMECertDir:          acmeCertDir,

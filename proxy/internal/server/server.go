@@ -186,7 +186,4 @@ func logExtra(cfg *config.Config) {
 	if cfg.PicoBaseURL != "" {
 		log.Printf("  Pico W base URL:   %s", cfg.PicoBaseURL)
 	}
-	if cfg.PicoVapidPublicKey != "" {
-		log.Printf("  Using Pico W VAPID key")
-	}
 }
