@@ -131,7 +131,6 @@ With custom configuration:
 ```bash
 HTTP_PORT=8080 \
 MACHINE_WEBHOOK_AUTH_TOKEN=mysecrettoken \
-PICO_VAPID_PUBLIC_KEY=<base64url-from-STATUS> \
 PICO_BASE_URL=http://[fe80::dead:beef%25eth0]:8080 \
 npm start
 ```
@@ -146,7 +145,6 @@ The dashboard is at `http://[::]:3000/` (or `https://` when TLS is configured).
 | `MACHINE_WEBHOOK_AUTH_TOKEN` | _(empty)_ | Webhook auth token; Pico must send same value in `X-Hook-Auth` header. Leave empty to disable auth (dev only). |
 | `TLS_CERT_PATH` / `TLS_KEY_PATH` | _(empty)_ | Paths to TLS cert/key; when both set, server starts HTTPS |
 | `PICO_BASE_URL` | _(empty)_ | Pico W base URL (e.g. `http://[::1]:9000`); when set, push subscriptions are forwarded to the device |
-| `PICO_VAPID_PUBLIC_KEY` | _(empty)_ | VAPID public key from the Pico (output of `STATUS`); when set, browsers subscribe using the Pico's on-device key |
 
 ### CI Build (Proxy)
 
@@ -171,27 +169,19 @@ The dashboard is at `http://[::]:3000/` (or `https://` when TLS is configured).
 - Updates shared in-memory burner state and triggers push notifications on flame/error transitions.
 - Accumulates flame-on seconds in `state.flame_secs`.
 
-### proxy: Push Notifications (fully implemented)
+### pico-bridge: Push Notifications
 
-- `proxy/src/push-manager.js` uses the `web-push` npm package for actual RFC 8291/8292 Web Push delivery.
-- VAPID keys are auto-generated on first run and stored in `proxy/data/vapid.json`.
-- Subscriptions are persisted to `proxy/data/subscriptions.json` (up to 32 entries).
-- Three notification types: `flame` (flame on/off), `error` (non-zero error code), `clean` (periodic cleaning reminder).
-- The `scheduler.js` fires a cleaning reminder every Saturday at 07:00 during November–March (heating season).
-
-### pico-bridge: Push Notifications (partial)
-
-- VAPID P-256 keys are generated on first boot and stored in `/vapid.dat`.
+- The Pico W fetches the proxy's VAPID public key from the webhook response (`vapid_public_key` field) and stores it in `/vapid_pub.dat` on LittleFS flash.
 - Up to 4 subscriptions are stored in `/subs.dat` (persisted across reboots via LittleFS).
-- `push_manager_notify_all()` currently **logs only**; actual outbound HTTPS delivery requires TLS client support (`pico_lwip_mbedtls`) and RFC 8291 message encryption — marked `TODO` in `pico-bridge/src/push_manager.c`.
-- Proxy-side push (via `PICO_BASE_URL` forwarding) is the recommended path for actual delivery today.
+- `push_manager_notify_all()` is called on flame/error transitions but direct HTTPS delivery from the Pico is not supported (the VAPID private key is held only by the proxy). The proxy delivers all push notifications.
+- The `STATUS` USB serial command shows the stored proxy VAPID public key.
 
 ### Flash / Persistent Storage (pico-bridge)
 
 - **LittleFS** filesystem occupies the **last 64 KB** (16 × 4 KB blocks) of flash.
 - HAL is in `pico-bridge/src/lfs_hal.c`; auto-formats on first boot or corruption.
 - Files stored:
-  - `/vapid.dat` – VAPID EC key pair (magic + private(32) + public(65) + CRC32(4) = 105 bytes)
+  - `/vapid_pub.dat` – Proxy VAPID public key (base64url string, fetched from webhook response)
   - `/wifi.dat` – AES-128-GCM encrypted WiFi credentials (magic + nonce(12) + tag(16) + ciphertext(112) = 144 bytes)
   - `/country.dat` – 2-byte Wi-Fi country code (e.g., `SE`)
   - `/server.dat` – Proxy server IP string + uint16_t port (49 bytes)
@@ -216,10 +206,10 @@ Connect via USB serial at 115200 baud. All commands are line-terminated (`\n`).
 | `SERVER=<ip>` | Set proxy server IP/hostname (bare IPv6 without brackets, e.g. `fe80::1`) |
 | `PORT=<port>` | Set proxy server port (default: `9000`; must set `SERVER=` first) |
 | `TOKEN=<token>` | Set webhook `X-Hook-Auth` token (max 64 chars) |
-| `STATUS` | Show WiFi status, server/token config, subscription count, VAPID public key |
+| `STATUS` | Show WiFi status, server/token config, subscription count, and proxy VAPID public key |
 | `CLEAR` | Erase stored credentials and reboot |
 
-After first boot, run `STATUS` to get the device VAPID public key and set `PICO_VAPID_PUBLIC_KEY` in the proxy's environment.
+The proxy VAPID public key is fetched automatically from the proxy on the first successful webhook response and stored in flash.
 
 ### Main Loop (pico-bridge)
 
@@ -295,7 +285,7 @@ Edit `pico-bridge/platform/lwipopts.h`. **Do not reduce `MEMP_NUM_SYS_TIMEOUT` b
 
 ## Known Limitations / TODOs
 
-- Outbound HTTPS Web Push from the Pico W (`push_manager_notify_all`) logs only; actual delivery to browser push services requires `pico_lwip_mbedtls` and RFC 8291 message encryption (marked `TODO` in `pico-bridge/src/push_manager.c`). Use the proxy for Web Push delivery today.
+- Outbound HTTPS Web Push from the Pico W is not supported: the VAPID private key is held exclusively by the proxy. `push_manager_notify_all()` queues notifications but they are not delivered; all Web Push delivery happens via the proxy when it receives webhook data from the Pico.
 - `pico-bridge/src/tcp_client.c` is a leftover from an older TCP transport approach and is no longer used.
 - IPv4 is not shown in the `STATUS` command (lwIP is IPv6-only; only IPv6 link-local addresses are printed).
 - The watchdog reboot (via `watchdog_enable(1, false)`) relies on the watchdog firing within 1 ms; USB stdio output before reboot may not fully flush.
