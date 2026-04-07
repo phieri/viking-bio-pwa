@@ -7,6 +7,10 @@
 // Maximum number of push subscriptions (persisted in LittleFS flash)
 #define PUSH_MAX_SUBSCRIPTIONS 4
 
+// Maximum base64url length of a P-256 uncompressed public key
+// (65 bytes → ceil(65*4/3) = 88 chars, no padding in base64url)
+#define VAPID_PUB_MAX_LEN 88
+
 // Maximum length of a push endpoint URL
 #define PUSH_ENDPOINT_MAX_LEN  512
 
@@ -15,13 +19,6 @@
 
 // Maximum length of a base64url-encoded auth secret (16 bytes → ~24 chars)
 #define PUSH_AUTH_MAX_LEN      32
-
-// VAPID JWT validity period in seconds
-#define VAPID_JWT_EXPIRY_SECS  43200  // 12 hours
-
-// Maximum number of push_manager_poll() intervals before a push delivery times out
-// (each interval is driven by EVENT_BROADCAST which fires every 2 s, so 50 ≈ 100 s)
-#define PUSH_POLL_TIMEOUT_INTERVALS 50
 
 /**
  * Notification type for per-subscription preference filtering.
@@ -46,20 +43,28 @@ typedef struct {
 
 /**
  * Initialise the push manager.
- * Loads or generates VAPID EC P-256 key pair from flash.
+ * Loads the proxy VAPID public key from flash if previously stored.
  * Must be called once at startup after lfs_hal_init().
  * @return true on success
  */
 bool push_manager_init(void);
 
 /**
- * Return the VAPID public key as an uncompressed point (65 bytes), base64url-
- * encoded into out_buf (must be at least 90 bytes).
- * @param out_buf  Output buffer
+ * Return the proxy VAPID public key as a base64url-encoded string into out_buf.
+ * The key is fetched from the proxy and stored locally; returns an empty string
+ * until the first successful webhook response is received.
+ * @param out_buf  Output buffer (must be at least VAPID_PUB_MAX_LEN + 1 bytes)
  * @param buf_len  Size of output buffer
- * @return true on success
+ * @return true if a key is available (non-empty), false otherwise
  */
 bool push_manager_get_vapid_public_key(char *out_buf, size_t buf_len);
+
+/**
+ * Store the proxy VAPID public key received from the webhook response.
+ * Persists the key to LittleFS flash so it survives reboots.
+ * @param key  Base64url-encoded VAPID public key (NUL-terminated)
+ */
+void push_manager_set_proxy_vapid_key(const char *key);
 
 /**
  * Add or update a push subscription.
@@ -103,5 +108,16 @@ void push_manager_notify_all(push_notify_type_t type, const char *title, const c
  * notification once the current delivery is complete.
  */
 void push_manager_poll(void);
+
+/**
+ * Update the cleaning reminder scheduler.
+ * Must be called regularly from the main loop (e.g. on every EVENT_BROADCAST).
+ * Accumulates flame-on time and sends a cleaning reminder push notification on
+ * Saturday mornings (07:00–07:30) during the heating season (November–March).
+ * Requires proxy time-sync (http_client_get_epoch_time() ≥ 1e9).
+ *
+ * @param flame_on  true if the burner flame is currently detected
+ */
+void push_manager_tick_scheduler(bool flame_on);
 
 #endif // PUSH_MANAGER_H

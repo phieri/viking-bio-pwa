@@ -3,6 +3,10 @@ let seasonTimer = null;
 let sw = null;
 let sub = null;
 const MS_PER_DAY = 86400000;
+const POLL_INTERVAL_MS = 2000;
+const SEASON_CHECK_INTERVAL_MS = 600000; // 10 minutes
+const SEASON_START_MONTH = 10; // November (0-indexed)
+const SEASON_END_MONTH = 3;   // April (0-indexed)
 
 function updateSeasonCountdown(timestamp = Date.now()) {
 	const today = new Date(timestamp);
@@ -15,14 +19,14 @@ function updateSeasonCountdown(timestamp = Date.now()) {
 
 	if (!countdownEl || !targetEl) return;
 
-	if (todayStart < new Date(todayStart.getFullYear(), 3, 1)) {
-		target = new Date(todayStart.getFullYear(), 3, 1);
+	if (todayStart < new Date(todayStart.getFullYear(), SEASON_END_MONTH, 1)) {
+		target = new Date(todayStart.getFullYear(), SEASON_END_MONTH, 1);
 		label = 'dagar till avstängning';
-	} else if (todayStart < new Date(todayStart.getFullYear(), 10, 1)) {
-		target = new Date(todayStart.getFullYear(), 10, 1);
+	} else if (todayStart < new Date(todayStart.getFullYear(), SEASON_START_MONTH, 1)) {
+		target = new Date(todayStart.getFullYear(), SEASON_START_MONTH, 1);
 		label = 'dagar till idrifttagning';
 	} else {
-		target = new Date(todayStart.getFullYear() + 1, 3, 1);
+		target = new Date(todayStart.getFullYear() + 1, SEASON_END_MONTH, 1);
 		label = 'dagar till avstängning';
 	}
 
@@ -30,6 +34,17 @@ function updateSeasonCountdown(timestamp = Date.now()) {
 
 	countdownEl.textContent = days;
 	targetEl.textContent = label;
+}
+
+function pollSubscribers() {
+	fetch('/api/subscribers')
+		.then((r) => r.json())
+		.then((s) => {
+			if (typeof s.count !== 'undefined') {
+				document.getElementById('subscribers').textContent = s.count;
+			}
+		})
+		.catch(() => {});
 }
 
 function poll() {
@@ -47,14 +62,7 @@ function poll() {
 			document.body.classList.toggle('error-active', d.err > 0);
 			document.body.classList.toggle('blink-error', d.err > 0);
 
-			fetch('/api/subscribers')
-				.then((r) => r.json())
-				.then((s) => {
-					if (typeof s.count !== 'undefined') {
-						document.getElementById('subscribers').textContent = s.count;
-					}
-				})
-				.catch(() => {});
+			pollSubscribers();
 
 			if (d.err > 0) {
 				setStatus(`Fel detekterat: kod ${d.err}`, 'error');
@@ -74,8 +82,8 @@ function startPolling() {
 	poll();
 	if (pollTimer) clearInterval(pollTimer);
 	if (seasonTimer) clearInterval(seasonTimer);
-	pollTimer = setInterval(poll, 2000);
-	seasonTimer = setInterval(updateSeasonCountdown, 600000);
+	pollTimer = setInterval(poll, POLL_INTERVAL_MS);
+	seasonTimer = setInterval(updateSeasonCountdown, SEASON_CHECK_INTERVAL_MS);
 }
 
 function setStatus(msg, cls) {

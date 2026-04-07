@@ -358,6 +358,8 @@ int main(void) {
 	// State tracking for push notifications
 	bool prev_flame = false;
 	int  prev_err   = 0;
+	// Current flame state for the cleaning reminder scheduler
+	bool flame_on = false;
 
 	while (true) {
 		if (watchdog_on) watchdog_update();
@@ -387,6 +389,7 @@ int main(void) {
 				viking_bio_data_t new_data;
 				if (viking_bio_parse_data(buffer, bytes, &new_data)) {
 					timeout_triggered = false;
+					flame_on = new_data.flame_detected;
 					if (wifi_up) {
 						http_client_send_data(&new_data);
 					}
@@ -424,6 +427,7 @@ int main(void) {
 
 			if (!timeout_triggered && viking_bio_is_data_stale(VIKING_BIO_TIMEOUT_MS)) {
 				timeout_triggered = true;
+				flame_on = false;
 				printf("Viking Bio: no data for 30s – burner may be off\n");
 				if (wifi_up) {
 					viking_bio_data_t stale = { .valid = false };
@@ -437,6 +441,7 @@ int main(void) {
 			if (wifi_up) {
 				http_client_poll();
 				push_manager_poll();
+				push_manager_tick_scheduler(flame_on);
 			}
 		}
 

@@ -7,6 +7,7 @@
 #include "lwip/ip_addr.h"
 #include "lwip/dns.h"
 #include "http_client.h"
+#include "push_manager.h"
 #include "wifi_config.h"
 
 typedef enum {
@@ -27,8 +28,11 @@ typedef enum {
 // Maximum request size: headers + JSON body
 #define HTTP_REQUEST_MAX 512
 
-// Response buffer (large enough for the status line + JSON body with server_time)
-#define HTTP_RESPONSE_MAX 256
+// Response buffer (large enough for the status line + JSON body with server_time
+// and vapid_public_key; the VAPID key is at most VAPID_PUB_MAX_LEN base64url chars
+// (~88) plus JSON overhead (~40 bytes for field name, quotes, commas) and HTTP headers
+// (~200 bytes), so 512 bytes provides sufficient margin)
+#define HTTP_RESPONSE_MAX 512
 
 static struct tcp_pcb *s_pcb = NULL;
 static http_state_t s_state = HTTP_STATE_IDLE;
@@ -179,6 +183,21 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t e
 					s_epoch_offset = (int64_t)server_time - (int64_t)elapsed_s;
 					printf("http_client: time synced (server_time=%lu)\n",
 					       server_time);
+				}
+			}
+			// Extract vapid_public_key for push notification subscriptions
+			const char *vk = strstr(s_response, "\"vapid_public_key\":\"");
+			if (vk) {
+				vk += 20;
+				const char *vk_end = strchr(vk, '"');
+				if (vk_end && vk_end > vk) {
+					size_t vk_len = (size_t)(vk_end - vk);
+					char key_buf[VAPID_PUB_MAX_LEN + 1];
+					if (vk_len < sizeof(key_buf)) {
+						memcpy(key_buf, vk, vk_len);
+						key_buf[vk_len] = '\0';
+						push_manager_set_proxy_vapid_key(key_buf);
+					}
 				}
 			}
 		}
