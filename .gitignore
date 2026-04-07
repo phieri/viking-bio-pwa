@@ -25,6 +25,7 @@ Makefile
 *.map
 
 # Go proxy binary
+proxy/proxy
 proxy/viking-bio-proxy
 proxy/viking-bio-proxy.exe
 
