@@ -126,10 +126,10 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 	h.state.Temp = *body.Temp
 	h.state.Err = *body.Err
 	h.state.Valid = *body.Valid
-	h.state.UpdatedAt = time.Now().UnixMilli()
 
 	// Accumulate flame-on seconds (tracked in ms for accuracy)
 	now := time.Now().UnixMilli()
+	h.state.UpdatedAt = now
 	if h.state.Flame {
 		if h.state.lastFlameTime == 0 {
 			h.state.lastFlameTime = now

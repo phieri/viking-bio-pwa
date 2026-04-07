@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	proxy "github.com/phieri/viking-bio-pwa/proxy"
@@ -76,8 +77,7 @@ func methodGuard(method string, next http.HandlerFunc) http.HandlerFunc {
 
 func jsonMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ct := r.Header.Get("Content-Type")
-		if len(ct) < len("application/json") || ct[:len("application/json")] != "application/json" {
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 			writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
 			return
 		}
