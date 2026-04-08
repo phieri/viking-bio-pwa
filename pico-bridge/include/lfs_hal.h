@@ -5,9 +5,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "lfs.h"
+#include "hardware/flash.h"
 
-// LittleFS filesystem size: 256KB (64 × 4KB blocks) at end of flash
-#define LFS_FLASH_SIZE    (256 * 1024)
+// LittleFS filesystem size: 1/8 of total flash at end of flash
+// Pico W  (2 MB flash) → 256 KB (64 × 4 KB blocks)
+// Pico 2 W (4 MB flash) → 512 KB (128 × 4 KB blocks)
+#define LFS_FLASH_SIZE    (PICO_FLASH_SIZE_BYTES / 8)
 
 /**
  * Initialize and mount the LittleFS filesystem.
