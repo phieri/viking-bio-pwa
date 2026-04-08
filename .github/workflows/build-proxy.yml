@@ -63,12 +63,26 @@ jobs:
       working-directory: proxy
       run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/windows_amd64/viking-bio-proxy.exe ./cmd/proxy
 
-    - name: Upload proxy binaries
-      uses: actions/upload-artifact@v4
+    - name: Upload proxy binaries linux-amd64
+      uses: actions/upload-artifact@v7
       with:
-        name: viking-bio-proxy-binaries
+        name: viking-bio-proxy-linux-amd64
         path: |
           proxy/dist/linux_amd64/viking-bio-proxy
+        retention-days: 30
+
+    - name: Upload proxy binaries linux-arm64
+      uses: actions/upload-artifact@v7
+      with:
+        name: viking-bio-proxy-linux-arm64
+        path: |
           proxy/dist/linux_arm64/viking-bio-proxy
+        retention-days: 30
+
+    - name: Upload proxy binaries win-amd64
+      uses: actions/upload-artifact@v7
+      with:
+        name: viking-bio-proxy-win-amd64
+        path: |
           proxy/dist/windows_amd64/viking-bio-proxy.exe
         retention-days: 30
