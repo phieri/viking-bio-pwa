@@ -28,9 +28,9 @@ func newInternalTestHandlers(t *testing.T, cfg *config.Config) *Handlers {
 	return NewHandlers(cfg, mgr)
 }
 
-func boolPtr(v bool) *bool { return &v }
+func testBoolPtr(v bool) *bool { return &v }
 
-func float64Ptr(v float64) *float64 { return &v }
+func testFloat64Ptr(v float64) *float64 { return &v }
 
 func TestAuthenticateWebhook(t *testing.T) {
 	t.Parallel()
@@ -75,22 +75,22 @@ func TestUpdateBurnerStateTracksFlameSecondsAndErrors(t *testing.T) {
 	h := newInternalTestHandlers(t, nil)
 	start := time.Unix(1, 0)
 	first := h.updateBurnerState(machineDataBody{
-		Flame: boolPtr(true),
-		Fan:   float64Ptr(20),
-		Temp:  float64Ptr(70),
-		Err:   float64Ptr(0),
-		Valid: boolPtr(true),
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(20),
+		Temp:  testFloat64Ptr(70),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
 	}, start)
 	if !first.flameChanged || first.newErr {
 		t.Fatalf("unexpected first update result: %+v", first)
 	}
 
 	second := h.updateBurnerState(machineDataBody{
-		Flame: boolPtr(true),
-		Fan:   float64Ptr(20),
-		Temp:  float64Ptr(71),
-		Err:   float64Ptr(5),
-		Valid: boolPtr(true),
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(20),
+		Temp:  testFloat64Ptr(71),
+		Err:   testFloat64Ptr(5),
+		Valid: testBoolPtr(true),
 	}, start.Add(1500*time.Millisecond))
 	if second.flameChanged || !second.newErr {
 		t.Fatalf("unexpected second update result: %+v", second)
@@ -100,11 +100,11 @@ func TestUpdateBurnerStateTracksFlameSecondsAndErrors(t *testing.T) {
 	}
 
 	h.updateBurnerState(machineDataBody{
-		Flame: boolPtr(false),
-		Fan:   float64Ptr(0),
-		Temp:  float64Ptr(30),
-		Err:   float64Ptr(0),
-		Valid: boolPtr(true),
+		Flame: testBoolPtr(false),
+		Fan:   testFloat64Ptr(0),
+		Temp:  testFloat64Ptr(30),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
 	}, start.Add(2*time.Second))
 	if h.state.errorNotified {
 		t.Fatal("expected errorNotified to reset when error clears")

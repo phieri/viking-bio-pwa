@@ -139,7 +139,7 @@ set(SOURCES
 
 add_executable(viking_bio_bridge ${SOURCES})
 
-target_compile_options(viking_bio_bridge PRIVATE -O2 -Wall -Wextra -Wno-unused-parameter)
+target_compile_options(viking_bio_bridge PRIVATE -O2 -Wall -Wextra)
 set_source_files_properties(
     ${littlefs_SOURCE_DIR}/lfs.c
     ${littlefs_SOURCE_DIR}/lfs_util.c

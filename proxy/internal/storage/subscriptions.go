@@ -86,13 +86,12 @@ func (s *Store) save() {
 		log.Printf("storage: failed to write temp subscriptions: %v", err)
 		return
 	}
-	if err := tmp.Chmod(0o644); err != nil {
-		_ = tmp.Close()
-		log.Printf("storage: failed to chmod temp subscriptions: %v", err)
-		return
-	}
 	if err := tmp.Close(); err != nil {
 		log.Printf("storage: failed to close temp subscriptions: %v", err)
+		return
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		log.Printf("storage: failed to chmod temp subscriptions: %v", err)
 		return
 	}
 	if err := os.Rename(tmpName, s.path); err != nil {

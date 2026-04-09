@@ -2,8 +2,8 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 )
@@ -85,7 +85,7 @@ func TestStoreCapacityLimit(t *testing.T) {
 
 	store := newTestStore(t)
 	for i := 0; i < MaxSubscriptions; i++ {
-		if !store.Add(testSubscription("https://example.com/" + string(rune('a'+i)))) {
+		if !store.Add(testSubscription(fmt.Sprintf("https://example.com/%d", i))) {
 			t.Fatalf("expected add %d to succeed", i)
 		}
 	}
@@ -125,7 +125,7 @@ func TestStoreConcurrentWritesKeepJSONValid(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			endpoint := filepath.Join("https://example.com", string(rune('a'+i)))
+			endpoint := fmt.Sprintf("https://example.com/%d", i)
 			store.Add(testSubscription(endpoint))
 			if i%2 == 0 {
 				store.Remove(endpoint)
