@@ -195,3 +195,37 @@ func TestPicoForward_MockEndpoint(t *testing.T) {
 		t.Error("timed out waiting for pico forward")
 	}
 }
+
+func FuzzHandleMachineData(f *testing.F) {
+	f.Add(`{"flame":true,"fan":50,"temp":75,"err":0,"valid":true}`)
+	f.Add(`{"flame":false}`)
+	f.Add(`not-json`)
+
+	f.Fuzz(func(t *testing.T, body string) {
+		h := newTestHandlers(t, nil)
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(body)))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.HandleMachineData(rr, req)
+		if rr.Code != http.StatusOK && rr.Code != http.StatusBadRequest {
+			t.Fatalf("unexpected status code %d for body %q", rr.Code, body)
+		}
+	})
+}
+
+func FuzzHandleSubscribe(f *testing.F) {
+	f.Add(`{"endpoint":"https://example.com","p256dh":"key","auth":"auth","prefs":{"flame":true}}`)
+	f.Add(`{"endpoint":""}`)
+	f.Add(`oops`)
+
+	f.Fuzz(func(t *testing.T, body string) {
+		h := newTestHandlers(t, nil)
+		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(body)))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		h.HandleSubscribe(rr, req)
+		if rr.Code != http.StatusOK && rr.Code != http.StatusBadRequest {
+			t.Fatalf("unexpected status code %d for body %q", rr.Code, body)
+		}
+	})
+}
