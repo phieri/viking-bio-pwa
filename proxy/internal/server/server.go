@@ -25,6 +25,8 @@ type Server struct {
 	handler *Handlers
 	httpSrv *http.Server
 	acmeSrv *http.Server
+	// OnReady is called with the dashboard URL once the server is accepting connections.
+	OnReady func(url string)
 }
 
 // New creates a Server.
@@ -124,6 +126,22 @@ func shutdownOnContext(ctx context.Context, servers ...*http.Server) {
 	}()
 }
 
+// notifyReady calls OnReady in a goroutine if it is set.
+// A recover() guard prevents a misbehaving callback from crashing the server.
+func (s *Server) notifyReady(url string) {
+	if s.OnReady == nil {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("server: OnReady panic: %v", r)
+			}
+		}()
+		s.OnReady(url)
+	}()
+}
+
 func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
 	srv := &http.Server{Addr: addr, Handler: mux}
 	s.httpSrv = srv
@@ -134,6 +152,7 @@ func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) e
 	log.Printf("Viking Bio Proxy listening on http://%s", addr)
 	logExtra(s.cfg)
 	shutdownOnContext(ctx, srv)
+	s.notifyReady(fmt.Sprintf("http://localhost:%d", s.cfg.HTTPPort))
 	return srv.Serve(ln)
 }
 
@@ -151,6 +170,7 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 	log.Printf("Viking Bio Proxy listening on https://%s (manual TLS)", addr)
 	logExtra(s.cfg)
 	shutdownOnContext(ctx, srv)
+	s.notifyReady(fmt.Sprintf("https://localhost:%d", s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
 }
 
@@ -179,6 +199,7 @@ func (s *Server) startACME(ctx context.Context, mux http.Handler, addr, domain s
 	log.Printf("Viking Bio Proxy listening on https://%s:%d (Let's Encrypt)", domain, s.cfg.HTTPPort)
 	logExtra(s.cfg)
 	shutdownOnContext(ctx, srv, challengeSrv)
+	s.notifyReady(fmt.Sprintf("https://%s:%d", domain, s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, "", "")
 }
 
