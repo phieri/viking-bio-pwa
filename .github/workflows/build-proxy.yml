@@ -30,13 +30,21 @@ jobs:
         go-version-file: proxy/go.mod
         cache-dependency-path: proxy/go.sum
 
+    - name: Install golangci-lint
+      working-directory: proxy
+      run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+    - name: golangci-lint
+      working-directory: proxy
+      run: golangci-lint run ./...
+
     - name: go vet
       working-directory: proxy
       run: go vet ./...
 
     - name: go test
       working-directory: proxy
-      run: go test ./...
+      run: go test -race ./...
 
     - name: Build binary (linux/amd64)
       working-directory: proxy

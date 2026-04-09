@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -15,10 +16,12 @@ import (
 
 // Manager handles VAPID key lifecycle and Web Push notification delivery.
 type Manager struct {
-	vapidPub  string
-	vapidPriv string
-	contact   string
-	store     *storage.Store
+	vapidPub         string
+	vapidPriv        string
+	contact          string
+	store            *storage.Store
+	sendNotification func([]byte, *webpush.Subscription, *webpush.Options) (*http.Response, error)
+	notifySem        chan struct{}
 }
 
 // New creates a Manager, loading or generating VAPID keys in dataDir.
@@ -56,10 +59,12 @@ func New(dataDir, contactEmail string, store *storage.Store) (*Manager, error) {
 
 	contact := fmt.Sprintf("mailto:%s", contactEmail)
 	return &Manager{
-		vapidPub:  pub,
-		vapidPriv: priv,
-		contact:   contact,
-		store:     store,
+		vapidPub:         pub,
+		vapidPriv:        priv,
+		contact:          contact,
+		store:            store,
+		sendNotification: webpush.SendNotification,
+		notifySem:        make(chan struct{}, 4),
 	}, nil
 }
 
@@ -132,7 +137,8 @@ func (m *Manager) NotifyByType(typ, title, body string) {
 			continue
 		}
 
-		resp, err := webpush.SendNotification(payload, &webpush.Subscription{
+		m.notifySem <- struct{}{}
+		resp, err := m.sendNotification(payload, &webpush.Subscription{
 			Endpoint: sub.Endpoint,
 			Keys: webpush.Keys{
 				P256dh: sub.P256DH,
@@ -144,6 +150,7 @@ func (m *Manager) NotifyByType(typ, title, body string) {
 			Subscriber:      m.contact,
 			TTL:             30,
 		})
+		<-m.notifySem
 		if err != nil {
 			log.Printf("push: send error for %s: %v", sub.Endpoint, err)
 			continue

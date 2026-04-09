@@ -33,17 +33,19 @@ type State struct {
 
 // Handlers bundles all HTTP handler dependencies.
 type Handlers struct {
-	cfg     *config.Config
-	state   *State
-	pushMgr *push.Manager
+	cfg          *config.Config
+	state        *State
+	pushMgr      *push.Manager
+	notifyByType func(string, string, string)
 }
 
 // NewHandlers creates a new Handlers instance.
 func NewHandlers(cfg *config.Config, pushMgr *push.Manager) *Handlers {
 	return &Handlers{
-		cfg:     cfg,
-		state:   &State{},
-		pushMgr: pushMgr,
+		cfg:          cfg,
+		state:        &State{},
+		pushMgr:      pushMgr,
+		notifyByType: pushMgr.NotifyByType,
 	}
 }
 
@@ -98,26 +100,37 @@ type machineDataBody struct {
 	Valid *bool    `json:"valid"`
 }
 
-// HandleMachineData serves POST /api/machine-data.
-func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
-	// Token validation (constant-time)
+type machineDataUpdateResult struct {
+	flameChanged bool
+	newErr       bool
+	flame        bool
+	temp         float64
+	err          float64
+}
+
+func (h *Handlers) authenticateWebhook(r *http.Request) bool {
 	if token := h.cfg.WebhookAuthToken; token != "" {
 		provided := r.Header.Get("X-Hook-Auth")
-		if subtle.ConstantTimeCompare([]byte(token), []byte(provided)) != 1 {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-			return
-		}
+		return subtle.ConstantTimeCompare([]byte(token), []byte(provided)) == 1
 	}
+	return true
+}
 
+func decodeMachineData(r io.Reader) (machineDataBody, error) {
 	var body machineDataBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil ||
-		body.Flame == nil || body.Fan == nil || body.Temp == nil ||
-		body.Err == nil || body.Valid == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
-		return
+	if err := json.NewDecoder(r).Decode(&body); err != nil {
+		return machineDataBody{}, err
 	}
+	if body.Flame == nil || body.Fan == nil || body.Temp == nil || body.Err == nil || body.Valid == nil {
+		return machineDataBody{}, fmt.Errorf("missing required field")
+	}
+	return body, nil
+}
 
+func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machineDataUpdateResult {
 	h.state.mu.Lock()
+	defer h.state.mu.Unlock()
+
 	prevFlame := h.state.Flame
 	prevErr := h.state.Err
 
@@ -127,53 +140,70 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 	h.state.Err = *body.Err
 	h.state.Valid = *body.Valid
 
-	// Accumulate flame-on seconds (tracked in ms for accuracy)
-	now := time.Now().UnixMilli()
-	h.state.UpdatedAt = now
+	nowMillis := now.UnixMilli()
+	h.state.UpdatedAt = nowMillis
 	if h.state.Flame {
 		if h.state.lastFlameTime == 0 {
-			h.state.lastFlameTime = now
+			h.state.lastFlameTime = nowMillis
 		}
-		elapsed := now - h.state.lastFlameTime
+		elapsed := nowMillis - h.state.lastFlameTime
 		h.state.FlameSecs += elapsed / 1000
-		h.state.lastFlameTime = now - (elapsed % 1000) // carry sub-second remainder
+		h.state.lastFlameTime = nowMillis - (elapsed % 1000)
 	} else {
 		h.state.lastFlameTime = 0
 	}
 
-	flameChanged := h.state.Flame != prevFlame
-	newErr := h.state.Err != 0 && h.state.Err != prevErr && !h.state.errorNotified
-	errCleared := h.state.Err == 0
-	curFlame := h.state.Flame
-	curTemp := h.state.Temp
-	curErr := h.state.Err
-
-	if newErr {
+	result := machineDataUpdateResult{
+		flameChanged: h.state.Flame != prevFlame,
+		newErr:       h.state.Err != 0 && h.state.Err != prevErr && !h.state.errorNotified,
+		flame:        h.state.Flame,
+		temp:         h.state.Temp,
+		err:          h.state.Err,
+	}
+	if result.newErr {
 		h.state.errorNotified = true
 	}
-	if errCleared {
+	if h.state.Err == 0 {
 		h.state.errorNotified = false
 	}
-	h.state.mu.Unlock()
 
-	log.Printf("webhook: data received (flame=%v, temp=%.1f°C, err=%.0f)", curFlame, curTemp, curErr)
+	return result
+}
 
-	// Push notifications (non-blocking, best-effort)
-	if flameChanged {
-		var title, body string
-		if curFlame {
+func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
+	if result.flameChanged {
+		title := "Viking Bio: Låga släckt"
+		body := "Pannan har slocknat"
+		if result.flame {
 			title = "Viking Bio: Låga tänd"
-			body = fmt.Sprintf("Pannan tänd \u2013 %.0f\u00a0°C", curTemp)
-		} else {
-			title = "Viking Bio: Låga släckt"
-			body = "Pannan har slocknat"
+			body = fmt.Sprintf("Pannan tänd – %.0f °C", result.temp)
 		}
-		go h.pushMgr.NotifyByType("flame", title, body)
+		go h.notifyByType("flame", title, body)
 	}
-	if newErr {
-		go h.pushMgr.NotifyByType("error", "Viking Bio: Fel",
-			fmt.Sprintf("Felkod %.0f detekterad", curErr))
+	if result.newErr {
+		go h.notifyByType("error", "Viking Bio: Fel",
+			fmt.Sprintf("Felkod %.0f detekterad", result.err))
 	}
+}
+
+// HandleMachineData serves POST /api/machine-data.
+func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
+	if !h.authenticateWebhook(r) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	body, err := decodeMachineData(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+		return
+	}
+
+	result := h.updateBurnerState(body, time.Now())
+
+	log.Printf("webhook: data received (flame=%v, temp=%.1f°C, err=%.0f)", result.flame, result.temp, result.err)
+
+	h.triggerNotifications(result)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":           "ok",
@@ -256,7 +286,9 @@ func (h *Handlers) picoForward(path string, body any) {
 		return
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		log.Printf("pico-forward: drain response for %s: %v", path, err)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		log.Printf("pico-forward: %s → HTTP %d", path, resp.StatusCode)
 	}

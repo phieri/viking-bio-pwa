@@ -26,25 +26,25 @@
  * from the same mDNS packet.
  */
 
-#define MDNS_PORT        5353
-#define MDNS_MCAST_ADDR  "ff02::fb"
+#define MDNS_PORT 5353
+#define MDNS_MCAST_ADDR "ff02::fb"
 
 /* DNS record types */
-#define DNS_TYPE_PTR   12
-#define DNS_TYPE_SRV   33
-#define DNS_TYPE_AAAA  28
+#define DNS_TYPE_PTR 12
+#define DNS_TYPE_SRV 33
+#define DNS_TYPE_AAAA 28
 
 /* Service type label expected in SRV/PTR names */
-#define SERVICE_LABEL  "_viking-bio._tcp"
+#define SERVICE_LABEL "_viking-bio._tcp"
 
 /* Maximum DNS records scanned in a single response */
-#define DNS_MAX_SCAN_RECORDS  16
+#define DNS_MAX_SCAN_RECORDS 16
 
 /* Receive buffer: mDNS packets are at most 9000 bytes; 512 is enough here */
-#define MDNS_BUF_SIZE  512
+#define MDNS_BUF_SIZE 512
 
-static struct udp_pcb    *s_pcb       = NULL;
-static dns_sd_found_cb_t  s_found_cb  = NULL;
+static struct udp_pcb *s_pcb = NULL;
+static dns_sd_found_cb_t s_found_cb = NULL;
 
 /* ---------------------------------------------------------------------------
  * DNS name helpers
@@ -59,25 +59,26 @@ static dns_sd_found_cb_t  s_found_cb  = NULL;
  * the returned offset is still just after the 2-byte pointer — not after the
  * data the pointer points to.
  */
-static int dns_decode_name(const uint8_t *pkt, int pkt_len, int offset,
-                            char *out, int out_size)
-{
-	int out_pos    = 0;
+static int dns_decode_name(const uint8_t *pkt, int pkt_len, int offset, char *out, int out_size) {
+	int out_pos = 0;
 	int end_offset = -1;
-	int steps      = 0;  /* guard against infinite pointer loops */
+	int steps = 0; /* guard against infinite pointer loops */
 
 	while (steps++ < 64 && offset < pkt_len) {
 		uint8_t b = pkt[offset];
 
 		if (b == 0) {
-			if (end_offset == -1) end_offset = offset + 1;
+			if (end_offset == -1)
+				end_offset = offset + 1;
 			break;
 		}
 
 		if ((b & 0xC0) == 0xC0) {
 			/* Compression pointer */
-			if (offset + 2 > pkt_len) return -1;
-			if (end_offset == -1) end_offset = offset + 2;
+			if (offset + 2 > pkt_len)
+				return -1;
+			if (end_offset == -1)
+				end_offset = offset + 2;
 			offset = ((b & 0x3F) << 8) | pkt[offset + 1];
 			continue;
 		}
@@ -85,19 +86,23 @@ static int dns_decode_name(const uint8_t *pkt, int pkt_len, int offset,
 		/* Regular label */
 		int label_len = (int)b;
 		offset++;
-		if (offset + label_len > pkt_len) return -1;
+		if (offset + label_len > pkt_len)
+			return -1;
 
 		if (out_pos > 0) {
-			if (out_pos + 1 >= out_size) return -1;
+			if (out_pos + 1 >= out_size)
+				return -1;
 			out[out_pos++] = '.';
 		}
-		if (out_pos + label_len >= out_size) return -1;
+		if (out_pos + label_len >= out_size)
+			return -1;
 		memcpy(out + out_pos, pkt + offset, (size_t)label_len);
-		out_pos  += label_len;
-		offset   += label_len;
+		out_pos += label_len;
+		offset += label_len;
 	}
 
-	if (out_pos < out_size) out[out_pos] = '\0';
+	if (out_pos < out_size)
+		out[out_pos] = '\0';
 	return end_offset;
 }
 
@@ -105,13 +110,14 @@ static int dns_decode_name(const uint8_t *pkt, int pkt_len, int offset,
  * Skip over a DNS name in wire format.
  * Returns the offset after the name, or -1 on error.
  */
-static int dns_skip_name(const uint8_t *pkt, int pkt_len, int offset)
-{
+static int dns_skip_name(const uint8_t *pkt, int pkt_len, int offset) {
 	int steps = 0;
 	while (steps++ < 64 && offset < pkt_len) {
 		uint8_t b = pkt[offset];
-		if (b == 0)           return offset + 1;
-		if ((b & 0xC0) == 0xC0) return (offset + 2 <= pkt_len) ? offset + 2 : -1;
+		if (b == 0)
+			return offset + 1;
+		if ((b & 0xC0) == 0xC0)
+			return (offset + 2 <= pkt_len) ? offset + 2 : -1;
 		offset += 1 + (int)b;
 	}
 	return -1;
@@ -129,13 +135,12 @@ static int dns_skip_name(const uint8_t *pkt, int pkt_len, int offset)
  * big-endian word value converted to host order).  The raw DNS bytes are in
  * network byte order, so each 4-byte chunk must be converted with ntohl.
  */
-static void format_aaaa(const uint8_t *bytes, char *out, size_t out_size)
-{
+static void format_aaaa(const uint8_t *bytes, char *out, size_t out_size) {
 	ip6_addr_t a;
 	for (int i = 0; i < 4; i++) {
 		const uint8_t *p = bytes + i * 4;
-		uint32_t w = ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
-		             ((uint32_t)p[2] <<  8) | (uint32_t)p[3];
+		uint32_t w = ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) |
+					 (uint32_t)p[3];
 		a.addr[i] = lwip_ntohl(w);
 	}
 	ip6_addr_set_zone(&a, 0);
@@ -156,75 +161,80 @@ static void format_aaaa(const uint8_t *bytes, char *out, size_t out_size)
  *   Pass 2 – find an AAAA record for that target hostname; extract the IPv6
  *             address and invoke the callback.
  */
-static void parse_mdns_packet(const uint8_t *data, int len)
-{
-	if (len < 12) return;
+static void parse_mdns_packet(const uint8_t *data, int len) {
+	if (len < 12)
+		return;
 
-	uint16_t flags   = ((uint16_t)data[2] << 8) | data[3];
+	uint16_t flags = ((uint16_t)data[2] << 8) | data[3];
 	uint16_t qdcount = ((uint16_t)data[4] << 8) | data[5];
 	uint16_t ancount = ((uint16_t)data[6] << 8) | data[7];
 	uint16_t arcount = ((uint16_t)data[10] << 8) | data[11];
 
 	/* Must be a DNS response (QR bit set) */
-	if (!(flags & 0x8000)) return;
+	if (!(flags & 0x8000))
+		return;
 
 	int offset = 12;
 
 	/* Skip question section */
 	for (int i = 0; i < (int)qdcount; i++) {
 		offset = dns_skip_name(data, len, offset);
-		if (offset < 0 || offset + 4 > len) return;
-		offset += 4;  /* type + class */
+		if (offset < 0 || offset + 4 > len)
+			return;
+		offset += 4; /* type + class */
 	}
 
 	/* Records start here; answers + additional (skip authority) */
 	int records_start = offset;
 	int total = (int)ancount + (int)arcount;
-	if (total > DNS_MAX_SCAN_RECORDS) total = DNS_MAX_SCAN_RECORDS;
+	if (total > DNS_MAX_SCAN_RECORDS)
+		total = DNS_MAX_SCAN_RECORDS;
 
 	/* Pass 1: find the SRV record for a _viking-bio._tcp instance */
-	uint16_t srv_port       = 0;
-	char     srv_target[64] = {0};
+	uint16_t srv_port = 0;
+	char srv_target[64] = {0};
 
 	int scan = records_start;
 	for (int i = 0; i < total && scan >= 0 && scan < len; i++) {
 		char name[64];
 		int after_name = dns_decode_name(data, len, scan, name, sizeof(name));
-		if (after_name < 0 || after_name + 10 > len) return;
+		if (after_name < 0 || after_name + 10 > len)
+			return;
 
-		uint16_t rtype  = ((uint16_t)data[after_name + 0] << 8) | data[after_name + 1];
-		uint16_t rdlen  = ((uint16_t)data[after_name + 8] << 8) | data[after_name + 9];
+		uint16_t rtype = ((uint16_t)data[after_name + 0] << 8) | data[after_name + 1];
+		uint16_t rdlen = ((uint16_t)data[after_name + 8] << 8) | data[after_name + 9];
 		int rdata_start = after_name + 10;
-		if (rdata_start + rdlen > len) return;
+		if (rdata_start + rdlen > len)
+			return;
 
-		if (rtype == DNS_TYPE_SRV && rdlen >= 7 &&
-		    strstr(name, SERVICE_LABEL) != NULL) {
-			uint16_t port = ((uint16_t)data[rdata_start + 4] << 8) |
-			                          data[rdata_start + 5];
+		if (rtype == DNS_TYPE_SRV && rdlen >= 7 && strstr(name, SERVICE_LABEL) != NULL) {
+			uint16_t port = ((uint16_t)data[rdata_start + 4] << 8) | data[rdata_start + 5];
 			char target[64];
-			if (dns_decode_name(data, len, rdata_start + 6,
-			                    target, sizeof(target)) >= 0) {
+			if (dns_decode_name(data, len, rdata_start + 6, target, sizeof(target)) >= 0) {
 				srv_port = port;
-				strncpy(srv_target, target, sizeof(srv_target) - 1);
+				snprintf(srv_target, sizeof(srv_target), "%s", target);
 			}
 		}
 
 		scan = rdata_start + rdlen;
 	}
 
-	if (!srv_port || !srv_target[0]) return;
+	if (!srv_port || !srv_target[0])
+		return;
 
 	/* Pass 2: find the AAAA record for the SRV target */
 	scan = records_start;
 	for (int i = 0; i < total && scan >= 0 && scan < len; i++) {
 		char name[64];
 		int after_name = dns_decode_name(data, len, scan, name, sizeof(name));
-		if (after_name < 0 || after_name + 10 > len) return;
+		if (after_name < 0 || after_name + 10 > len)
+			return;
 
-		uint16_t rtype  = ((uint16_t)data[after_name + 0] << 8) | data[after_name + 1];
-		uint16_t rdlen  = ((uint16_t)data[after_name + 8] << 8) | data[after_name + 9];
+		uint16_t rtype = ((uint16_t)data[after_name + 0] << 8) | data[after_name + 1];
+		uint16_t rdlen = ((uint16_t)data[after_name + 8] << 8) | data[after_name + 9];
 		int rdata_start = after_name + 10;
-		if (rdata_start + rdlen > len) return;
+		if (rdata_start + rdlen > len)
+			return;
 
 		if (rtype == DNS_TYPE_AAAA && rdlen == 16) {
 			/* Strip trailing dot and compare names (case-insensitive) */
@@ -233,8 +243,10 @@ static void parse_mdns_packet(const uint8_t *data, int len)
 			snprintf(rec_bare, sizeof(rec_bare), "%s", name);
 			size_t slen = strlen(srv_bare);
 			size_t rlen2 = strlen(rec_bare);
-			if (slen > 0 && srv_bare[slen - 1] == '.') srv_bare[slen - 1] = '\0';
-			if (rlen2 > 0 && rec_bare[rlen2 - 1] == '.') rec_bare[rlen2 - 1] = '\0';
+			if (slen > 0 && srv_bare[slen - 1] == '.')
+				srv_bare[slen - 1] = '\0';
+			if (rlen2 > 0 && rec_bare[rlen2 - 1] == '.')
+				rec_bare[rlen2 - 1] = '\0';
 
 			if (strcasecmp(srv_bare, rec_bare) == 0) {
 				char ip_str[40];
@@ -255,11 +267,14 @@ static void parse_mdns_packet(const uint8_t *data, int len)
  * UDP receive callback
  * ------------------------------------------------------------------------- */
 
-static void mdns_recv_cb(void *arg, struct udp_pcb *pcb,
-                          struct pbuf *p, const ip_addr_t *addr, u16_t port)
-{
-	(void)arg; (void)pcb; (void)addr; (void)port;
-	if (!p) return;
+static void mdns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr,
+						 u16_t port) {
+	(void)arg;
+	(void)pcb;
+	(void)addr;
+	(void)port;
+	if (!p)
+		return;
 
 	uint8_t buf[MDNS_BUF_SIZE];
 	uint16_t pkt_len = p->tot_len > sizeof(buf) ? (uint16_t)sizeof(buf) : p->tot_len;
@@ -273,8 +288,7 @@ static void mdns_recv_cb(void *arg, struct udp_pcb *pcb,
  * Public API
  * ------------------------------------------------------------------------- */
 
-bool dns_sd_browser_start(dns_sd_found_cb_t cb)
-{
+bool dns_sd_browser_start(dns_sd_found_cb_t cb) {
 	s_found_cb = cb;
 
 	s_pcb = udp_new();
@@ -298,12 +312,11 @@ bool dns_sd_browser_start(dns_sd_found_cb_t cb)
 	err_t mld_err = mld6_joingroup_netif(netif_default, ip_2_ip6(&mcast_ip));
 	if (mld_err != ERR_OK) {
 		printf("dns_sd: mld6_joingroup() failed (%d) – may not receive announcements\n",
-		       (int)mld_err);
+			   (int)mld_err);
 	}
 
 	udp_recv(s_pcb, mdns_recv_cb, NULL);
 
-	printf("dns_sd: passive listener started (port %d, group %s)\n",
-	       MDNS_PORT, MDNS_MCAST_ADDR);
+	printf("dns_sd: passive listener started (port %d, group %s)\n", MDNS_PORT, MDNS_MCAST_ADDR);
 	return true;
 }

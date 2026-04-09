@@ -67,7 +67,34 @@ func (s *Store) save() {
 		log.Printf("storage: failed to marshal subscriptions: %v", err)
 		return
 	}
-	if err := os.WriteFile(s.path, data, 0o644); err != nil {
+
+	dir := filepath.Dir(s.path)
+	tmp, err := os.CreateTemp(dir, "subscriptions-*.json")
+	if err != nil {
+		log.Printf("storage: failed to create temp file: %v", err)
+		return
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		if err := os.Remove(tmpName); err != nil && !os.IsNotExist(err) {
+			log.Printf("storage: failed to remove temp file %s: %v", tmpName, err)
+		}
+	}()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		log.Printf("storage: failed to write temp subscriptions: %v", err)
+		return
+	}
+	if err := tmp.Close(); err != nil {
+		log.Printf("storage: failed to close temp subscriptions: %v", err)
+		return
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		log.Printf("storage: failed to chmod temp subscriptions: %v", err)
+		return
+	}
+	if err := os.Rename(tmpName, s.path); err != nil {
 		log.Printf("storage: failed to write subscriptions: %v", err)
 	}
 }
