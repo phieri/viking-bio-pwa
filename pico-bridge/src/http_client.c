@@ -88,11 +88,18 @@ static size_t build_request(const char *body) {
 	// Buffer: "[" + addr(max 46) + "]:" + port(max 5 digits) + null = 55 bytes; +8 for safety.
 	// Note: IPv6 zone IDs (e.g. fe80::1%eth0) are not supported by ipaddr_aton; users
 	// should configure link-local addresses without zone IDs (routing via the default interface).
-	char host_header[WIFI_SERVER_IP_MAX_LEN + 8];
+	char host_header[WIFI_SERVER_IP_MAX_LEN + 10];
 	if (is_bare_ipv6(s_host)) {
-		snprintf(host_header, sizeof(host_header), "[%s]:%u", s_host, (unsigned)s_port);
+		int written =
+			snprintf(host_header, sizeof(host_header), "[%s]:%u", s_host, (unsigned)s_port);
+		if (written < 0 || written >= (int)sizeof(host_header)) {
+			return 0;
+		}
 	} else {
-		snprintf(host_header, sizeof(host_header), "%s:%u", s_host, (unsigned)s_port);
+		int written = snprintf(host_header, sizeof(host_header), "%s:%u", s_host, (unsigned)s_port);
+		if (written < 0 || written >= (int)sizeof(host_header)) {
+			return 0;
+		}
 	}
 
 	size_t body_len = strlen(body);
@@ -100,28 +107,29 @@ static size_t build_request(const char *body) {
 	int len;
 	if (s_auth_token[0] != '\0') {
 		len = snprintf(s_request, sizeof(s_request),
-			"POST " WEBHOOK_PATH " HTTP/1.1\r\n"
-			"Host: %s\r\n"
-			"Content-Type: application/json\r\n"
-			"X-Hook-Auth: %s\r\n"
-			"Content-Length: %u\r\n"
-			"Connection: close\r\n"
-			"\r\n"
-			"%s",
-			host_header, s_auth_token, (unsigned)body_len, body);
+					   "POST " WEBHOOK_PATH " HTTP/1.1\r\n"
+					   "Host: %s\r\n"
+					   "Content-Type: application/json\r\n"
+					   "X-Hook-Auth: %s\r\n"
+					   "Content-Length: %u\r\n"
+					   "Connection: close\r\n"
+					   "\r\n"
+					   "%s",
+					   host_header, s_auth_token, (unsigned)body_len, body);
 	} else {
 		len = snprintf(s_request, sizeof(s_request),
-			"POST " WEBHOOK_PATH " HTTP/1.1\r\n"
-			"Host: %s\r\n"
-			"Content-Type: application/json\r\n"
-			"Content-Length: %u\r\n"
-			"Connection: close\r\n"
-			"\r\n"
-			"%s",
-			host_header, (unsigned)body_len, body);
+					   "POST " WEBHOOK_PATH " HTTP/1.1\r\n"
+					   "Host: %s\r\n"
+					   "Content-Type: application/json\r\n"
+					   "Content-Length: %u\r\n"
+					   "Connection: close\r\n"
+					   "\r\n"
+					   "%s",
+					   host_header, (unsigned)body_len, body);
 	}
 
-	if (len <= 0 || len >= (int)sizeof(s_request)) return 0;
+	if (len <= 0 || len >= (int)sizeof(s_request))
+		return 0;
 	return (size_t)len;
 }
 
@@ -156,7 +164,8 @@ static err_t tcp_connected_cb(void *arg, struct tcp_pcb *pcb, err_t err) {
 }
 
 static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
-	(void)arg; (void)err;
+	(void)arg;
+	(void)err;
 	if (p == NULL) {
 		// Server closed connection – parse status line and optional server_time
 		s_response[s_response_len] = '\0';
@@ -175,14 +184,15 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t e
 			const char *st = strstr(s_response, "\"server_time\":");
 			if (st) {
 				st += 14;
-				while (*st == ' ') st++;
+				while (*st == ' ')
+					st++;
 				char *end_ptr;
 				unsigned long server_time = strtoul(st, &end_ptr, 10);
 				if (end_ptr != st && server_time >= MIN_VALID_EPOCH_SECS) {
-					uint32_t elapsed_s = (uint32_t)(to_us_since_boot(get_absolute_time()) / 1000000ULL);
+					uint32_t elapsed_s =
+						(uint32_t)(to_us_since_boot(get_absolute_time()) / 1000000ULL);
 					s_epoch_offset = (int64_t)server_time - (int64_t)elapsed_s;
-					printf("http_client: time synced (server_time=%lu)\n",
-					       server_time);
+					printf("http_client: time synced (server_time=%lu)\n", server_time);
 				}
 			}
 			// Extract vapid_public_key for push notification subscriptions
@@ -222,7 +232,8 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t e
 }
 
 static void tcp_err_cb(void *arg, err_t err) {
-	(void)arg; (void)err;
+	(void)arg;
+	(void)err;
 	printf("http_client: TCP error %d – retrying\n", (int)err);
 	s_pcb = NULL;
 	s_state = HTTP_STATE_RETRY_WAIT;
@@ -230,7 +241,8 @@ static void tcp_err_cb(void *arg, err_t err) {
 }
 
 static void dns_found_cb(const char *name, const ip_addr_t *addr, void *arg) {
-	(void)name; (void)arg;
+	(void)name;
+	(void)arg;
 	if (addr == NULL) {
 		printf("http_client: DNS lookup failed\n");
 		s_state = HTTP_STATE_RETRY_WAIT;
@@ -311,18 +323,17 @@ void http_client_init(const char *host, uint16_t port, const char *auth_token) {
 }
 
 void http_client_send_data(const viking_bio_data_t *data) {
-	if (data == NULL) return;
+	if (data == NULL)
+		return;
 
 	// Build JSON body
 	char body[128];
 	int blen = snprintf(body, sizeof(body),
-		"{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
-		data->flame_detected ? "true" : "false",
-		data->fan_speed,
-		data->temperature,
-		data->error_code,
-		data->valid ? "true" : "false");
-	if (blen <= 0 || blen >= (int)sizeof(body)) return;
+						"{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
+						data->flame_detected ? "true" : "false", data->fan_speed, data->temperature,
+						data->error_code, data->valid ? "true" : "false");
+	if (blen <= 0 || blen >= (int)sizeof(body))
+		return;
 
 	// Build full HTTP request
 	size_t rlen = build_request(body);
@@ -344,7 +355,8 @@ void http_client_send_data(const viking_bio_data_t *data) {
 void http_client_poll(void) {
 	// Check for connection/response timeout
 	if ((s_state == HTTP_STATE_CONNECTING || s_state == HTTP_STATE_READING ||
-	     s_state == HTTP_STATE_SENDING) && time_reached(s_timeout)) {
+		 s_state == HTTP_STATE_SENDING) &&
+		time_reached(s_timeout)) {
 		printf("http_client: timeout – retrying\n");
 		abort_and_retry();
 	}

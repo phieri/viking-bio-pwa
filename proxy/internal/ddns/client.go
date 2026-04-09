@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,10 +19,13 @@ const (
 
 // Client updates a DuckDNS record periodically.
 type Client struct {
-	subdomain string
-	token     string
-	domain    string
-	stop      chan struct{}
+	subdomain  string
+	token      string
+	domain     string
+	stop       chan struct{}
+	stopOnce   sync.Once
+	httpClient *http.Client
+	apiURL     string
 }
 
 // New creates a Client for the given subdomain and token.
@@ -31,10 +35,12 @@ func New(subdomain, token string) *Client {
 		return nil
 	}
 	return &Client{
-		subdomain: subdomain,
-		token:     token,
-		domain:    subdomain + ".duckdns.org",
-		stop:      make(chan struct{}),
+		subdomain:  subdomain,
+		token:      token,
+		domain:     subdomain + ".duckdns.org",
+		stop:       make(chan struct{}),
+		httpClient: http.DefaultClient,
+		apiURL:     duckDNSAPI,
 	}
 }
 
@@ -75,12 +81,14 @@ func (c *Client) Stop() {
 	if c == nil {
 		return
 	}
-	close(c.stop)
+	c.stopOnce.Do(func() {
+		close(c.stop)
+	})
 }
 
 func (c *Client) update() error {
 	apiURL := fmt.Sprintf("%s?domains=%s&token=%s&ip=&ipv6=&verbose=true",
-		duckDNSAPI,
+		c.apiURL,
 		url.QueryEscape(c.subdomain),
 		url.QueryEscape(c.token))
 
@@ -91,7 +99,7 @@ func (c *Client) update() error {
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
