@@ -92,7 +92,11 @@ Proxy (Go)
 
 ### Firmware details
 
-- Main loop is in `pico-bridge/src/main.c`.
+- Main loop is in `pico-bridge/src/main.c`. Wi-Fi and lwIP are serviced by the CYW43 arch
+  background thread on **core 1** (threadsafe background mode); `cyw43_arch_poll()` is
+  **not** called from the main loop. Direct lwIP API calls from core 0 (e.g.
+  `tcp_connect`, `tcp_write`) must be wrapped with `cyw43_arch_lwip_begin()` /
+  `cyw43_arch_lwip_end()`; lwIP callbacks run on core 1 and do not need extra wrapping.
 - USB serial commands are handled directly in `process_usb_commands()` inside `main.c`.
 - LittleFS-backed persistent files include Wi-Fi credentials, country, proxy server/port,
   webhook token, proxy VAPID public key (`/vapid_pub.dat`), and push subscriptions.
@@ -218,8 +222,9 @@ The workflow builds both `pico_w` and `pico2_w`.
    new static asset needed by the demo page, update `.github/workflows/pages.yml`.
 5. **mDNS discovery on the Pico is passive.** If the Pico connects after the proxy is
    already running, restart the proxy to force a fresh unsolicited announcement.
-6. **The firmware depends on regular polling.** Long-blocking logic does not fit the Pico
-   main loop.
+6. **Do not call `cyw43_arch_poll()` in the firmware main loop.** Networking runs in a
+   CYW43 arch background thread on core 1. Long-blocking logic on core 0 is still
+   undesirable, but `cyw43_arch_poll()` is a no-op and must not be (re-)introduced.
 
 ## Errors Encountered and Workarounds
 
