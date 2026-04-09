@@ -121,9 +121,6 @@ if(NOT littlefs_POPULATED)
     FetchContent_Populate(littlefs)
 endif()
 
-# Compiler optimizations
-add_compile_options(-O2)
-
 # Define source files
 set(SOURCES
     src/main.c
@@ -141,6 +138,13 @@ set(SOURCES
 )
 
 add_executable(viking_bio_bridge ${SOURCES})
+
+target_compile_options(viking_bio_bridge PRIVATE -O2 -Wall -Wextra -Wno-unused-parameter)
+set_source_files_properties(
+    ${littlefs_SOURCE_DIR}/lfs.c
+    ${littlefs_SOURCE_DIR}/lfs_util.c
+    PROPERTIES COMPILE_OPTIONS "-Wno-unused-function"
+)
 
 target_include_directories(viking_bio_bridge PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
