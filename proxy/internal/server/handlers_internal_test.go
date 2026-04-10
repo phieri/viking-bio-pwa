@@ -106,8 +106,43 @@ func TestUpdateBurnerStateTracksFlameSecondsAndErrors(t *testing.T) {
 		Err:   testFloat64Ptr(0),
 		Valid: testBoolPtr(true),
 	}, start.Add(2*time.Second))
+	if got := h.state.FlameSecs; got != 2 {
+		t.Fatalf("expected FlameSecs=2 after flame turns off, got %d", got)
+	}
 	if h.state.errorNotified {
 		t.Fatal("expected errorNotified to reset when error clears")
+	}
+}
+
+func TestUpdateBurnerStateSchedulesCleaningReminder(t *testing.T) {
+	t.Parallel()
+
+	h := newInternalTestHandlers(t, nil)
+	reminderTime := time.Date(2026, time.January, 3, 7, 10, 0, 0, time.UTC)
+
+	result := h.updateBurnerState(machineDataBody{
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(20),
+		Temp:  testFloat64Ptr(70),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
+	}, reminderTime)
+	if !result.cleanDue {
+		t.Fatal("expected cleaning reminder to be due during Saturday morning heating season window")
+	}
+	if result.cleanBody == "" {
+		t.Fatal("expected cleaning reminder body to be populated")
+	}
+
+	second := h.updateBurnerState(machineDataBody{
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(20),
+		Temp:  testFloat64Ptr(71),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
+	}, reminderTime.Add(10*time.Minute))
+	if second.cleanDue {
+		t.Fatal("expected reminder to be debounced within the same week")
 	}
 }
 

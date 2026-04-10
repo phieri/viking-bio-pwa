@@ -123,10 +123,6 @@ func (t *TUI) showStatus() {
 	if status.Token != "" {
 		fmt.Println("  Token:    " + status.Token)
 	}
-	fmt.Printf("  Subs:     %d\n", status.Subscriptions)
-	if status.VapidPub != "" {
-		fmt.Println("  VAPID pub: " + status.VapidPub)
-	}
 	fmt.Println()
 }
 

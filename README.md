@@ -2,8 +2,8 @@
 
 A monorepo for the Viking Bio 20 pellet burner integration system. It consists of two components:
 
-1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner, forwards it via HTTP webhook to the proxy, and stores the proxy's VAPID public key plus browser subscriptions in LittleFS
-2. **[proxy/](proxy/)** – Go proxy server that receives burner data via authenticated webhook, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, and sends Web Push notifications using proxy-managed VAPID keys
+1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it via HTTP webhook to the proxy
+2. **[proxy/](proxy/)** – Go proxy server that receives burner data via authenticated webhook, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, stores browser subscriptions, and sends Web Push notifications using proxy-managed VAPID keys
 
 ## Architecture
 
@@ -23,9 +23,7 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                          │   ├── POST /api/subscribe       Add/update subscription
                          │   └── POST /api/unsubscribe     Remove subscription
                          └── Web Push notifications
-Browser push subscriptions are stored by the proxy and can also be forwarded to
-the Pico W (when `PICO_BASE_URL` is configured) so the device can keep its local
-subscription cache in sync.
+ Browser push subscriptions and all notification handling live in the proxy.
 ```
 
 ## pico-bridge
@@ -34,8 +32,6 @@ The Pico firmware:
 - Reads Viking Bio 20 serial data (UART0, GPIO1, 9600 baud, 8N1)
 - Parses binary (`[0xAA] [FLAGS] [SPEED] [TEMP_H] [TEMP_L] [0x55]`) and text (`F:1,S:50,T:75`) protocols
 - Posts parsed data as JSON to the proxy via **HTTP webhook** (replaces the old TCP transport)
-- Stores the proxy's VAPID public key in LittleFS after the first successful webhook response
-- Stores browser push subscriptions locally when the proxy forwards subscribe/unsubscribe requests
 - WiFi credentials, proxy server address, and webhook auth token stored in LittleFS (credentials encrypted with AES-128-GCM)
 - Configurable via USB serial (115200 baud)
 
@@ -72,11 +68,8 @@ Connect via USB serial (115200 baud) to configure:
 | `SERVER=<ip>` | Set proxy server IP/hostname (IPv6 bare address without brackets) |
 | `PORT=<port>` | Set proxy server port (default: 3000) |
 | `TOKEN=<token>` | Set webhook `X-Hook-Auth` authentication token |
-| `STATUS` | Show WiFi, webhook, push subscription count, and VAPID public key |
+| `STATUS` | Show WiFi, server, webhook, and token status |
 | `CLEAR` | Erase stored credentials (reboots) |
-
-After the first successful webhook, `STATUS` shows the proxy VAPID public key
-cached on the device.
 
 ## proxy
 
@@ -85,7 +78,7 @@ The Go proxy server (replaces the previous Node.js implementation):
 - Go net/http server serves the PWA dashboard; binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
 - Web Push notifications via `web-push` with proxy-generated VAPID keys
-- Subscriptions persisted to `proxy/data/subscriptions.json`; forwarded to Pico W when `PICO_BASE_URL` is set
+- Subscriptions persisted to `proxy/data/subscriptions.json`; the proxy is the only Web Push component
 - **Device configurator TUI** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial
 
 ### Device Configurator TUI
@@ -103,16 +96,12 @@ The TUI guides you through:
 
 | Option | Description |
 |--------|-------------|
-| **Show status** | Reads WiFi state, server config, token status, and the cached proxy VAPID public key from the device |
+| **Show status** | Reads WiFi state, server config, and token status from the device |
 | **Configure WiFi** | Sets SSID + password (device reboots to connect) |
 | **Set country code** | Sets the Wi-Fi regulatory domain (e.g. `SE`, `US`, `GB`) |
 | **Set proxy server** | Sets the IP address and port of this proxy computer |
 | **Set auth token** | Sets the `X-Hook-Auth` token (must match `MACHINE_WEBHOOK_AUTH_TOKEN`) |
 | **Clear credentials** | Erases all stored credentials and reboots the device |
-
-After the proxy has accepted at least one webhook from the device, **Show
-status** displays the proxy VAPID public key that the Pico cached from the
-webhook response.
 
 ### PWA Dashboard
 
@@ -134,7 +123,6 @@ With custom configuration:
 ```bash
 HTTP_PORT=8080 \
 MACHINE_WEBHOOK_AUTH_TOKEN=mysecrettoken \
-PICO_BASE_URL=http://[fe80::dead:beef%25eth0]:8080 \
 ./viking-bio-proxy
 ```
 
@@ -142,7 +130,6 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 
 Defensive validation notes:
 - `HTTP_PORT` and `ACME_HTTP_PORT` must be integers in the range `1..65535`
-- `PICO_BASE_URL`, when set, must be an absolute `http://` or `https://` URL
 - `POST /api/machine-data`, `POST /api/subscribe`, and `POST /api/unsubscribe`
   reject malformed JSON or missing required fields with `400 Bad Request`
 
@@ -152,11 +139,6 @@ The proxy binds to `::` (all IPv6 addresses) by default. On Linux this also acce
 
 ```
 SERVER=2001:db8::1   ← enter bare (no brackets) via USB serial
-```
-
-The proxy's `PICO_BASE_URL` must use brackets:
-```
-PICO_BASE_URL=http://[2001:db8::1]:8080
 ```
 
 ### TLS / HTTPS
@@ -179,7 +161,7 @@ Subscribers can opt in to three types:
 |------|---------|
 | `flame` | Flame state changes (on/off) |
 | `error` | Non-zero error code detected |
-| `clean` | Cleaning reminder preference stored with each subscription |
+| `clean` | Saturday-morning cleaning reminder during heating season (Nov–Mar) |
 
 ## Wiring Diagram
 

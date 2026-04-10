@@ -31,31 +31,16 @@ If `MACHINE_WEBHOOK_AUTH_TOKEN` is configured in the proxy, the firmware include
 
 ## Proxy → Firmware response
 
-The proxy responds to the telemetry webhook with JSON including:
+The proxy responds to the telemetry webhook with a small JSON acknowledgement:
 
 - `status`
-- `server_time`
-- `vapid_public_key`
-
-The firmware uses:
-
-- `server_time` to derive Unix epoch time from Pico uptime
-- `vapid_public_key` to cache the proxy-managed VAPID public key locally
-
-The VAPID private key never leaves the proxy.
-
-## Subscription forwarding flow
-
-Browser subscriptions are created against the proxy. The proxy persists subscriptions locally and
-best-effort forwards subscribe/unsubscribe requests back to the Pico so the device can keep a small
-local cache of forwarded subscriptions.
 
 ## Memory ownership and lifetime
 
 ### Firmware
 
 - The firmware uses static or stack-backed buffers for protocol parsing, HTTP requests, HTTP
-  responses, Wi-Fi configuration, and push state.
+  responses, and Wi-Fi configuration.
 - The refactored firmware command path continues to avoid heap allocation.
 - Buffer ownership remains local to each module; callers pass output buffers and lengths explicitly.
 
@@ -68,6 +53,6 @@ local cache of forwarded subscriptions.
 ## Push delivery ownership
 
 - The proxy owns VAPID key generation and persistence.
-- The proxy returns the public key from `/api/machine-data`.
-- The firmware stores only the public key and never signs push requests.
+- The proxy stores browser subscriptions and evaluates notification preferences.
+- The proxy derives flame, error, and cleaning reminder events from telemetry webhooks.
 - Web Push delivery is performed by the proxy.

@@ -1,8 +1,6 @@
 package server
 
 import (
-	"bytes"
-	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -19,16 +17,18 @@ import (
 
 // State holds the shared burner telemetry state.
 type State struct {
-	mu            sync.RWMutex
-	Flame         bool    `json:"flame"`
-	Fan           float64 `json:"fan"`
-	Temp          float64 `json:"temp"`
-	Err           float64 `json:"err"`
-	Valid         bool    `json:"valid"`
-	FlameSecs     int64   `json:"flame_secs"`
-	UpdatedAt     int64   `json:"updated_at"`
-	lastFlameTime int64   // ms; zero means flame was off last update
-	errorNotified bool
+	mu                       sync.RWMutex
+	Flame                    bool    `json:"flame"`
+	Fan                      float64 `json:"fan"`
+	Temp                     float64 `json:"temp"`
+	Err                      float64 `json:"err"`
+	Valid                    bool    `json:"valid"`
+	FlameSecs                int64   `json:"flame_secs"`
+	UpdatedAt                int64   `json:"updated_at"`
+	lastFlameTime            int64   // ms; zero means flame was off last update
+	errorNotified            bool
+	lastCleanReminderDay     int64
+	lastCleanReminderSeconds int64
 }
 
 // Handlers bundles all HTTP handler dependencies.
@@ -103,9 +103,38 @@ type machineDataBody struct {
 type machineDataUpdateResult struct {
 	flameChanged bool
 	newErr       bool
+	cleanDue     bool
 	flame        bool
 	temp         float64
 	err          float64
+	cleanBody    string
+}
+
+func formatFlameSeconds(secs int64) string {
+	hours := secs / 3600
+	minutes := (secs % 3600) / 60
+	switch {
+	case hours == 0:
+		return fmt.Sprintf("%d min", minutes)
+	case minutes == 0:
+		return fmt.Sprintf("%d h", hours)
+	default:
+		return fmt.Sprintf("%d h %d min", hours, minutes)
+	}
+}
+
+func shouldSendCleaningReminder(now time.Time) bool {
+	now = now.UTC()
+	month := now.Month()
+	inSeason := month == time.November ||
+		month == time.December ||
+		month == time.January ||
+		month == time.February ||
+		month == time.March
+	if !inSeason {
+		return false
+	}
+	return now.Weekday() == time.Saturday && now.Hour() == 7 && now.Minute() < 30
 }
 
 func (h *Handlers) authenticateWebhook(r *http.Request) bool {
@@ -133,6 +162,15 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 
 	prevFlame := h.state.Flame
 	prevErr := h.state.Err
+	nowMillis := now.UnixMilli()
+
+	if prevFlame && h.state.lastFlameTime != 0 {
+		elapsed := nowMillis - h.state.lastFlameTime
+		if elapsed > 0 {
+			h.state.FlameSecs += elapsed / 1000
+			h.state.lastFlameTime = nowMillis - (elapsed % 1000)
+		}
+	}
 
 	h.state.Flame = *body.Flame
 	h.state.Fan = *body.Fan
@@ -140,15 +178,11 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 	h.state.Err = *body.Err
 	h.state.Valid = *body.Valid
 
-	nowMillis := now.UnixMilli()
 	h.state.UpdatedAt = nowMillis
 	if h.state.Flame {
-		if h.state.lastFlameTime == 0 {
+		if !prevFlame {
 			h.state.lastFlameTime = nowMillis
 		}
-		elapsed := nowMillis - h.state.lastFlameTime
-		h.state.FlameSecs += elapsed / 1000
-		h.state.lastFlameTime = nowMillis - (elapsed % 1000)
 	} else {
 		h.state.lastFlameTime = 0
 	}
@@ -165,6 +199,19 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 	}
 	if h.state.Err == 0 {
 		h.state.errorNotified = false
+	}
+	if shouldSendCleaningReminder(now) {
+		today := now.UTC().Unix() / 86400
+		if h.state.lastCleanReminderDay == 0 || today-h.state.lastCleanReminderDay >= 7 {
+			flameSecsSinceReminder := h.state.FlameSecs - h.state.lastCleanReminderSeconds
+			result.cleanDue = true
+			result.cleanBody = fmt.Sprintf(
+				"Clean the burner. Flame-on since last reminder: %s.",
+				formatFlameSeconds(flameSecsSinceReminder),
+			)
+			h.state.lastCleanReminderDay = today
+			h.state.lastCleanReminderSeconds = h.state.FlameSecs
+		}
 	}
 
 	return result
@@ -183,6 +230,9 @@ func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
 	if result.newErr {
 		go h.notifyByType("error", "Viking Bio: Fel",
 			fmt.Sprintf("Felkod %.0f detekterad", result.err))
+	}
+	if result.cleanDue {
+		go h.notifyByType("clean", "Viking Bio: Cleaning Reminder", result.cleanBody)
 	}
 }
 
@@ -205,11 +255,7 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 
 	h.triggerNotifications(result)
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status":           "ok",
-		"server_time":      time.Now().Unix(),
-		"vapid_public_key": h.pushMgr.GetVapidPublicKey(),
-	})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // HandleSubscribe serves POST /api/subscribe.
@@ -230,13 +276,6 @@ func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		status = "full"
 	}
-	// Forward to Pico (best-effort)
-	go h.picoForward("/api/subscribe", map[string]any{
-		"endpoint": body.Endpoint,
-		"p256dh":   body.P256DH,
-		"auth":     body.Auth,
-		"prefs":    body.Prefs,
-	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": status})
 }
 
@@ -250,46 +289,5 @@ func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushMgr.RemoveSubscription(body.Endpoint)
-	go h.picoForward("/api/unsubscribe", map[string]string{"endpoint": body.Endpoint})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-// picoForward forwards a JSON body to the Pico W at the given path.
-func (h *Handlers) picoForward(path string, body any) {
-	if h.cfg.PicoBaseURL == "" {
-		return
-	}
-	fullURL := h.cfg.PicoBaseURL + path
-	payload, err := json.Marshal(body)
-	if err != nil {
-		log.Printf("pico-forward: marshal error: %v", err)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(h.cfg.PicoForwardTimeoutMs)*time.Millisecond)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(payload))
-	if err != nil {
-		log.Printf("pico-forward: create request: %v", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if h.cfg.WebhookAuthToken != "" {
-		req.Header.Set("X-Hook-Auth", h.cfg.WebhookAuthToken)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Printf("pico-forward: %s error: %v", path, err)
-		return
-	}
-	defer resp.Body.Close()
-	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-		log.Printf("pico-forward: drain response for %s: %v", path, err)
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("pico-forward: %s → HTTP %d", path, resp.StatusCode)
-	}
 }

@@ -6,11 +6,11 @@ This repository is a monorepo for the Viking Bio 20 pellet burner integration sy
 There are two active components:
 
 1. **`pico-bridge/`** - Raspberry Pi Pico W / Pico 2 W firmware in C. It reads burner data
-   over UART, stores config in LittleFS, discovers the proxy over mDNS, posts telemetry to
-   the proxy over HTTP, and stores the proxy VAPID public key for use by the PWA.
+   over UART, stores config in LittleFS, discovers the proxy over mDNS, and posts telemetry
+   to the proxy over HTTP.
 2. **`proxy/`** - Go proxy server and PWA dashboard. It receives burner telemetry, serves
-   the web UI, manages browser subscriptions, can forward subscriptions back to the Pico,
-   and sends Web Push notifications using proxy-managed VAPID keys.
+   the web UI, manages browser subscriptions, and sends Web Push notifications using
+   proxy-managed VAPID keys.
 
 The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
 Node.js implementation; verify against the current Go code before acting.
@@ -25,8 +25,7 @@ Node.js implementation; verify against the current Go code before acting.
 │   ├── include/                    # Firmware public headers
 │   ├── src/
 │   │   ├── main.c                  # Main loop, USB commands, Wi-Fi startup
-│   │   ├── http_client.c           # HTTP webhook client + proxy time sync
-│   │   ├── push_manager.c          # Web Push delivery + cleaning reminder scheduler
+│   │   ├── http_client.c           # HTTP webhook client
 │   │   ├── wifi_config.c           # Encrypted Wi-Fi/server/token storage
 │   │   ├── lfs_hal.c               # LittleFS flash backend
 │   │   └── dns_sd_browser.c        # Passive mDNS/DNS-SD listener for proxy discovery
@@ -63,7 +62,7 @@ Node.js implementation; verify against the current Go code before acting.
 Viking Bio 20 ──UART──► Pico W firmware
                          ├── POST /api/machine-data to proxy
                          ├── passive mDNS listener for _viking-bio._tcp
-                         └── cached proxy VAPID public key + forwarded subscriptions
+                         └── telemetry only
 
 Proxy (Go)
 ├── GET /                     PWA dashboard
@@ -79,8 +78,8 @@ Proxy (Go)
 
 - Main entry point is `proxy/cmd/proxy/main.go`.
 - HTTP routes are registered in `proxy/internal/server/server.go`.
-- Request handling, shared burner state, webhook auth, push triggering, and Pico forwarding
-  live in `proxy/internal/server/handlers.go`.
+- Request handling, shared burner state, webhook auth, and push triggering live in
+  `proxy/internal/server/handlers.go`.
 - Static files are served from disk when `proxy/public/` exists locally; otherwise the
   binary serves embedded assets from `proxy/assets.go`.
 - Subscriptions are stored in `proxy/data/subscriptions.json`.
@@ -99,20 +98,16 @@ Proxy (Go)
   `cyw43_arch_lwip_end()`; lwIP callbacks run on core 1 and do not need extra wrapping.
 - USB serial commands are handled directly in `process_usb_commands()` inside `main.c`.
 - LittleFS-backed persistent files include Wi-Fi credentials, country, proxy server/port,
-  webhook token, proxy VAPID public key (`/vapid_pub.dat`), and push subscriptions.
+  and webhook token.
 - The default proxy port is `WIFI_SERVER_PORT_DEFAULT` in
   `pico-bridge/include/wifi_config.h`, currently **3000**.
 - The Pico passively listens for unsolicited mDNS announcements from the proxy; it does
   not actively query for services.
-- `pico-bridge/src/push_manager.c` contains the Web Push subscription persistence plus the
-  cleaning reminder scheduler. The VAPID private key is held exclusively by the proxy; the
-  firmware receives the proxy's VAPID public key via the webhook response
-  (`vapid_public_key` field) and stores it in `/vapid_pub.dat`. Direct HTTPS push delivery
-  from the firmware is not supported — all Web Push delivery is handled by the proxy.
-  Use that file as the source of truth when changing push behavior, because
-  older docs may still describe earlier partial implementations.
+- All Web Push delivery is handled by the proxy. The firmware does not cache VAPID keys,
+  does not store subscriptions, and does not schedule reminders. Older docs may still
+  describe earlier partial implementations.
 - The old Node.js-era `scheduler.js` no longer exists in the active proxy; scheduled
-  cleaning reminders are driven from the firmware via `push_manager_tick_scheduler()`.
+  cleaning reminders are driven by the Go proxy from telemetry updates.
 
 ## Build, Test, and Validation
 
@@ -196,20 +191,16 @@ The workflow builds both `pico_w` and `pico2_w`.
 - Wi-Fi/server/token persistence lives in `pico-bridge/src/wifi_config.c`.
 - HTTP webhook logic lives in `pico-bridge/src/http_client.c`.
 - mDNS discovery logic lives in `pico-bridge/src/dns_sd_browser.c`.
-- Push delivery and scheduler logic live in `pico-bridge/src/push_manager.c`.
 - USB command behavior lives in `pico-bridge/src/main.c`.
 
 ## Important Runtime Behavior
 
 - `POST /api/machine-data` requires `Content-Type: application/json` and validates
   `X-Hook-Auth` when `MACHINE_WEBHOOK_AUTH_TOKEN` is set.
-- `PICO_BASE_URL` must be a full `http://` or `https://` URL.
-- For IPv6 URLs, `PICO_BASE_URL` must use brackets, for example `http://[::1]:3000`.
 - For the Pico USB `SERVER=` command, use the bare IPv6 address without brackets.
 - The proxy binds to `[::]:<port>` and prefers IPv6.
 - The proxy serves static files from disk first, then falls back to embedded assets.
 - The proxy's subscription capacity is 32 (`proxy/internal/storage/subscriptions.go`).
-- The Pico's subscription capacity is 4 (`pico-bridge/include/push_manager.h`).
 
 ## Common Pitfalls
 

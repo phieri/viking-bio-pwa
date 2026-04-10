@@ -11,8 +11,6 @@ var configEnvKeys = []string{
 	"MACHINE_WEBHOOK_AUTH_TOKEN",
 	"TLS_CERT_PATH",
 	"TLS_KEY_PATH",
-	"PICO_BASE_URL",
-	"PICO_FORWARD_TIMEOUT_MS",
 	"ACME_EMAIL",
 	"ACME_STAGING",
 	"ACME_CERT_DIR",
@@ -72,26 +70,6 @@ func TestParseBool(t *testing.T) {
 	}
 }
 
-func TestRequireHTTPURL(t *testing.T) {
-	t.Parallel()
-
-	got, err := requireHTTPURL("", "PICO_BASE_URL")
-	if err != nil || got != "" {
-		t.Fatalf("expected empty URL to pass, got %q, err=%v", got, err)
-	}
-
-	for _, input := range []string{"http://localhost:3000", "https://example.com"} {
-		got, err = requireHTTPURL(input, "PICO_BASE_URL")
-		if err != nil || got != input {
-			t.Fatalf("expected %q to pass, got %q, err=%v", input, got, err)
-		}
-	}
-
-	if _, err := requireHTTPURL("ftp://example.com", "PICO_BASE_URL"); err == nil {
-		t.Fatal("expected non-http URL to fail")
-	}
-}
-
 func TestLoadDefaults(t *testing.T) {
 	clearConfigEnv(t)
 
@@ -110,9 +88,6 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.ACMEHTTPPort != 80 {
 		t.Fatalf("expected default ACME HTTP port 80, got %d", cfg.ACMEHTTPPort)
-	}
-	if cfg.PicoForwardTimeoutMs != 5000 {
-		t.Fatalf("expected default Pico timeout 5000, got %d", cfg.PicoForwardTimeoutMs)
 	}
 	if cfg.DataDir != filepath.Join(base, "data") {
 		t.Fatalf("unexpected default data dir: %q", cfg.DataDir)
@@ -134,8 +109,6 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("MACHINE_WEBHOOK_AUTH_TOKEN", "secret")
 	t.Setenv("TLS_CERT_PATH", "/cert.pem")
 	t.Setenv("TLS_KEY_PATH", "/key.pem")
-	t.Setenv("PICO_BASE_URL", "https://example.com")
-	t.Setenv("PICO_FORWARD_TIMEOUT_MS", "1500")
 	t.Setenv("ACME_EMAIL", "acme@example.com")
 	t.Setenv("ACME_STAGING", "true")
 	t.Setenv("ACME_CERT_DIR", "/certs")
@@ -153,10 +126,10 @@ func TestLoadOverrides(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.HTTPPort != 3001 || cfg.ACMEHTTPPort != 8080 || cfg.PicoForwardTimeoutMs != 1500 {
+	if cfg.HTTPPort != 3001 || cfg.ACMEHTTPPort != 8080 {
 		t.Fatalf("unexpected numeric overrides: %+v", cfg)
 	}
-	if cfg.PicoBaseURL != "https://example.com" || cfg.DataDir != "/data" || cfg.ACMECertDir != "/certs" {
+	if cfg.DataDir != "/data" || cfg.ACMECertDir != "/certs" {
 		t.Fatalf("unexpected string overrides: %+v", cfg)
 	}
 	if !cfg.ACMEStaging || !cfg.MDNSDisable {
@@ -169,17 +142,5 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 	t.Setenv("HTTP_PORT", "0")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid HTTP_PORT to fail")
-	}
-
-	clearConfigEnv(t)
-	t.Setenv("PICO_BASE_URL", "tcp://example.com")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected invalid PICO_BASE_URL to fail")
-	}
-
-	clearConfigEnv(t)
-	t.Setenv("PICO_FORWARD_TIMEOUT_MS", "-1")
-	if _, err := Load(); err == nil {
-		t.Fatal("expected invalid PICO_FORWARD_TIMEOUT_MS to fail")
 	}
 }

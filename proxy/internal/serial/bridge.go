@@ -24,15 +24,13 @@ type PortInfo struct {
 
 // StatusResult holds parsed output from the Pico STATUS command.
 type StatusResult struct {
-	Connected     bool
-	Addresses     []string
-	Country       string
-	Server        string
-	Port          int
-	Webhook       string
-	Subscriptions int
-	Token         string
-	VapidPub      string
+	Connected bool
+	Addresses []string
+	Country   string
+	Server    string
+	Port      int
+	Webhook   string
+	Token     string
 }
 
 // Bridge communicates with the Pico W over USB serial.
@@ -167,20 +165,6 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 		}
 		if strings.HasPrefix(line, "Token:") {
 			r.Token = strings.TrimSpace(strings.TrimPrefix(line, "Token:"))
-		}
-		if strings.HasPrefix(line, "Subscriptions:") {
-			n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "Subscriptions:")))
-			if err != nil {
-				log.Printf("serial: parse Subscriptions value: %v", err)
-			} else {
-				r.Subscriptions = n
-			}
-		}
-		if strings.HasPrefix(line, "VAPID:") || strings.HasPrefix(line, "VapidPub:") {
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				r.VapidPub = strings.TrimSpace(parts[1])
-			}
 		}
 	}
 	return r

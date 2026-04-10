@@ -150,7 +150,6 @@ func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) e
 		return err
 	}
 	log.Printf("Viking Bio Proxy listening on http://%s", addr)
-	logExtra(s.cfg)
 	shutdownOnContext(ctx, srv)
 	s.notifyReady(fmt.Sprintf("http://localhost:%d", s.cfg.HTTPPort))
 	return srv.Serve(ln)
@@ -168,7 +167,6 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 		return err
 	}
 	log.Printf("Viking Bio Proxy listening on https://%s (manual TLS)", addr)
-	logExtra(s.cfg)
 	shutdownOnContext(ctx, srv)
 	s.notifyReady(fmt.Sprintf("https://localhost:%d", s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
@@ -197,14 +195,7 @@ func (s *Server) startACME(ctx context.Context, mux http.Handler, addr, domain s
 		return err
 	}
 	log.Printf("Viking Bio Proxy listening on https://%s:%d (Let's Encrypt)", domain, s.cfg.HTTPPort)
-	logExtra(s.cfg)
 	shutdownOnContext(ctx, srv, challengeSrv)
 	s.notifyReady(fmt.Sprintf("https://%s:%d", domain, s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, "", "")
-}
-
-func logExtra(cfg *config.Config) {
-	if cfg.PicoBaseURL != "" {
-		log.Printf("  Pico W base URL:   %s", cfg.PicoBaseURL)
-	}
 }
