@@ -44,7 +44,7 @@ make run
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for `--configure` |
-| `DATA_DIR` | `<exe_dir>/data` | Directory for VAPID keys and subscriptions |
+| `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for VAPID keys and subscriptions |
 
 ## .env File
 
@@ -160,20 +160,20 @@ nssm start VikingBioProxy
 
 ## Migration from Node.js Proxy
 
-**Subscriptions:** `data/subscriptions.json` format is identical — no migration needed.
+**Subscriptions:** `<DATA_DIR>/subscriptions.json` format is identical — no migration needed.
 
 **VAPID keys:** The Node.js proxy stored keys in `data/vapid.json` as
 `{"publicKey":"...","privateKey":"..."}`. The Go proxy uses two separate files:
-`data/server-vapid.pub` and `data/server-vapid.priv` (raw base64url strings,
-no JSON wrapper). Existing browser subscriptions tied to the Node.js VAPID key
-**will not receive push notifications** from the new Go server — users need to
-re-subscribe once after migration. The subscription records themselves are
-forward-compatible.
+`<DATA_DIR>/server-vapid.pub` and `<DATA_DIR>/server-vapid.priv` (raw base64url
+strings, no JSON wrapper). Existing browser subscriptions tied to the Node.js
+VAPID key **will not receive push notifications** from the new Go server —
+users need to re-subscribe once after migration. The subscription records
+themselves are forward-compatible.
 
 ## Data Files
 
 | File | Description |
 |---|---|
-| `data/subscriptions.json` | Web Push subscriptions (max 32) |
-| `data/server-vapid.pub` | Server VAPID public key (base64url) |
-| `data/server-vapid.priv` | Server VAPID private key (base64url, mode 0600) |
+| `<DATA_DIR>/subscriptions.json` | Web Push subscriptions (max 32) |
+| `<DATA_DIR>/server-vapid.pub` | Server VAPID public key (base64url) |
+| `<DATA_DIR>/server-vapid.priv` | Server VAPID private key (base64url, mode 0600) |

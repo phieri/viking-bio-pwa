@@ -44,10 +44,16 @@ func parseBool(val string) bool {
 }
 
 // DefaultDataDir returns the data directory path using DATA_DIR env var, falling
-// back to <exe_dir>/data (or ./data when the binary lives under /tmp).
+// back to ~/.viking-bio-bridge on Linux or <exe_dir>/data otherwise (using
+// ./data when the binary lives under /tmp).
 func DefaultDataDir() string {
 	if dir := os.Getenv("DATA_DIR"); dir != "" {
 		return dir
+	}
+	if runtime.GOOS == "linux" {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			return filepath.Join(home, ".viking-bio-bridge")
+		}
 	}
 	base := exeDir()
 	if runtime.GOOS != "windows" && strings.HasPrefix(base, "/tmp") {
