@@ -43,6 +43,19 @@ func parseBool(val string) bool {
 	return val == "1" || strings.ToLower(val) == "true"
 }
 
+// DefaultDataDir returns the data directory path using DATA_DIR env var, falling
+// back to <exe_dir>/data (or ./data when the binary lives under /tmp).
+func DefaultDataDir() string {
+	if dir := os.Getenv("DATA_DIR"); dir != "" {
+		return dir
+	}
+	base := exeDir()
+	if runtime.GOOS != "windows" && strings.HasPrefix(base, "/tmp") {
+		base = "."
+	}
+	return filepath.Join(base, "data")
+}
+
 // exeDir returns the directory containing the running executable.
 func exeDir() string {
 	exe, err := os.Executable()
@@ -67,14 +80,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	dataDir := os.Getenv("DATA_DIR")
-	if dataDir == "" {
-		base := exeDir()
-		if runtime.GOOS != "windows" && strings.HasPrefix(base, "/tmp") {
-			base = "."
-		}
-		dataDir = filepath.Join(base, "data")
-	}
+	dataDir := DefaultDataDir()
 
 	acmeCertDir := os.Getenv("ACME_CERT_DIR")
 	if acmeCertDir == "" {

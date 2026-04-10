@@ -38,6 +38,45 @@ func NewStore(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, err
 	}
+	cfgPath := filepath.Join(dataDir, "viking-bio.conf")
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		conf := `# Viking Bio Proxy configuration
+# Copy or edit this file, then restart the proxy.
+# Lines starting with '#' are comments. Uncommented lines set a value.
+# Environment variables always take precedence over values in this file.
+
+# Port for the HTTP/HTTPS dashboard server (default: 3000)
+# HTTP_PORT=3000
+
+# Webhook authentication token – the Pico bridge must send this in X-Hook-Auth.
+# Set to a strong random string in production; leave empty to disable auth.
+# MACHINE_WEBHOOK_AUTH_TOKEN=
+
+# ---------------------------------------------------------------------------
+# Automatic HTTPS via DuckDNS + Let's Encrypt (recommended for production)
+# ---------------------------------------------------------------------------
+# DDNS_SUBDOMAIN=my-viking-bio
+# DDNS_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# ACME_EMAIL=admin@example.com
+# ACME_STAGING=1
+
+# ---------------------------------------------------------------------------
+# Manual HTTPS with a user-supplied certificate (alternative to DDNS above)
+# ---------------------------------------------------------------------------
+# TLS_CERT_PATH=/etc/ssl/certs/server.crt
+# TLS_KEY_PATH=/etc/ssl/private/server.key
+
+# ---------------------------------------------------------------------------
+# Data directory (VAPID keys, subscriptions, ACME cache)
+# ---------------------------------------------------------------------------
+# DATA_DIR=/var/lib/viking-bio-proxy
+`
+		// Writing the config template is best-effort: a failure (e.g. read-only
+		// filesystem) should not prevent the proxy from starting up.
+		if err := os.WriteFile(cfgPath, []byte(conf), 0o644); err != nil {
+			log.Printf("storage: failed to write %s: %v", cfgPath, err)
+		}
+	}
 	s := &Store{path: filepath.Join(dataDir, "subscriptions.json")}
 	s.load()
 	return s, nil
