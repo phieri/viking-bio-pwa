@@ -1,8 +1,8 @@
 # Viking Bio Proxy (Go)
 
 Go rewrite of the Viking Bio pellet burner proxy server. Receives burner
-telemetry from the Pico W bridge and serves the PWA dashboard with Web Push
-notification support.
+telemetry from the Pico W bridge and serves the PWA dashboard with fully
+proxy-managed Web Push notification support.
 
 ## Build
 
@@ -34,8 +34,6 @@ make run
 | `MACHINE_WEBHOOK_AUTH_TOKEN` | _(empty)_ | Webhook auth token (`X-Hook-Auth` header) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
-| `PICO_BASE_URL` | _(empty)_ | Pico W base URL for subscription forwarding |
-| `PICO_FORWARD_TIMEOUT_MS` | `5000` | Pico W forward timeout (ms) |
 | `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt registration |
 | `ACME_STAGING` | `false` | Use Let's Encrypt staging (`1` or `true`) |
 | `ACME_CERT_DIR` | `<data_dir>` | Directory for ACME certificate cache |
@@ -97,7 +95,7 @@ Connect the Pico W via USB and run the interactive configurator:
 
 The TUI allows you to:
 
-- View device status (IP, country, server, VAPID key)
+- View device status (IP, country, server, token)
 - Set WiFi SSID + password
 - Set Wi-Fi country code
 - Set proxy server address and port

@@ -7,7 +7,6 @@
 #include "lwip/ip_addr.h"
 #include "lwip/dns.h"
 #include "http_client.h"
-#include "push_manager.h"
 #include "wifi_config.h"
 
 typedef enum {
@@ -28,10 +27,7 @@ typedef enum {
 // Maximum request size: headers + JSON body
 #define HTTP_REQUEST_MAX 512
 
-// Response buffer (large enough for the status line + JSON body with server_time
-// and vapid_public_key; the VAPID key is at most VAPID_PUB_MAX_LEN base64url chars
-// (~88) plus JSON overhead (~40 bytes for field name, quotes, commas) and HTTP headers
-// (~200 bytes), so 512 bytes provides sufficient margin)
+// Response buffer (large enough for the status line and small JSON acknowledgement)
 #define HTTP_RESPONSE_MAX 512
 
 static struct tcp_pcb *s_pcb = NULL;
@@ -53,14 +49,6 @@ static bool s_has_pending = false;
 // Response accumulation
 static char s_response[HTTP_RESPONSE_MAX];
 static size_t s_response_len = 0;
-
-// Epoch time tracking: offset from seconds-since-boot to Unix epoch.
-// Initialised to BUILD_UNIX_TIME at compile time as an approximation;
-// updated to the exact value whenever the proxy responds with server_time.
-static int64_t s_epoch_offset = BUILD_UNIX_TIME;
-
-// Minimum plausible Unix epoch value (September 9, 2001 01:46:40 UTC)
-#define MIN_VALID_EPOCH_SECS 1000000000UL
 
 // Forward declarations
 static void do_connect(void);
@@ -167,7 +155,7 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t e
 	(void)arg;
 	(void)err;
 	if (p == NULL) {
-		// Server closed connection – parse status line and optional server_time
+		// Server closed connection – parse the status line
 		s_response[s_response_len] = '\0';
 		if (s_response_len > 0) {
 			// Extract status code from "HTTP/1.x NNN ..."
@@ -178,36 +166,6 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t e
 					printf("http_client: POST OK (%d)\n", code);
 				} else {
 					printf("http_client: POST returned %d\n", code);
-				}
-			}
-			// Extract server_time from JSON body for system-time synchronisation
-			const char *st = strstr(s_response, "\"server_time\":");
-			if (st) {
-				st += 14;
-				while (*st == ' ')
-					st++;
-				char *end_ptr;
-				unsigned long server_time = strtoul(st, &end_ptr, 10);
-				if (end_ptr != st && server_time >= MIN_VALID_EPOCH_SECS) {
-					uint32_t elapsed_s =
-						(uint32_t)(to_us_since_boot(get_absolute_time()) / 1000000ULL);
-					s_epoch_offset = (int64_t)server_time - (int64_t)elapsed_s;
-					printf("http_client: time synced (server_time=%lu)\n", server_time);
-				}
-			}
-			// Extract vapid_public_key for push notification subscriptions
-			const char *vk = strstr(s_response, "\"vapid_public_key\":\"");
-			if (vk) {
-				vk += 20;
-				const char *vk_end = strchr(vk, '"');
-				if (vk_end && vk_end > vk) {
-					size_t vk_len = (size_t)(vk_end - vk);
-					char key_buf[VAPID_PUB_MAX_LEN + 1];
-					if (vk_len < sizeof(key_buf)) {
-						memcpy(key_buf, vk, vk_len);
-						key_buf[vk_len] = '\0';
-						push_manager_set_proxy_vapid_key(key_buf);
-					}
 				}
 			}
 		}
@@ -374,9 +332,4 @@ void http_client_poll(void) {
 
 bool http_client_is_active(void) {
 	return s_state != HTTP_STATE_IDLE && s_state != HTTP_STATE_RETRY_WAIT;
-}
-
-uint32_t http_client_get_epoch_time(void) {
-	uint32_t elapsed_s = (uint32_t)(to_us_since_boot(get_absolute_time()) / 1000000ULL);
-	return (uint32_t)(s_epoch_offset + (int64_t)elapsed_s);
 }

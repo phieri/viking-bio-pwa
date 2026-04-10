@@ -11,23 +11,21 @@ import (
 
 // Config holds all runtime configuration parsed from environment variables.
 type Config struct {
-	HTTPPort             int
-	WebhookAuthToken     string
-	TLSCertPath          string
-	TLSKeyPath           string
-	PicoBaseURL          string
-	PicoForwardTimeoutMs int
-	ACMEEmail            string
-	ACMEStaging          bool
-	ACMECertDir          string
-	ACMEHTTPPort         int
-	DDNSSubdomain        string
-	DDNSToken            string
-	VAPIDContactEmail    string
-	MDNSName             string
-	MDNSDisable          bool
-	PicoSerialPort       string
-	DataDir              string
+	HTTPPort          int
+	WebhookAuthToken  string
+	TLSCertPath       string
+	TLSKeyPath        string
+	ACMEEmail         string
+	ACMEStaging       bool
+	ACMECertDir       string
+	ACMEHTTPPort      int
+	DDNSSubdomain     string
+	DDNSToken         string
+	VAPIDContactEmail string
+	MDNSName          string
+	MDNSDisable       bool
+	PicoSerialPort    string
+	DataDir           string
 }
 
 func parsePort(name, val string, def int) (int, error) {
@@ -43,17 +41,6 @@ func parsePort(name, val string, def int) (int, error) {
 
 func parseBool(val string) bool {
 	return val == "1" || strings.ToLower(val) == "true"
-}
-
-func requireHTTPURL(val, name string) (string, error) {
-	if val == "" {
-		return "", nil
-	}
-	val = strings.TrimSpace(val)
-	if !strings.HasPrefix(val, "http://") && !strings.HasPrefix(val, "https://") {
-		return "", fmt.Errorf("%s must use http:// or https://, got %q", name, val)
-	}
-	return val, nil
 }
 
 // exeDir returns the directory containing the running executable.
@@ -80,20 +67,6 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	picoBaseURL, err := requireHTTPURL(os.Getenv("PICO_BASE_URL"), "PICO_BASE_URL")
-	if err != nil {
-		return nil, err
-	}
-
-	picoTimeoutMs := 5000
-	if v := os.Getenv("PICO_FORWARD_TIMEOUT_MS"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 {
-			return nil, fmt.Errorf("PICO_FORWARD_TIMEOUT_MS must be a positive integer, got %q", v)
-		}
-		picoTimeoutMs = n
-	}
-
 	dataDir := os.Getenv("DATA_DIR")
 	if dataDir == "" {
 		base := exeDir()
@@ -118,22 +91,20 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		HTTPPort:             httpPort,
-		WebhookAuthToken:     os.Getenv("MACHINE_WEBHOOK_AUTH_TOKEN"),
-		TLSCertPath:          os.Getenv("TLS_CERT_PATH"),
-		TLSKeyPath:           os.Getenv("TLS_KEY_PATH"),
-		PicoBaseURL:          picoBaseURL,
-		PicoForwardTimeoutMs: picoTimeoutMs,
-		ACMEEmail:            os.Getenv("ACME_EMAIL"),
-		ACMEStaging:          parseBool(os.Getenv("ACME_STAGING")),
-		ACMECertDir:          acmeCertDir,
-		ACMEHTTPPort:         acmeHTTPPort,
-		DDNSSubdomain:        os.Getenv("DDNS_SUBDOMAIN"),
-		DDNSToken:            os.Getenv("DDNS_TOKEN"),
-		VAPIDContactEmail:    vapidContact,
-		MDNSName:             mdnsName,
-		MDNSDisable:          parseBool(os.Getenv("MDNS_DISABLE")),
-		PicoSerialPort:       os.Getenv("PICO_SERIAL_PORT"),
-		DataDir:              dataDir,
+		HTTPPort:          httpPort,
+		WebhookAuthToken:  os.Getenv("MACHINE_WEBHOOK_AUTH_TOKEN"),
+		TLSCertPath:       os.Getenv("TLS_CERT_PATH"),
+		TLSKeyPath:        os.Getenv("TLS_KEY_PATH"),
+		ACMEEmail:         os.Getenv("ACME_EMAIL"),
+		ACMEStaging:       parseBool(os.Getenv("ACME_STAGING")),
+		ACMECertDir:       acmeCertDir,
+		ACMEHTTPPort:      acmeHTTPPort,
+		DDNSSubdomain:     os.Getenv("DDNS_SUBDOMAIN"),
+		DDNSToken:         os.Getenv("DDNS_TOKEN"),
+		VAPIDContactEmail: vapidContact,
+		MDNSName:          mdnsName,
+		MDNSDisable:       parseBool(os.Getenv("MDNS_DISABLE")),
+		PicoSerialPort:    os.Getenv("PICO_SERIAL_PORT"),
+		DataDir:           dataDir,
 	}, nil
 }

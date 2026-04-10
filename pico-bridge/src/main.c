@@ -9,7 +9,6 @@
 #include "serial_handler.h"
 #include "viking_bio_protocol.h"
 #include "http_client.h"
-#include "push_manager.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
 #include "dns_sd_browser.h"
@@ -40,7 +39,6 @@ volatile uint32_t event_flags = 0;
 #define STARTUP_USB_WAIT_MS 2000
 #define POST_REBOOT_FLUSH_DELAY_MS 100
 #define STATUS_COUNTRY_LEN 3
-#define STATUS_VAPID_PUB_LEN 96
 #define USB_SSID_PREFIX "SSID="
 #define USB_PASS_PREFIX "PASS="
 #define USB_COUNTRY_PREFIX "COUNTRY="
@@ -97,7 +95,7 @@ static void print_usb_help(void) {
 	printf("  SERVER=<ip>      – set proxy server IP/hostname\n");
 	printf("  PORT=<port>      – set proxy server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
 	printf("  TOKEN=<token>    – set webhook X-Hook-Auth token\n");
-	printf("  STATUS           – show status and VAPID public key\n");
+	printf("  STATUS           – show status\n");
 	printf("  CLEAR            – erase stored credentials\n");
 }
 
@@ -211,16 +209,10 @@ static bool handle_status_command(const char *arg) {
 	}
 
 	printf("  webhook: %s\n", http_client_is_active() ? "active" : "idle");
-	printf("  push:    %d subscription(s)\n", push_manager_subscription_count());
 
 	char tok_check[WIFI_HOOK_TOKEN_MAX_LEN + 1];
 	printf("  token:   %s\n",
 		   wifi_config_load_hook_token(tok_check, sizeof(tok_check)) ? "(set)" : "not set");
-
-	char vapid_pub[STATUS_VAPID_PUB_LEN];
-	if (push_manager_get_vapid_public_key(vapid_pub, sizeof(vapid_pub))) {
-		printf("  vapid_pub: %s\n", vapid_pub);
-	}
 
 	return false;
 }
@@ -376,11 +368,6 @@ static void init_bridge_components(void) {
 		printf("WARNING: LittleFS initialization failed\n");
 	}
 
-	printf("Initializing push manager...\n");
-	if (!push_manager_init()) {
-		printf("WARNING: push_manager_init() failed\n");
-	}
-
 	wifi_config_init();
 }
 
@@ -449,8 +436,7 @@ static void init_periodic_timer(struct repeating_timer *timer) {
 }
 
 static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up,
-							   bool *timeout_triggered, bool *prev_flame, int *prev_err,
-							   bool *flame_on) {
+							   bool *timeout_triggered, bool *flame_on) {
 	if (!serial_handler_data_available()) {
 		return;
 	}
@@ -473,23 +459,6 @@ static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up
 	if (wifi_up) {
 		http_client_send_data(&new_data);
 	}
-
-	if (new_data.flame_detected != *prev_flame) {
-		if (new_data.flame_detected) {
-			push_manager_notify_all(PUSH_NOTIFY_FLAME, "Viking Bio: Flame ON", "Burner ignited");
-		} else {
-			push_manager_notify_all(PUSH_NOTIFY_FLAME, "Viking Bio: Flame OFF",
-									"Burner flame extinguished");
-		}
-		*prev_flame = new_data.flame_detected;
-	}
-
-	if (new_data.error_code != 0 && new_data.error_code != *prev_err) {
-		char errbody[32];
-		snprintf(errbody, sizeof(errbody), "Error code %d detected", new_data.error_code);
-		push_manager_notify_all(PUSH_NOTIFY_ERROR, "Viking Bio: Error", errbody);
-	}
-	*prev_err = new_data.error_code;
 }
 
 static void handle_timeout_event(bool wifi_up, bool *timeout_triggered, bool *flame_on) {
@@ -516,8 +485,6 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 	event_flags &= ~EVENT_BROADCAST;
 	if (wifi_up) {
 		http_client_poll();
-		push_manager_poll();
-		push_manager_tick_scheduler(flame_on);
 	}
 }
 
@@ -543,10 +510,6 @@ int main(void) {
 
 	uint8_t buffer[SERIAL_BUFFER_SIZE];
 	bool timeout_triggered = false;
-	// State tracking for push notifications
-	bool prev_flame = false;
-	int prev_err = 0;
-	// Current flame state for the cleaning reminder scheduler
 	bool flame_on = false;
 
 	while (true) {
@@ -565,8 +528,7 @@ int main(void) {
 			reboot_via_watchdog();
 		}
 
-		handle_serial_data(buffer, sizeof(buffer), wifi_up, &timeout_triggered, &prev_flame,
-						   &prev_err, &flame_on);
+		handle_serial_data(buffer, sizeof(buffer), wifi_up, &timeout_triggered, &flame_on);
 		handle_timeout_event(wifi_up, &timeout_triggered, &flame_on);
 		handle_broadcast_event(wifi_up, flame_on);
 

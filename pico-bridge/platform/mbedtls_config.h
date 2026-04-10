@@ -4,9 +4,8 @@
  *
  * Enables:
  *   - AES-128-GCM + SHA-256 for WiFi credential encryption
- *   - ECC P-256 (ECDH + ECDSA + CTR-DRBG + Entropy) for VAPID key generation/signing
- *   - HKDF for RFC 8291 Web Push message encryption key derivation
- *   - TLS 1.2 client (ECDHE-ECDSA, ECDHE-RSA) for HTTPS push delivery via altcp_tls
+ *   - ECC P-256 (ECDH + ECDSA + CTR-DRBG + Entropy) for TLS client support
+ *   - TLS 1.2 client (ECDHE-ECDSA, ECDHE-RSA) for HTTPS webhook delivery via altcp_tls
  */
 
 #ifndef MBEDTLS_CONFIG_H
@@ -41,22 +40,22 @@
 // Big-number arithmetic (required by ECC and RSA)
 #define MBEDTLS_BIGNUM_C
 
-// ECC P-256 for VAPID key generation, signing, and ECDHE key exchange
+// ECC P-256 for ECDHE key exchange and ECDSA certificate validation
 #define MBEDTLS_ECP_C
 #define MBEDTLS_ECP_DP_SECP256R1_ENABLED
 #define MBEDTLS_ECDH_C
 
-// ECDSA for VAPID JWT signing (ES256) and ECDHE-ECDSA TLS key exchange
+// ECDSA for certificate handling and ECDHE-ECDSA TLS key exchange
 #define MBEDTLS_ECDSA_C
 
-// Deterministic RNG seeded from hardware entropy (required for key generation)
+// Deterministic RNG seeded from hardware entropy
 #define MBEDTLS_ENTROPY_C
 #define MBEDTLS_CTR_DRBG_C
 
-// Base64 encoding for VAPID public key export and JWT building
+// Base64 encoding support
 #define MBEDTLS_BASE64_C
 
-// HKDF for RFC 8291 Web Push message encryption key derivation
+// HKDF support
 #define MBEDTLS_HKDF_C
 
 // ASN.1 encoding/parsing (required by ECDSA and X.509)

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
@@ -117,9 +116,6 @@ func TestMachineData_ValidAuth(t *testing.T) {
 	if m["status"] != "ok" {
 		t.Errorf("expected status=ok, got %v", m["status"])
 	}
-	if m["vapid_public_key"] == "" || m["vapid_public_key"] == nil {
-		t.Error("expected non-empty vapid_public_key in machine data response")
-	}
 }
 
 func TestMachineData_WrongToken(t *testing.T) {
@@ -148,51 +144,6 @@ func TestMachineData_InvalidBody(t *testing.T) {
 	h.HandleMachineData(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
-	}
-}
-
-func TestPicoForward_MockEndpoint(t *testing.T) {
-	received := make(chan []byte, 1)
-	mockPico := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		received <- body
-		if r.Header.Get("X-Hook-Auth") != "mytoken" {
-			t.Errorf("expected X-Hook-Auth=mytoken, got %q", r.Header.Get("X-Hook-Auth"))
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	}))
-	defer mockPico.Close()
-
-	cfg := &config.Config{
-		PicoBaseURL:          mockPico.URL,
-		PicoForwardTimeoutMs: 2000,
-		WebhookAuthToken:     "mytoken",
-	}
-	h := newTestHandlers(t, cfg)
-
-	body := map[string]any{
-		"endpoint": "https://example.com/push/fwd",
-		"p256dh":   "key",
-		"auth":     "auth",
-		"prefs":    map[string]bool{"flame": true},
-	}
-	resp := postJSON(t, h.HandleSubscribe, body, nil)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
-	}
-
-	select {
-	case data := <-received:
-		var m map[string]any
-		if err := json.Unmarshal(data, &m); err != nil {
-			t.Fatalf("mock pico: bad JSON: %v", err)
-		}
-		if m["endpoint"] != "https://example.com/push/fwd" {
-			t.Errorf("forwarded wrong endpoint: %v", m["endpoint"])
-		}
-	case <-time.After(3 * time.Second):
-		t.Error("timed out waiting for pico forward")
 	}
 }
 
