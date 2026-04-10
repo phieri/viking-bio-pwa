@@ -230,7 +230,9 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 		return;
 
 	/* Pass 2: collect all AAAA records for the SRV target.
-	 * Store up to DNS_MAX_AAAA_CANDIDATES raw 16-byte addresses (network order). */
+	 * Store up to DNS_MAX_AAAA_CANDIDATES raw 16-byte addresses (network order).
+	 * Stack cost: DNS_MAX_AAAA_CANDIDATES * 16 = 64 bytes — intentionally small
+	 * to stay within the Pico's limited stack budget. */
 	uint8_t candidates[DNS_MAX_AAAA_CANDIDATES][16];
 	int ncandidates = 0;
 

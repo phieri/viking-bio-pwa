@@ -15,6 +15,11 @@ type Advertiser struct {
 	server *zeroconf.Server
 }
 
+// isLinkLocalIPv6 returns true if ip is an IPv6 link-local address (fe80::/10).
+func isLinkLocalIPv6(ip6 net.IP) bool {
+	return ip6[0] == 0xfe && (ip6[1]&0xc0) == 0x80
+}
+
 // isLocalIPv6 returns true if ip is a ULA (fc00::/7) or link-local (fe80::/10) IPv6 address.
 // These are the address ranges that should be used for local network discovery.
 func isLocalIPv6(ip net.IP) bool {
@@ -23,7 +28,7 @@ func isLocalIPv6(ip net.IP) bool {
 		return false // skip IPv4
 	}
 	// Link-local: fe80::/10 — first 10 bits are 1111111010
-	if ip6[0] == 0xfe && (ip6[1]&0xc0) == 0x80 {
+	if isLinkLocalIPv6(ip6) {
 		return true
 	}
 	// ULA: fc00::/7 — first 7 bits are 1111110 (covers fc00:: and fd00::)
@@ -64,7 +69,7 @@ func collectLocalIPv6Addrs() []string {
 			}
 			ip6 := ip.To16()
 			// Separate ULA from link-local for ordering (ULA first).
-			if ip6[0] == 0xfe && (ip6[1]&0xc0) == 0x80 {
+			if isLinkLocalIPv6(ip6) {
 				linklocal = append(linklocal, ip.String())
 			} else {
 				ula = append(ula, ip.String())
