@@ -102,6 +102,54 @@ type notifyPayload struct {
 	TS       int64  `json:"ts"`
 }
 
+// SendTest sends a test push notification to all subscribers, ignoring per-type preferences.
+func (m *Manager) SendTest() {
+	subs := m.store.All()
+	payload, err := json.Marshal(notifyPayload{
+		Title:    "Viking Bio: Test",
+		Body:     "Testnotis från Viking Bio Proxy",
+		Icon:     "/icon-192.png",
+		Type:     "test",
+		Priority: "low",
+		TS:       time.Now().UnixMilli(),
+	})
+	if err != nil {
+		log.Printf("push: marshal payload: %v", err)
+		return
+	}
+
+	var expired []string
+	for _, sub := range subs {
+		m.notifySem <- struct{}{}
+		resp, err := m.sendNotification(payload, &webpush.Subscription{
+			Endpoint: sub.Endpoint,
+			Keys: webpush.Keys{
+				P256dh: sub.P256DH,
+				Auth:   sub.Auth,
+			},
+		}, &webpush.Options{
+			VAPIDPublicKey:  m.vapidPub,
+			VAPIDPrivateKey: m.vapidPriv,
+			Subscriber:      m.contact,
+			TTL:             30,
+		})
+		<-m.notifySem
+		if err != nil {
+			log.Printf("push: send error for %s: %v", sub.Endpoint, err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode == 410 || resp.StatusCode == 404 {
+			expired = append(expired, sub.Endpoint)
+		} else {
+			log.Printf("push: test notification sent to %s (%d)", sub.Endpoint, resp.StatusCode)
+		}
+	}
+	if len(expired) > 0 {
+		m.store.RemoveAll(expired)
+	}
+}
+
 // NotifyByType sends a push notification to all subscribers opted in to the given type.
 func (m *Manager) NotifyByType(typ, title, body string) {
 	subs := m.store.All()
