@@ -38,21 +38,41 @@ func NewStore(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, err
 	}
-	infoPath := filepath.Join(dataDir, "DDNS_INFO.txt")
-	if _, err := os.Stat(infoPath); os.IsNotExist(err) {
-		info := `DuckDNS / ACME info
+	cfgPath := filepath.Join(dataDir, "viking-bio.conf")
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		conf := `# Viking Bio Proxy configuration
+# Copy or edit this file, then restart the proxy.
+# Lines starting with '#' are comments. Uncommented lines set a value.
+# Environment variables always take precedence over values in this file.
 
-This directory is used by Viking Bio Proxy to store runtime data (subscriptions, ACME certs, etc).
+# Port for the HTTP/HTTPS dashboard server (default: 3000)
+# HTTP_PORT=3000
 
-To enable automatic DuckDNS + Let's Encrypt ACME:
-- Set DDNS_SUBDOMAIN to your DuckDNS subdomain (e.g. my-viking-bio)
-- Set DDNS_TOKEN to your DuckDNS token
-- Optionally set ACME_EMAIL and ACME_STAGING while testing
+# Webhook authentication token – the Pico bridge must send this in X-Hook-Auth.
+# Set to a strong random string in production; leave empty to disable auth.
+# MACHINE_WEBHOOK_AUTH_TOKEN=
 
-If you prefer manual certificates or DNS-01 challenges, generate certs externally and set TLS_CERT_PATH / TLS_KEY_PATH.
+# ---------------------------------------------------------------------------
+# Automatic HTTPS via DuckDNS + Let's Encrypt (recommended for production)
+# ---------------------------------------------------------------------------
+# DDNS_SUBDOMAIN=my-viking-bio
+# DDNS_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# ACME_EMAIL=admin@example.com
+# ACME_STAGING=1
+
+# ---------------------------------------------------------------------------
+# Manual HTTPS with a user-supplied certificate (alternative to DDNS above)
+# ---------------------------------------------------------------------------
+# TLS_CERT_PATH=/etc/ssl/certs/server.crt
+# TLS_KEY_PATH=/etc/ssl/private/server.key
+
+# ---------------------------------------------------------------------------
+# Data directory (VAPID keys, subscriptions, ACME cache)
+# ---------------------------------------------------------------------------
+# DATA_DIR=/var/lib/viking-bio-proxy
 `
-		if err := os.WriteFile(infoPath, []byte(info), 0o644); err != nil {
-			log.Printf("storage: failed to write %s: %v", infoPath, err)
+		if err := os.WriteFile(cfgPath, []byte(conf), 0o644); err != nil {
+			log.Printf("storage: failed to write %s: %v", cfgPath, err)
 		}
 	}
 	s := &Store{path: filepath.Join(dataDir, "subscriptions.json")}
