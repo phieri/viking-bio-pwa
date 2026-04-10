@@ -82,6 +82,8 @@ Proxy (Go)
   `proxy/internal/server/handlers.go`.
 - Static files are served from disk when `proxy/public/` exists locally; otherwise the
   binary serves embedded assets from `proxy/assets.go`.
+- The ServiceWorker's cache key (in `sw.js`) needs to be incremented whenever there
+  are changes made to any file in `proxy/public/`.
 - Subscriptions are stored in `proxy/data/subscriptions.json`.
 - Proxy VAPID keys are stored in `proxy/data/server-vapid.pub` and
   `proxy/data/server-vapid.priv`.
