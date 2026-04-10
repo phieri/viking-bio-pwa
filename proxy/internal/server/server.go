@@ -32,10 +32,11 @@ func init() {
 		"fc00::/7",
 		"fe80::/10",
 	} {
-		_, network, _ := net.ParseCIDR(cidr)
-		if network != nil {
-			localNetworks = append(localNetworks, network)
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic("server: invalid local network CIDR " + cidr + ": " + err.Error())
 		}
+		localNetworks = append(localNetworks, network)
 	}
 }
 
@@ -121,6 +122,7 @@ func (s *Server) buildMux() http.Handler {
 	}
 	var handler http.Handler = mux
 	if s.notifyOnly {
+		log.Println("server: notify-only mode – all routes restricted to local network")
 		handler = localNetworkOnly(mux)
 	}
 	return handler
