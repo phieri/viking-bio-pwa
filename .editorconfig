@@ -15,6 +15,10 @@ trim_trailing_whitespace = true
 indent_style = tab
 max_line_length = 100
 
+[*.go]
+indent_style = tab
+max_line_length = 100
+
 # CMake files
 [{CMakeLists.txt,*.cmake}]
 indent_style = space
