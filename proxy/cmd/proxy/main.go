@@ -46,7 +46,7 @@ func main() {
 	// This lets operators configure the proxy by editing <data-dir>/viking-bio.conf without
 	// needing a .env file next to the binary. Values already set (e.g. from .env or the
 	// environment) are not overridden.
-	loadDotEnv(filepath.Join(defaultDataDir(), "viking-bio.conf"))
+	loadDotEnv(filepath.Join(config.DefaultDataDir(), "viking-bio.conf"))
 
 	if *doConfig {
 		runConfigurator(*serialPort)
@@ -185,28 +185,6 @@ func runConfigurator(portArg string) {
 
 	tui := configure.NewTUI(bridge)
 	tui.Run()
-}
-
-// defaultDataDir returns the data directory path using the same precedence as
-// config.Load: DATA_DIR env var, then <exe_dir>/data (falling back to ./data
-// when the binary lives under /tmp, e.g. during tests).
-func defaultDataDir() string {
-	if dir := os.Getenv("DATA_DIR"); dir != "" {
-		return dir
-	}
-	exe, err := os.Executable()
-	if err != nil {
-		return filepath.Join(".", "data")
-	}
-	exe, err = filepath.EvalSymlinks(exe)
-	if err != nil {
-		return filepath.Join(".", "data")
-	}
-	base := filepath.Dir(exe)
-	if runtime.GOOS != "windows" && strings.HasPrefix(base, "/tmp") {
-		base = "."
-	}
-	return filepath.Join(base, "data")
 }
 
 // openBrowser opens the given URL in the system default browser.

@@ -71,6 +71,8 @@ func NewStore(dataDir string) (*Store, error) {
 # ---------------------------------------------------------------------------
 # DATA_DIR=/var/lib/viking-bio-proxy
 `
+		// Writing the config template is best-effort: a failure (e.g. read-only
+		// filesystem) should not prevent the proxy from starting up.
 		if err := os.WriteFile(cfgPath, []byte(conf), 0o644); err != nil {
 			log.Printf("storage: failed to write %s: %v", cfgPath, err)
 		}
