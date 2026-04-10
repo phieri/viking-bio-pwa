@@ -123,7 +123,7 @@ func formatFlameSeconds(secs int64) string {
 	}
 }
 
-func shouldSendCleaningReminder(now time.Time) bool {
+func isCleaningReminderWindow(now time.Time) bool {
 	now = now.UTC()
 	month := now.Month()
 	inSeason := month == time.November ||
@@ -200,10 +200,13 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 	if h.state.Err == 0 {
 		h.state.errorNotified = false
 	}
-	if shouldSendCleaningReminder(now) {
+	if isCleaningReminderWindow(now) {
 		today := now.UTC().Unix() / 86400
 		if h.state.lastCleanReminderDay == 0 || today-h.state.lastCleanReminderDay >= 7 {
 			flameSecsSinceReminder := h.state.FlameSecs - h.state.lastCleanReminderSeconds
+			if flameSecsSinceReminder < 0 {
+				flameSecsSinceReminder = 0
+			}
 			result.cleanDue = true
 			result.cleanBody = fmt.Sprintf(
 				"Clean the burner. Flame-on since last reminder: %s.",
