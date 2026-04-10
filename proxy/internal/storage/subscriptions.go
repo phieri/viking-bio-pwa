@@ -38,6 +38,23 @@ func NewStore(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, err
 	}
+	infoPath := filepath.Join(dataDir, "DDNS_INFO.txt")
+	if _, err := os.Stat(infoPath); os.IsNotExist(err) {
+		info := `DuckDNS / ACME info
+
+This directory is used by Viking Bio Proxy to store runtime data (subscriptions, ACME certs, etc).
+
+To enable automatic DuckDNS + Let's Encrypt ACME:
+- Set DDNS_SUBDOMAIN to your DuckDNS subdomain (e.g. my-viking-bio)
+- Set DDNS_TOKEN to your DuckDNS token
+- Optionally set ACME_EMAIL and ACME_STAGING while testing
+
+If you prefer manual certificates or DNS-01 challenges, generate certs externally and set TLS_CERT_PATH / TLS_KEY_PATH.
+`
+		if err := os.WriteFile(infoPath, []byte(info), 0o644); err != nil {
+			log.Printf("storage: failed to write %s: %v", infoPath, err)
+		}
+	}
 	s := &Store{path: filepath.Join(dataDir, "subscriptions.json")}
 	s.load()
 	return s, nil
