@@ -74,6 +74,52 @@ jobs:
         echo "Build artifacts:"
         ls -lh *.uf2 *.elf *.bin 2>/dev/null || echo "No artifacts found"
 
+    - name: "Check: firmware does not overlap LittleFS"
+      working-directory: pico-bridge/build
+      run: |
+        python3 - "${{ matrix.board }}" <<'EOF'
+        import re, os, sys
+
+        FLASH_SIZES = {'pico_w': 2 * 1024 * 1024, 'pico2_w': 4 * 1024 * 1024}
+        board = sys.argv[1]
+        flash_size = FLASH_SIZES[board]
+
+        header = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              '..', 'include', 'lfs_hal.h')
+        with open(header) as f:
+            content = f.read()
+        m = re.search(r'#define LFS_FLASH_SIZE\s+(.*)', content)
+        if not m:
+            print('ERROR: LFS_FLASH_SIZE not found in lfs_hal.h')
+            sys.exit(1)
+        expr = re.sub(r'\bPICO_FLASH_SIZE_BYTES\b', str(flash_size), m.group(1).strip())
+        if not re.fullmatch(r'[\d\s\+\-\*\/\(\)]+', expr):
+            print(f'ERROR: LFS_FLASH_SIZE expression is not purely arithmetic: {expr!r}')
+            sys.exit(1)
+        lfs_size = int(eval(expr))  # noqa: S307 — validated arithmetic-only above
+        lfs_offset = flash_size - lfs_size
+
+        bins = sorted([f for f in os.listdir('.') if f.endswith('.bin')])
+        if not bins:
+            print('ERROR: no .bin file found')
+            sys.exit(1)
+        # Use the largest .bin to be conservative
+        bin_file = max(bins, key=os.path.getsize)
+        bin_size = os.path.getsize(bin_file)
+
+        print(f'Board:           {board}')
+        print(f'Flash size:      {flash_size // 1024} KB')
+        print(f'LFS size:        {lfs_size // 1024} KB  ({lfs_size // 4096} blocks)')
+        print(f'LFS offset:      0x{lfs_offset:06x}  ({lfs_offset // 1024} KB)')
+        print(f'Firmware binary: {bin_size // 1024} KB  ({bin_file})')
+
+        if bin_size > lfs_offset:
+            print(f'ERROR: firmware ({bin_size} B) extends past LFS start ({lfs_offset} B)!')
+            sys.exit(1)
+        headroom = lfs_offset - bin_size
+        print(f'OK: {headroom // 1024} KB headroom before LFS region')
+        EOF
+
     - name: Upload firmware artifacts
       uses: actions/upload-artifact@v7
       with:
