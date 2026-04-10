@@ -108,6 +108,19 @@ The proxy advertises itself as `_viking-bio._tcp` with TXT record
 `path=/api/data`. Disable with `MDNS_DISABLE=1` (useful in Docker/CI
 environments without multicast).
 
+### Local-only IPv6 addressing
+
+The proxy enumerates its network interfaces at startup and advertises **only**
+ULA (`fc00::/7`) and link-local (`fe80::/10`) IPv6 addresses via
+`zeroconf.RegisterProxy`.  Global/public IPv6 addresses are excluded so that
+Pico devices always discover a local-network address.  If no ULA or link-local
+addresses are found the proxy falls back to advertising all addresses and logs
+a warning.
+
+The Pico-bridge DNS-SD browser applies the same policy when selecting an
+address from an mDNS announcement: it prefers link-local, then ULA, and
+ignores packets that carry only global IPv6 addresses.
+
 ## Running as a systemd Service
 
 ```ini
