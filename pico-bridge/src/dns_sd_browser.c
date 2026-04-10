@@ -40,6 +40,9 @@
 /* Maximum DNS records scanned in a single response */
 #define DNS_MAX_SCAN_RECORDS 16
 
+/* Maximum AAAA candidates collected per target in pass 2 */
+#define DNS_MAX_AAAA_CANDIDATES 4
+
 /* Receive buffer: mDNS packets are at most 9000 bytes; 512 is enough here */
 #define MDNS_BUF_SIZE 512
 
@@ -158,8 +161,12 @@ static void format_aaaa(const uint8_t *bytes, char *out, size_t out_size) {
  * Two-pass scan:
  *   Pass 1 – find a SRV record whose name contains "_viking-bio._tcp";
  *             extract port and target hostname.
- *   Pass 2 – find an AAAA record for that target hostname; extract the IPv6
- *             address and invoke the callback.
+ *   Pass 2 – collect all AAAA records for that target hostname, then select
+ *             an address by this policy:
+ *               a) prefer link-local (fe80::/10)
+ *               b) else prefer ULA (fc00::/7, covers fc00:: and fd00::)
+ *               c) ignore packets where only global addresses were found
+ *             Only invoke the callback when a local-only address was selected.
  */
 static void parse_mdns_packet(const uint8_t *data, int len) {
 	if (len < 12)
@@ -222,7 +229,11 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 	if (!srv_port || !srv_target[0])
 		return;
 
-	/* Pass 2: find the AAAA record for the SRV target */
+	/* Pass 2: collect all AAAA records for the SRV target.
+	 * Store up to DNS_MAX_AAAA_CANDIDATES raw 16-byte addresses (network order). */
+	uint8_t candidates[DNS_MAX_AAAA_CANDIDATES][16];
+	int ncandidates = 0;
+
 	scan = records_start;
 	for (int i = 0; i < total && scan >= 0 && scan < len; i++) {
 		char name[64];
@@ -248,18 +259,55 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 			if (rlen2 > 0 && rec_bare[rlen2 - 1] == '.')
 				rec_bare[rlen2 - 1] = '\0';
 
-			if (strcasecmp(srv_bare, rec_bare) == 0) {
-				char ip_str[40];
-				format_aaaa(data + rdata_start, ip_str, sizeof(ip_str));
-				printf("dns_sd: discovered %s:%d\n", ip_str, (int)srv_port);
-				if (s_found_cb) {
-					s_found_cb(ip_str, srv_port);
-				}
-				return;
+			if (strcasecmp(srv_bare, rec_bare) == 0 && ncandidates < DNS_MAX_AAAA_CANDIDATES) {
+				memcpy(candidates[ncandidates], data + rdata_start, 16);
+				ncandidates++;
 			}
 		}
 
 		scan = rdata_start + rdlen;
+	}
+
+	if (ncandidates == 0)
+		return;
+
+	/* Select address by local-only policy:
+	 *   a) Link-local (fe80::/10): first byte 0xfe, second byte top 2 bits = 10
+	 *   b) ULA (fc00::/7): first byte top 7 bits = 1111110 (covers fc00:: and fd00::)
+	 *   c) Global addresses are ignored; do not call the callback.
+	 */
+	const uint8_t *selected = NULL;
+	const char *kind = NULL;
+
+	/* First preference: link-local (fe80::/10) */
+	for (int i = 0; i < ncandidates && !selected; i++) {
+		const uint8_t *b = candidates[i];
+		if (b[0] == 0xfe && (b[1] & 0xc0) == 0x80) {
+			selected = b;
+			kind = "link-local";
+		}
+	}
+
+	/* Second preference: ULA (fc00::/7) */
+	for (int i = 0; i < ncandidates && !selected; i++) {
+		const uint8_t *b = candidates[i];
+		if ((b[0] & 0xfe) == 0xfc) {
+			selected = b;
+			kind = "ULA";
+		}
+	}
+
+	if (!selected) {
+		printf("dns_sd: ignoring packet – %d AAAA record(s) found but none are link-local or ULA\n",
+			   ncandidates);
+		return;
+	}
+
+	char ip_str[40];
+	format_aaaa(selected, ip_str, sizeof(ip_str));
+	printf("dns_sd: selected %s address %s:%d\n", kind, ip_str, (int)srv_port);
+	if (s_found_cb) {
+		s_found_cb(ip_str, srv_port);
 	}
 }
 
