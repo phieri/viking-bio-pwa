@@ -19,20 +19,74 @@ import (
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 )
 
+// localNetworks holds the private and loopback IP ranges used by localNetworkOnly.
+var localNetworks []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8",
+		"::1/128",
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"fc00::/7",
+		"fe80::/10",
+	} {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic("server: invalid local network CIDR " + cidr + ": " + err.Error())
+		}
+		localNetworks = append(localNetworks, network)
+	}
+}
+
+// isLocalNetwork reports whether remoteAddr (host:port or bare host) is a
+// loopback or private-network address.
+func isLocalNetwork(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	for _, network := range localNetworks {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// localNetworkOnly is an HTTP middleware that rejects requests whose remote
+// address is not a loopback or private-network IP.
+func localNetworkOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isLocalNetwork(r.RemoteAddr) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Server wraps the HTTP(S) server with all its dependencies.
 type Server struct {
-	cfg     *config.Config
-	handler *Handlers
-	httpSrv *http.Server
-	acmeSrv *http.Server
+	cfg        *config.Config
+	handler    *Handlers
+	httpSrv    *http.Server
+	acmeSrv    *http.Server
+	notifyOnly bool
 	// OnReady is called with the dashboard URL once the server is accepting connections.
 	OnReady func(url string)
 }
 
-// New creates a Server.
-func New(cfg *config.Config, pushMgr *push.Manager) *Server {
+// New creates a Server. When notifyOnly is true the server skips the dashboard,
+// Let's Encrypt/ACME, and restricts connections to the local network.
+func New(cfg *config.Config, pushMgr *push.Manager, notifyOnly bool) *Server {
 	h := NewHandlers(cfg, pushMgr)
-	return &Server{cfg: cfg, handler: h}
+	return &Server{cfg: cfg, handler: h, notifyOnly: notifyOnly}
 }
 
 // staticFS returns the filesystem to serve static files from.
@@ -63,8 +117,15 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
-	mux.Handle("/", http.FileServer(staticFS()))
-	return mux
+	if !s.notifyOnly {
+		mux.Handle("/", http.FileServer(staticFS()))
+	}
+	var handler http.Handler = mux
+	if s.notifyOnly {
+		log.Println("server: notify-only mode – all routes restricted to local network")
+		handler = localNetworkOnly(mux)
+	}
+	return handler
 }
 
 func methodGuard(method string, next http.HandlerFunc) http.HandlerFunc {
@@ -90,12 +151,14 @@ func jsonMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) Start(ctx context.Context) error {
 	mux := s.buildMux()
 	addr := fmt.Sprintf("[::]:%d", s.cfg.HTTPPort)
-	if s.cfg.DDNSSubdomain != "" && s.cfg.DDNSToken != "" {
-		domain := s.cfg.DDNSSubdomain + ".duckdns.org"
-		return s.startACME(ctx, mux, addr, domain)
-	}
-	if s.cfg.TLSCertPath != "" && s.cfg.TLSKeyPath != "" {
-		return s.startManualTLS(ctx, mux, addr)
+	if !s.notifyOnly {
+		if s.cfg.DDNSSubdomain != "" && s.cfg.DDNSToken != "" {
+			domain := s.cfg.DDNSSubdomain + ".duckdns.org"
+			return s.startACME(ctx, mux, addr, domain)
+		}
+		if s.cfg.TLSCertPath != "" && s.cfg.TLSKeyPath != "" {
+			return s.startManualTLS(ctx, mux, addr)
+		}
 	}
 	return s.startHTTP(ctx, mux, addr)
 }

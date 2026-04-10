@@ -32,7 +32,13 @@ func main() {
 		doConfig      = flag.Bool("configure", false, "run device configurator TUI")
 		serialPort    = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
 		noOpenBrowser = flag.Bool("no-open-browser", false, "do not open the browser automatically on startup")
+		notifyTest    = flag.Bool("notify-test", false, "send a test push notification to all subscribers and exit")
+		notifyOnly    = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, no Let's Encrypt/DuckDNS, local network connections only")
 	)
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Viking Bio Proxy v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if *showVersion {
@@ -53,7 +59,12 @@ func main() {
 		return
 	}
 
-	runServer(*noOpenBrowser)
+	if *notifyTest {
+		runNotifyTest()
+		return
+	}
+
+	runServer(*noOpenBrowser, *notifyOnly)
 }
 
 // loadDotEnv reads a simple KEY=VALUE file and sets environment variables.
@@ -86,7 +97,7 @@ func loadDotEnv(path string) {
 	}
 }
 
-func runServer(noOpenBrowser bool) {
+func runServer(noOpenBrowser bool, notifyOnly bool) {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -111,18 +122,20 @@ func runServer(noOpenBrowser bool) {
 		log.Println("mdns: disabled (MDNS_DISABLE is set)")
 	}
 
-	// DDNS client
-	ddnsClient := ddns.New(cfg.DDNSSubdomain, cfg.DDNSToken)
-	if ddnsClient != nil {
-		ddnsClient.Start()
-		defer ddnsClient.Stop()
+	// DDNS client – skipped in notify-only mode
+	if !notifyOnly {
+		ddnsClient := ddns.New(cfg.DDNSSubdomain, cfg.DDNSToken)
+		if ddnsClient != nil {
+			ddnsClient.Start()
+			defer ddnsClient.Stop()
+		}
 	}
 
 	// Create server
-	srv := server.New(cfg, pushMgr)
+	srv := server.New(cfg, pushMgr, notifyOnly)
 
 	// Open the browser automatically unless disabled by flag or CI environment.
-	if !noOpenBrowser && os.Getenv("CI") == "" {
+	if !noOpenBrowser && !notifyOnly && os.Getenv("CI") == "" {
 		srv.OnReady = func(url string) {
 			log.Printf("browser: opening %s", url)
 			openBrowser(url)
@@ -145,6 +158,32 @@ func runServer(noOpenBrowser bool) {
 		log.Printf("server: %v", err)
 	}
 	log.Println("Viking Bio Proxy stopped.")
+}
+
+func runNotifyTest() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
+	store, err := storage.NewStore(cfg.DataDir)
+	if err != nil {
+		log.Fatalf("storage: %v", err)
+	}
+
+	pushMgr, err := push.New(cfg.DataDir, cfg.VAPIDContactEmail, store)
+	if err != nil {
+		log.Fatalf("push: %v", err)
+	}
+
+	count := pushMgr.GetSubscriptionCount()
+	if count == 0 {
+		fmt.Println("No subscribers to notify.")
+		return
+	}
+	fmt.Printf("Sending test notification to %d subscriber(s)...\n", count)
+	pushMgr.SendTest()
+	fmt.Println("Done.")
 }
 
 func runConfigurator(portArg string) {
