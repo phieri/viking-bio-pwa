@@ -72,15 +72,22 @@ func TestParseBool(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	clearConfigEnv(t)
+	if runtime.GOOS == "linux" {
+		t.Setenv("HOME", "/home/tester")
+	}
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
-	base := exeDir()
-	if runtime.GOOS != "windows" && len(base) >= len("/tmp") && base[:len("/tmp")] == "/tmp" {
-		base = "."
+	expectedDataDir := filepath.Join("/home/tester", ".viking-bio-bridge")
+	if runtime.GOOS != "linux" {
+		base := exeDir()
+		if runtime.GOOS != "windows" && len(base) >= len("/tmp") && base[:len("/tmp")] == "/tmp" {
+			base = "."
+		}
+		expectedDataDir = filepath.Join(base, "data")
 	}
 
 	if cfg.HTTPPort != 3000 {
@@ -89,7 +96,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ACMEHTTPPort != 80 {
 		t.Fatalf("expected default ACME HTTP port 80, got %d", cfg.ACMEHTTPPort)
 	}
-	if cfg.DataDir != filepath.Join(base, "data") {
+	if cfg.DataDir != expectedDataDir {
 		t.Fatalf("unexpected default data dir: %q", cfg.DataDir)
 	}
 	if cfg.ACMECertDir != cfg.DataDir {
