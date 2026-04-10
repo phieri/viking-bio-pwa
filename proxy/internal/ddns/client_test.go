@@ -1,6 +1,7 @@
 package ddns
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -29,6 +30,12 @@ func TestUpdateUsesConfiguredHTTPClientAndAPIURL(t *testing.T) {
 		if got := r.URL.Query().Get("token"); got != "secret" {
 			t.Fatalf("unexpected token query: %q", got)
 		}
+		if got := r.URL.Query().Get("ipv6"); got != "2001:db8::1" {
+			t.Fatalf("unexpected ipv6 query: %q", got)
+		}
+		if r.URL.Query().Has("ip") {
+			t.Fatalf("unexpected ip query parameter present")
+		}
 		_, _ = w.Write([]byte("OK"))
 	}))
 	defer server.Close()
@@ -36,9 +43,21 @@ func TestUpdateUsesConfiguredHTTPClientAndAPIURL(t *testing.T) {
 	client := New("burner", "secret")
 	client.apiURL = server.URL
 	client.httpClient = server.Client()
+	client.getIPv6 = func() (string, error) { return "2001:db8::1", nil }
 
 	if err := client.update(); err != nil {
 		t.Fatalf("update: %v", err)
+	}
+}
+
+func TestUpdateReturnsErrorWhenNoIPv6Available(t *testing.T) {
+	t.Parallel()
+
+	client := New("burner", "secret")
+	client.getIPv6 = func() (string, error) { return "", errors.New("no IPv6") }
+
+	if err := client.update(); err == nil {
+		t.Fatal("expected error when no IPv6 address is available")
 	}
 }
 
@@ -51,6 +70,7 @@ func TestStartPerformsImmediateUpdateAndStopStops(t *testing.T) {
 	client := New("burner", "secret")
 	client.apiURL = server.URL
 	client.httpClient = server.Client()
+	client.getIPv6 = func() (string, error) { return "2001:db8::1", nil }
 
 	var hits atomic.Int32
 	done := make(chan struct{}, 1)

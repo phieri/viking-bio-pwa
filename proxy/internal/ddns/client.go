@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,6 +27,7 @@ type Client struct {
 	stopOnce   sync.Once
 	httpClient *http.Client
 	apiURL     string
+	getIPv6    func() (string, error)
 }
 
 // New creates a Client for the given subdomain and token.
@@ -41,6 +43,7 @@ func New(subdomain, token string) *Client {
 		stop:       make(chan struct{}),
 		httpClient: http.DefaultClient,
 		apiURL:     duckDNSAPI,
+		getIPv6:    globalUnicastIPv6,
 	}
 }
 
@@ -87,10 +90,16 @@ func (c *Client) Stop() {
 }
 
 func (c *Client) update() error {
-	apiURL := fmt.Sprintf("%s?domains=%s&token=%s&ip=&ipv6=&verbose=true",
+	ipv6, err := c.getIPv6()
+	if err != nil {
+		return err
+	}
+
+	apiURL := fmt.Sprintf("%s?domains=%s&token=%s&ipv6=%s&verbose=true",
 		c.apiURL,
 		url.QueryEscape(c.subdomain),
-		url.QueryEscape(c.token))
+		url.QueryEscape(c.token),
+		url.QueryEscape(ipv6))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -112,6 +121,43 @@ func (c *Client) update() error {
 	if !strings.HasPrefix(bodyStr, "OK") {
 		return fmt.Errorf("DuckDNS update failed: %s", bodyStr)
 	}
-	log.Printf("ddns: updated %s", c.domain)
+	log.Printf("ddns: updated %s → %s", c.domain, ipv6)
 	return nil
+}
+
+// globalUnicastIPv6 returns the first global-unicast IPv6 address found on
+// any up, non-loopback network interface. Returns an error if none is found.
+// The address returned depends on the interface enumeration order; the first
+// qualifying address encountered is used.
+func globalUnicastIPv6() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", fmt.Errorf("ddns: failed to enumerate interfaces: %w", err)
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			ip6 := ip.To16()
+			if ip6 == nil || ip.To4() != nil {
+				continue // skip IPv4
+			}
+			if ip6.IsGlobalUnicast() {
+				return ip6.String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("ddns: no global-unicast IPv6 address found")
 }
