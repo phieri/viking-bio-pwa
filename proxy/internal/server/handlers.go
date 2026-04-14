@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,8 @@ import (
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/uptime"
 )
+
+var safeDeviceID = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 // State holds the shared burner telemetry state.
 type State struct {
@@ -354,9 +357,17 @@ func (h *Handlers) HandlePostUptimeBuckets(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "device_id is required"})
 		return
 	}
+	if !safeDeviceID.MatchString(body.DeviceID) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid device_id"})
+		return
+	}
 
 	// Daily summary shape: date field is present.
 	if body.Date != "" {
+		if _, err := time.Parse("2006-01-02", body.Date); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "date must be YYYY-MM-DD"})
+			return
+		}
 		sum := uptime.DailySummary{
 			DeviceID:    body.DeviceID,
 			Date:        body.Date,
