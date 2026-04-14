@@ -126,6 +126,10 @@ func (s *Store) dailyPath(deviceID, date string) string {
 }
 
 func ensureWithinBase(baseDir, targetPath string) error {
+	if filepath.IsAbs(targetPath) {
+		// Absolute target paths are only allowed after canonical containment checks.
+		// Keep behavior strict to avoid path-injection surprises.
+	}
 	absBase, err := filepath.Abs(baseDir)
 	if err != nil {
 		return fmt.Errorf("resolve base dir: %w", err)
@@ -420,6 +424,9 @@ func (s *Store) recordSeenBatch(deviceID, batchID string) {
 // temporary file in the same directory (rename is atomic on POSIX).
 func atomicWriteJSON(dir, path string, v any) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	if err := ensureWithinBase(dir, path); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(v, "", "  ")
