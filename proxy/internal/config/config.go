@@ -13,6 +13,7 @@ import (
 type Config struct {
 	HTTPPort          int
 	WebhookAuthToken  string
+	UptimeAuthToken   string
 	TLSCertPath       string
 	TLSKeyPath        string
 	ACMEEmail         string
@@ -105,6 +106,7 @@ func Load() (*Config, error) {
 	return &Config{
 		HTTPPort:          httpPort,
 		WebhookAuthToken:  os.Getenv("MACHINE_WEBHOOK_AUTH_TOKEN"),
+		UptimeAuthToken:   os.Getenv("UPTIME_AUTH_TOKEN"),
 		TLSCertPath:       os.Getenv("TLS_CERT_PATH"),
 		TLSKeyPath:        os.Getenv("TLS_KEY_PATH"),
 		ACMEEmail:         os.Getenv("ACME_EMAIL"),

@@ -37,6 +37,7 @@ proxy/data/server.crt
 proxy/data/server.key
 proxy/data/acme-account.key
 proxy/data/autocert/
+proxy/data/uptime/
 proxy/.env
 
 # IDE files

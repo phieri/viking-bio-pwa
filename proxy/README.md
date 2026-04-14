@@ -32,6 +32,7 @@ make run
 |---|---|---|
 | `HTTP_PORT` | `3000` | HTTP/HTTPS listen port |
 | `MACHINE_WEBHOOK_AUTH_TOKEN` | _(empty)_ | Webhook auth token (`X-Hook-Auth` header) |
+| `UPTIME_AUTH_TOKEN` | _(empty)_ | Bearer token for uptime endpoints (`/api/v1/uptime/*`) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
 | `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt registration |
@@ -177,3 +178,111 @@ themselves are forward-compatible.
 | `<DATA_DIR>/subscriptions.json` | Web Push subscriptions (max 32) |
 | `<DATA_DIR>/server-vapid.pub` | Server VAPID public key (base64url) |
 | `<DATA_DIR>/server-vapid.priv` | Server VAPID private key (base64url, mode 0600) |
+| `<DATA_DIR>/uptime/buckets/<device_id>/<YYYY-MM-DD>.jsonl` | Raw uptime bucket entries (append-only JSONL) |
+| `<DATA_DIR>/uptime/daily/<device_id>/<YYYY-MM-DD>.json` | Aggregated daily uptime summary (atomic JSON write) |
+| `<DATA_DIR>/uptime/seen-batches/<device_id>.txt` | Seen `batch_id` values for idempotency (one per line) |
+
+## Uptime API
+
+The proxy exposes a lightweight file-backed uptime collection API.
+No database is required – data is stored as append-only JSONL files (raw
+buckets) and atomically-written JSON files (daily summaries).
+
+### POST /api/v1/uptime/buckets
+
+Accepts two payload shapes:
+
+**Bucket batch** – supply a `buckets` array:
+
+```json
+{
+  "device_id": "pico-livingroom",
+  "source": "pico",
+  "batch_id": "uuid-for-idempotency",
+  "buckets": [
+    {
+      "bucket_id": "uuid",
+      "start": "2024-01-15T10:00:00Z",
+      "duration_seconds": 300,
+      "seconds_on": 240
+    }
+  ]
+}
+```
+
+**Daily summary** – supply a `date` field instead:
+
+```json
+{
+  "device_id": "pwa-browser",
+  "source": "pwa",
+  "date": "2024-01-15",
+  "seconds_on": 28800,
+  "sample_count": 48,
+  "summary_id": "uuid-for-idempotency"
+}
+```
+
+Authentication: `Authorization: Bearer <UPTIME_AUTH_TOKEN>` (required when
+`UPTIME_AUTH_TOKEN` is set; omit header when token is empty).
+
+Response: `{"status":"ok","accepted":<count>}`
+
+### GET /api/v1/uptime/daily
+
+Returns stored daily summaries for a device.
+
+Query parameters:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `device_id` | yes | Device identifier |
+| `from` | no | Start date inclusive (`YYYY-MM-DD`) |
+| `to` | no | End date inclusive (`YYYY-MM-DD`) |
+
+```bash
+curl "http://localhost:3000/api/v1/uptime/daily?device_id=pico-1&from=2024-01-01&to=2024-01-31"
+```
+
+Response:
+
+```json
+{
+  "device_id": "pico-1",
+  "summaries": [
+    {
+      "device_id": "pico-1",
+      "date": "2024-01-15",
+      "seconds_on": 28800,
+      "sample_count": 48,
+      "source": "pico",
+      "updated_at": "2024-01-15T23:59:00Z"
+    }
+  ]
+}
+```
+
+### PWA Client
+
+`proxy/public/uptime-client.js` is a zero-dependency browser module that
+buffers buckets in `localStorage` and POSTs them to the server with
+exponential back-off retry:
+
+```html
+<script src="/uptime-client.js"></script>
+<script>
+  const client = new UptimeClient({
+    deviceId: 'my-browser',
+    endpoint: '/api/v1/uptime/buckets',
+    authToken: 'optional-bearer-token',
+  });
+
+  // Record a measurement
+  client.addBucket({ durationSeconds: 300, secondsOn: 240 });
+
+  // Flush on visibility change / page unload
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') client.flush();
+  });
+</script>
+```

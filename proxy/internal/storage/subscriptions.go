@@ -52,6 +52,10 @@ func NewStore(dataDir string) (*Store, error) {
 # Set to a strong random string in production; leave empty to disable auth.
 # MACHINE_WEBHOOK_AUTH_TOKEN=
 
+# Bearer token for the uptime collection endpoints (/api/v1/uptime/*).
+# Set to a strong random string in production; leave empty to disable auth.
+# UPTIME_AUTH_TOKEN=
+
 # ---------------------------------------------------------------------------
 # Automatic HTTPS via DuckDNS + Let's Encrypt (recommended for production)
 # ---------------------------------------------------------------------------
@@ -67,7 +71,7 @@ func NewStore(dataDir string) (*Store, error) {
 # TLS_KEY_PATH=/etc/ssl/private/server.key
 
 # ---------------------------------------------------------------------------
-# Data directory (VAPID keys, subscriptions, ACME cache)
+# Data directory (VAPID keys, subscriptions, ACME cache, uptime data)
 # ---------------------------------------------------------------------------
 # DATA_DIR=/var/lib/viking-bio-proxy
 `

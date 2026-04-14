@@ -7,12 +7,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/uptime"
 )
 
 // State holds the shared burner telemetry state.
@@ -37,15 +39,17 @@ type Handlers struct {
 	state        *State
 	pushMgr      *push.Manager
 	notifyByType func(string, string, string)
+	uptimeStore  *uptime.Store
 }
 
 // NewHandlers creates a new Handlers instance.
-func NewHandlers(cfg *config.Config, pushMgr *push.Manager) *Handlers {
+func NewHandlers(cfg *config.Config, pushMgr *push.Manager, uptimeStore *uptime.Store) *Handlers {
 	return &Handlers{
 		cfg:          cfg,
 		state:        &State{},
 		pushMgr:      pushMgr,
 		notifyByType: pushMgr.NotifyByType,
+		uptimeStore:  uptimeStore,
 	}
 }
 
@@ -293,4 +297,130 @@ func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	h.pushMgr.RemoveSubscription(body.Endpoint)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// authenticateUptime checks the Bearer token in the Authorization header
+// against cfg.UptimeAuthToken. When no token is configured all requests pass.
+func (h *Handlers) authenticateUptime(r *http.Request) bool {
+	token := h.cfg.UptimeAuthToken
+	if token == "" {
+		return true
+	}
+	auth := r.Header.Get("Authorization")
+	if !strings.HasPrefix(auth, "Bearer ") {
+		return false
+	}
+	provided := strings.TrimPrefix(auth, "Bearer ")
+	return subtle.ConstantTimeCompare([]byte(token), []byte(provided)) == 1
+}
+
+// uptimeBucketsBody is the union body for POST /api/v1/uptime/buckets.
+// The handler detects the shape by the presence of the "date" field (daily
+// summary) vs the "buckets" array (bucket batch).
+type uptimeBucketsBody struct {
+	DeviceID   string          `json:"device_id"`
+	// Bucket-batch fields
+	Buckets    []uptime.Bucket `json:"buckets"`
+	Source     string          `json:"source"`
+	BatchID    string          `json:"batch_id"`
+	SequenceID string          `json:"sequence_id"`
+	// Daily-summary fields
+	Date        string `json:"date"`
+	SecondsOn   int    `json:"seconds_on"`
+	SampleCount int    `json:"sample_count"`
+	SummaryID   string `json:"summary_id"`
+}
+
+// HandlePostUptimeBuckets serves POST /api/v1/uptime/buckets.
+// It accepts two payload shapes:
+//   - bucket batch: device_id + buckets array
+//   - daily summary: device_id + date + seconds_on
+func (h *Handlers) HandlePostUptimeBuckets(w http.ResponseWriter, r *http.Request) {
+	if !h.authenticateUptime(r) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if h.uptimeStore == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "uptime store unavailable"})
+		return
+	}
+
+	var body uptimeBucketsBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+		return
+	}
+	if body.DeviceID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "device_id is required"})
+		return
+	}
+
+	// Daily summary shape: date field is present.
+	if body.Date != "" {
+		sum := uptime.DailySummary{
+			DeviceID:    body.DeviceID,
+			Date:        body.Date,
+			SecondsOn:   body.SecondsOn,
+			SampleCount: body.SampleCount,
+			Source:      body.Source,
+			SummaryID:   body.SummaryID,
+		}
+		if err := h.uptimeStore.UpsertDailySummary(sum); err != nil {
+			log.Printf("uptime: upsert daily summary: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "accepted": 1})
+		return
+	}
+
+	// Bucket batch shape.
+	batch := uptime.BucketBatch{
+		DeviceID:   body.DeviceID,
+		Buckets:    body.Buckets,
+		Source:     body.Source,
+		BatchID:    body.BatchID,
+		SequenceID: body.SequenceID,
+	}
+	n, err := h.uptimeStore.AppendBuckets(batch)
+	if err != nil {
+		log.Printf("uptime: append buckets: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	log.Printf("uptime: accepted %d bucket(s) from device %s", n, body.DeviceID)
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "accepted": n})
+}
+
+// HandleGetUptimeDaily serves GET /api/v1/uptime/daily.
+// Query parameters: device_id (required), from (YYYY-MM-DD, optional),
+// to (YYYY-MM-DD, optional).
+func (h *Handlers) HandleGetUptimeDaily(w http.ResponseWriter, r *http.Request) {
+	if !h.authenticateUptime(r) {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if h.uptimeStore == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "uptime store unavailable"})
+		return
+	}
+
+	deviceID := r.URL.Query().Get("device_id")
+	if deviceID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "device_id is required"})
+		return
+	}
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+
+	summaries, err := h.uptimeStore.GetDailySummaries(deviceID, from, to)
+	if err != nil {
+		log.Printf("uptime: get daily summaries: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if summaries == nil {
+		summaries = []uptime.DailySummary{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"device_id": deviceID, "summaries": summaries})
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/uptime"
 )
 
 func newInternalTestHandlers(t *testing.T, cfg *config.Config) *Handlers {
@@ -25,7 +26,8 @@ func newInternalTestHandlers(t *testing.T, cfg *config.Config) *Handlers {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
-	return NewHandlers(cfg, mgr)
+	uptimeStore := uptime.NewStore(dir)
+	return NewHandlers(cfg, mgr, uptimeStore)
 }
 
 func testBoolPtr(v bool) *bool { return &v }

@@ -17,6 +17,7 @@ import (
 	"github.com/phieri/viking-bio-pwa/proxy/internal/cert"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/uptime"
 )
 
 // localNetworks holds the private and loopback IP ranges used by localNetworkOnly.
@@ -85,7 +86,8 @@ type Server struct {
 // New creates a Server. When notifyOnly is true the server skips the dashboard,
 // Let's Encrypt/ACME, and restricts connections to the local network.
 func New(cfg *config.Config, pushMgr *push.Manager, notifyOnly bool) *Server {
-	h := NewHandlers(cfg, pushMgr)
+	uptimeStore := uptime.NewStore(cfg.DataDir)
+	h := NewHandlers(cfg, pushMgr, uptimeStore)
 	return &Server{cfg: cfg, handler: h, notifyOnly: notifyOnly}
 }
 
@@ -114,6 +116,8 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("/api/machine-data", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleMachineData)))
 	mux.HandleFunc("/api/subscribe", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleSubscribe)))
 	mux.HandleFunc("/api/unsubscribe", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleUnsubscribe)))
+	mux.HandleFunc("/api/v1/uptime/buckets", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandlePostUptimeBuckets)))
+	mux.HandleFunc("/api/v1/uptime/daily", methodGuard(http.MethodGet, s.handler.HandleGetUptimeDaily))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
