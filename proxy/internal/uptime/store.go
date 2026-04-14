@@ -118,6 +118,11 @@ func dateFromISO8601(s string) string {
 }
 
 func (s *Store) bucketsPath(deviceID, date string) string {
+	// Defense-in-depth: bucket files are keyed by YYYY-MM-DD only.
+	// Keep path construction safe even if callers pass unchecked input.
+	if !isValidDate(date) {
+		date = "invalid-date"
+	}
 	return filepath.Join(s.dataDir, "uptime", "buckets", sanitizeID(deviceID), date+".jsonl")
 }
 
@@ -375,6 +380,10 @@ func (s *Store) GetDailySummaries(deviceID, from, to string) ([]DailySummary, er
 // loadBucketIDs reads the bucket JSONL file for (deviceID, date) and returns
 // the set of bucket_ids already stored there.
 func (s *Store) loadBucketIDs(deviceID, date string) (map[string]bool, error) {
+	// Defense-in-depth at the sink: refuse unexpected date path components.
+	if !isValidDate(date) {
+		return make(map[string]bool), nil
+	}
 	path := s.bucketsPath(deviceID, date)
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
