@@ -318,7 +318,7 @@ func (h *Handlers) authenticateUptime(r *http.Request) bool {
 // The handler detects the shape by the presence of the "date" field (daily
 // summary) vs the "buckets" array (bucket batch).
 type uptimeBucketsBody struct {
-	DeviceID   string          `json:"device_id"`
+	DeviceID string `json:"device_id"`
 	// Bucket-batch fields
 	Buckets    []uptime.Bucket `json:"buckets"`
 	Source     string          `json:"source"`

@@ -243,8 +243,8 @@ func TestPostUptimeBuckets_RequiresAuth(t *testing.T) {
 	cfg := &config.Config{UptimeAuthToken: "secret"}
 	h := newTestHandlers(t, cfg)
 	body := map[string]any{
-		"device_id": "pico-1",
-		"date":      "2024-01-15",
+		"device_id":  "pico-1",
+		"date":       "2024-01-15",
 		"seconds_on": 3600,
 	}
 	// No token → 401

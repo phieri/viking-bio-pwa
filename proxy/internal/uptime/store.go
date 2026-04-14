@@ -35,20 +35,20 @@ type Bucket struct {
 type BucketBatch struct {
 	DeviceID   string   `json:"device_id"`
 	Buckets    []Bucket `json:"buckets"`
-	Source     string   `json:"source"`                // "pico" | "pwa"
-	BatchID    string   `json:"batch_id,omitempty"`    // optional batch-level dedup ID
+	Source     string   `json:"source"`             // "pico" | "pwa"
+	BatchID    string   `json:"batch_id,omitempty"` // optional batch-level dedup ID
 	SequenceID string   `json:"sequence_id,omitempty"`
 }
 
 // DailySummary is an aggregated uptime summary for one calendar day per device.
 type DailySummary struct {
 	DeviceID    string `json:"device_id"`
-	Date        string `json:"date"`                   // YYYY-MM-DD
+	Date        string `json:"date"` // YYYY-MM-DD
 	SecondsOn   int    `json:"seconds_on"`
 	SampleCount int    `json:"sample_count,omitempty"`
 	Source      string `json:"source,omitempty"`
-	SummaryID   string `json:"summary_id,omitempty"`   // optional client-assigned dedup ID
-	UpdatedAt   string `json:"updated_at,omitempty"`   // RFC3339
+	SummaryID   string `json:"summary_id,omitempty"` // optional client-assigned dedup ID
+	UpdatedAt   string `json:"updated_at,omitempty"` // RFC3339
 }
 
 // Store manages uptime data on disk. All exported methods are safe for
