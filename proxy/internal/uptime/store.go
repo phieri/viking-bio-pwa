@@ -125,6 +125,25 @@ func (s *Store) dailyPath(deviceID, date string) string {
 	return filepath.Join(s.dataDir, "uptime", "daily", sanitizeID(deviceID), date+".json")
 }
 
+func ensureWithinBase(baseDir, targetPath string) error {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return fmt.Errorf("resolve base dir: %w", err)
+	}
+	absTarget, err := filepath.Abs(targetPath)
+	if err != nil {
+		return fmt.Errorf("resolve target path: %w", err)
+	}
+	rel, err := filepath.Rel(absBase, absTarget)
+	if err != nil {
+		return fmt.Errorf("compute relative path: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid path outside allowed directory")
+	}
+	return nil
+}
+
 func (s *Store) seenBatchesPath(deviceID string) string {
 	return filepath.Join(s.dataDir, "uptime", "seen-batches", sanitizeID(deviceID)+".txt")
 }
@@ -264,6 +283,9 @@ func (s *Store) UpsertDailySummary(sum DailySummary) error {
 	}
 
 	path := s.dailyPath(sum.DeviceID, sum.Date)
+	if err := ensureWithinBase(filepath.Join(s.dataDir, "uptime", "daily"), path); err != nil {
+		return err
+	}
 	dir := filepath.Dir(path)
 
 	// summary_id deduplication: no-op if same ID already stored.
