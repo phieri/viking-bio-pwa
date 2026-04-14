@@ -153,6 +153,9 @@ func (s *Store) AppendBuckets(batch BucketBatch) (int, error) {
 	for i := range batch.Buckets {
 		b := batch.Buckets[i]
 		date := dateFromISO8601(b.Start)
+		if !isValidDate(date) {
+			return 0, fmt.Errorf("invalid bucket date")
+		}
 		b.ReceivedAt = now
 		if byDate[date] == nil {
 			byDate[date] = &dateGroup{}
