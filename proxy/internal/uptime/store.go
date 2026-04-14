@@ -136,10 +136,6 @@ func (s *Store) dailyPath(deviceID, date string) string {
 }
 
 func ensureWithinBase(baseDir, targetPath string) error {
-	if filepath.IsAbs(targetPath) {
-		// Absolute target paths are only allowed after canonical containment checks.
-		// Keep behavior strict to avoid path-injection surprises.
-	}
 	absBase, err := filepath.Abs(baseDir)
 	if err != nil {
 		return fmt.Errorf("resolve base dir: %w", err)
