@@ -122,6 +122,11 @@ func (s *Store) bucketsPath(deviceID, date string) string {
 }
 
 func (s *Store) dailyPath(deviceID, date string) string {
+	// Defense-in-depth: daily summaries are keyed by YYYY-MM-DD only.
+	// Callers already validate, but keep path construction safe even if called directly.
+	if !isValidDate(date) {
+		date = "invalid-date"
+	}
 	return filepath.Join(s.dataDir, "uptime", "daily", sanitizeID(deviceID), date+".json")
 }
 
@@ -427,6 +432,10 @@ func (s *Store) recordSeenBatch(deviceID, batchID string) {
 // atomicWriteJSON marshals v as indented JSON and writes it to path via a
 // temporary file in the same directory (rename is atomic on POSIX).
 func atomicWriteJSON(dir, path string, v any) error {
+	// Validate the directory target before creating it.
+	if err := ensureWithinBase(filepath.Dir(path), dir); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
