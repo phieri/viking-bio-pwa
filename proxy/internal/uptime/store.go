@@ -230,6 +230,10 @@ func (s *Store) appendDayBuckets(deviceID, date string, buckets []Bucket) ([]Buc
 	}
 
 	path := s.bucketsPath(deviceID, date)
+	baseDir := filepath.Join(s.dataDir, "uptime", "buckets")
+	if err := ensureWithinBase(baseDir, path); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
