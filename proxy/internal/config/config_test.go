@@ -8,6 +8,8 @@ import (
 
 var configEnvKeys = []string{
 	"HTTP_PORT",
+	"INGEST_TCP_PORT",
+	"INGEST_TCP_TLS",
 	"MACHINE_WEBHOOK_AUTH_TOKEN",
 	"TLS_CERT_PATH",
 	"TLS_KEY_PATH",
@@ -93,6 +95,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.HTTPPort != 3000 {
 		t.Fatalf("expected default HTTP port 3000, got %d", cfg.HTTPPort)
 	}
+	if cfg.IngestTCPPort != 9000 {
+		t.Fatalf("expected default ingest TCP port 9000, got %d", cfg.IngestTCPPort)
+	}
+	if cfg.IngestTCPTLS {
+		t.Fatal("expected ingest TCP TLS to default to false")
+	}
 	if cfg.ACMEHTTPPort != 80 {
 		t.Fatalf("expected default ACME HTTP port 80, got %d", cfg.ACMEHTTPPort)
 	}
@@ -113,6 +121,8 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadOverrides(t *testing.T) {
 	clearConfigEnv(t)
 	t.Setenv("HTTP_PORT", "3001")
+	t.Setenv("INGEST_TCP_PORT", "9443")
+	t.Setenv("INGEST_TCP_TLS", "true")
 	t.Setenv("MACHINE_WEBHOOK_AUTH_TOKEN", "secret")
 	t.Setenv("TLS_CERT_PATH", "/cert.pem")
 	t.Setenv("TLS_KEY_PATH", "/key.pem")
@@ -133,13 +143,13 @@ func TestLoadOverrides(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.HTTPPort != 3001 || cfg.ACMEHTTPPort != 8080 {
+	if cfg.HTTPPort != 3001 || cfg.IngestTCPPort != 9443 || cfg.ACMEHTTPPort != 8080 {
 		t.Fatalf("unexpected numeric overrides: %+v", cfg)
 	}
 	if cfg.DataDir != "/data" || cfg.ACMECertDir != "/certs" {
 		t.Fatalf("unexpected string overrides: %+v", cfg)
 	}
-	if !cfg.ACMEStaging || !cfg.MDNSDisable {
+	if !cfg.IngestTCPTLS || !cfg.ACMEStaging || !cfg.MDNSDisable {
 		t.Fatalf("expected boolean overrides to be true: %+v", cfg)
 	}
 }

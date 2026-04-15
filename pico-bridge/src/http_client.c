@@ -1,11 +1,15 @@
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "pico/stdlib.h"
+#include <string.h>
+
+#include "mbedtls/base64.h"
+#include "mbedtls/md.h"
 #include "pico/time.h"
-#include "lwip/tcp.h"
-#include "lwip/ip_addr.h"
+#include "pico/stdlib.h"
 #include "lwip/dns.h"
+#include "lwip/ip_addr.h"
+#include "lwip/tcp.h"
+
 #include "http_client.h"
 #include "wifi_config.h"
 
@@ -13,117 +17,152 @@ typedef enum {
 	HTTP_STATE_IDLE,
 	HTTP_STATE_RESOLVING,
 	HTTP_STATE_CONNECTING,
-	HTTP_STATE_SENDING,
-	HTTP_STATE_READING,
+	HTTP_STATE_CONNECTED,
 	HTTP_STATE_RETRY_WAIT,
 } http_state_t;
 
-// Webhook path (fixed)
-#define WEBHOOK_PATH "/api/machine-data"
+#define TELEMETRY_QUEUE_LEN 8
+#define TELEMETRY_PAYLOAD_MAX 384
+#define TELEMETRY_FRAME_MAX (4 + TELEMETRY_PAYLOAD_MAX)
+#define TELEMETRY_DATA_JSON_MAX 128
+#define TELEMETRY_CANONICAL_MAX 256
+#define TELEMETRY_SIGNATURE_MAX 48
 
-// Auth token max length matches WIFI_HOOK_TOKEN_MAX_LEN
-#define HTTP_AUTH_TOKEN_MAX 64
-
-// Maximum request size: headers + JSON body
-#define HTTP_REQUEST_MAX 512
-
-// Response buffer (large enough for the status line and small JSON acknowledgement)
-#define HTTP_RESPONSE_MAX 512
+typedef struct {
+	uint8_t bytes[TELEMETRY_FRAME_MAX];
+	size_t len;
+} telemetry_frame_t;
 
 static struct tcp_pcb *s_pcb = NULL;
 static http_state_t s_state = HTTP_STATE_IDLE;
 
 static char s_host[WIFI_SERVER_IP_MAX_LEN + 1];
-static uint16_t s_port;
-static char s_auth_token[HTTP_AUTH_TOKEN_MAX + 1];
+static uint16_t s_port = 0;
+static char s_device_key[WIFI_DEVICE_KEY_MAX_LEN + 1];
+static char s_device_id[WIFI_DEVICE_ID_MAX_LEN + 1];
+static uint32_t s_boot_counter = 0;
+static uint32_t s_message_counter = 0;
 
 static ip_addr_t s_server_addr;
 static absolute_time_t s_timeout;
 static absolute_time_t s_retry_time;
 
-// Pending request buffer (latest data to send)
-static char s_request[HTTP_REQUEST_MAX];
-static size_t s_request_len = 0;
-static bool s_has_pending = false;
+static telemetry_frame_t s_queue[TELEMETRY_QUEUE_LEN];
+static size_t s_queue_head = 0;
+static size_t s_queue_count = 0;
 
-// Response accumulation
-static char s_response[HTTP_RESPONSE_MAX];
-static size_t s_response_len = 0;
-
-// Forward declarations
+static void start_connect(void);
 static void do_connect(void);
 static void abort_and_retry(void);
+static void flush_queue(void);
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Returns true when host is a bare IPv6 address (contains ':' but no '[').
- * Used to wrap it in brackets for the HTTP Host header.
- */
-static bool is_bare_ipv6(const char *host) {
-	return (strchr(host, ':') != NULL) && (host[0] != '[');
+static bool queue_push(const uint8_t *data, size_t len) {
+	if (len == 0 || len > TELEMETRY_FRAME_MAX) {
+		return false;
+	}
+	if (s_queue_count >= TELEMETRY_QUEUE_LEN) {
+		size_t overwrite = s_queue_head;
+		s_queue_head = (s_queue_head + 1) % TELEMETRY_QUEUE_LEN;
+		s_queue_count--;
+		printf("http_client: telemetry queue full, dropping oldest frame (%u bytes)\n",
+			   (unsigned)s_queue[overwrite].len);
+	}
+	size_t slot = (s_queue_head + s_queue_count) % TELEMETRY_QUEUE_LEN;
+	memcpy(s_queue[slot].bytes, data, len);
+	s_queue[slot].len = len;
+	s_queue_count++;
+	return true;
 }
 
-/**
- * Build the HTTP POST request into s_request.
- * @param body  JSON body string
- * @return length of the request, or 0 on overflow
- */
-static size_t build_request(const char *body) {
-	// Wrap bare IPv6 addresses in brackets for the Host header.
-	// Buffer: "[" + addr(max 46) + "]:" + port(max 5 digits) + null = 55 bytes; +8 for safety.
-	// Note: IPv6 zone IDs (e.g. fe80::1%eth0) are not supported by ipaddr_aton; users
-	// should configure link-local addresses without zone IDs (routing via the default interface).
-	char host_header[WIFI_SERVER_IP_MAX_LEN + 10];
-	if (is_bare_ipv6(s_host)) {
-		int written =
-			snprintf(host_header, sizeof(host_header), "[%s]:%u", s_host, (unsigned)s_port);
-		if (written < 0 || written >= (int)sizeof(host_header)) {
-			return 0;
-		}
-	} else {
-		int written = snprintf(host_header, sizeof(host_header), "%s:%u", s_host, (unsigned)s_port);
-		if (written < 0 || written >= (int)sizeof(host_header)) {
-			return 0;
-		}
+static telemetry_frame_t *queue_peek(void) {
+	if (s_queue_count == 0) {
+		return NULL;
 	}
-
-	size_t body_len = strlen(body);
-
-	int len;
-	if (s_auth_token[0] != '\0') {
-		len = snprintf(s_request, sizeof(s_request),
-					   "POST " WEBHOOK_PATH " HTTP/1.1\r\n"
-					   "Host: %s\r\n"
-					   "Content-Type: application/json\r\n"
-					   "X-Hook-Auth: %s\r\n"
-					   "Content-Length: %u\r\n"
-					   "Connection: close\r\n"
-					   "\r\n"
-					   "%s",
-					   host_header, s_auth_token, (unsigned)body_len, body);
-	} else {
-		len = snprintf(s_request, sizeof(s_request),
-					   "POST " WEBHOOK_PATH " HTTP/1.1\r\n"
-					   "Host: %s\r\n"
-					   "Content-Type: application/json\r\n"
-					   "Content-Length: %u\r\n"
-					   "Connection: close\r\n"
-					   "\r\n"
-					   "%s",
-					   host_header, (unsigned)body_len, body);
-	}
-
-	if (len <= 0 || len >= (int)sizeof(s_request))
-		return 0;
-	return (size_t)len;
+	return &s_queue[s_queue_head];
 }
 
-// ---------------------------------------------------------------------------
-// lwIP callbacks
-// ---------------------------------------------------------------------------
+static void queue_pop(void) {
+	if (s_queue_count == 0) {
+		return;
+	}
+	s_queue_head = (s_queue_head + 1) % TELEMETRY_QUEUE_LEN;
+	s_queue_count--;
+}
+
+static bool build_data_json(const viking_bio_data_t *data, char *out, size_t out_len) {
+	int written = snprintf(out, out_len,
+						   "{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
+						   data->flame_detected ? "true" : "false", data->fan_speed,
+						   data->temperature, data->error_code,
+						   data->valid ? "true" : "false");
+	return written > 0 && written < (int)out_len;
+}
+
+static uint64_t next_sequence(void) {
+	s_message_counter++;
+	return ((uint64_t)s_boot_counter << 32) | s_message_counter;
+}
+
+static bool build_signature(const char *device_key, const char *canonical,
+							char *out, size_t out_len) {
+	unsigned char mac[32];
+	const mbedtls_md_info_t *md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+	if (md == NULL) {
+		return false;
+	}
+	if (mbedtls_md_hmac(md, (const unsigned char *)device_key, strlen(device_key),
+						(const unsigned char *)canonical, strlen(canonical), mac) != 0) {
+		return false;
+	}
+	size_t olen = 0;
+	if (mbedtls_base64_encode((unsigned char *)out, out_len, &olen, mac, sizeof(mac)) != 0) {
+		return false;
+	}
+	if (olen >= out_len) {
+		return false;
+	}
+	out[olen] = '\0';
+	return true;
+}
+
+static bool build_frame(const viking_bio_data_t *data, uint8_t *frame, size_t *frame_len) {
+	char data_json[TELEMETRY_DATA_JSON_MAX];
+	char canonical[TELEMETRY_CANONICAL_MAX];
+	char signature[TELEMETRY_SIGNATURE_MAX];
+	char payload[TELEMETRY_PAYLOAD_MAX];
+	uint64_t seq = next_sequence();
+	uint64_t ts = to_ms_since_boot(get_absolute_time());
+
+	if (!build_data_json(data, data_json, sizeof(data_json))) {
+		return false;
+	}
+
+	int canonical_len = snprintf(canonical, sizeof(canonical), "%s\n%llu\n%llu\n%s", s_device_id,
+								 (unsigned long long)seq, (unsigned long long)ts, data_json);
+	if (canonical_len <= 0 || canonical_len >= (int)sizeof(canonical)) {
+		return false;
+	}
+
+	if (!build_signature(s_device_key, canonical, signature, sizeof(signature))) {
+		return false;
+	}
+
+	int payload_len = snprintf(payload, sizeof(payload),
+							  "{\"device\":\"%s\",\"seq\":%llu,\"ts\":%llu,\"data\":%s,\"sig\":\"%s\"}",
+							  s_device_id, (unsigned long long)seq, (unsigned long long)ts,
+							  data_json, signature);
+	if (payload_len <= 0 || payload_len >= (int)sizeof(payload)) {
+		return false;
+	}
+
+	frame[0] = (uint8_t)(((uint32_t)payload_len >> 24) & 0xff);
+	frame[1] = (uint8_t)(((uint32_t)payload_len >> 16) & 0xff);
+	frame[2] = (uint8_t)(((uint32_t)payload_len >> 8) & 0xff);
+	frame[3] = (uint8_t)((uint32_t)payload_len & 0xff);
+	memcpy(frame + 4, payload, (size_t)payload_len);
+	*frame_len = (size_t)payload_len + 4;
+	return true;
+}
 
 static err_t tcp_connected_cb(void *arg, struct tcp_pcb *pcb, err_t err) {
 	(void)arg;
@@ -132,22 +171,9 @@ static err_t tcp_connected_cb(void *arg, struct tcp_pcb *pcb, err_t err) {
 		return err;
 	}
 
-	s_state = HTTP_STATE_SENDING;
+	s_state = HTTP_STATE_CONNECTED;
 	s_timeout = make_timeout_time_ms(HTTP_CLIENT_TIMEOUT_MS);
-	printf("http_client: connected to %s:%d – sending request\n", s_host, s_port);
-
-	if (s_request_len > 0) {
-		err_t e = tcp_write(s_pcb, s_request, (u16_t)s_request_len, TCP_WRITE_FLAG_COPY);
-		if (e == ERR_OK) {
-			tcp_output(s_pcb);
-			s_state = HTTP_STATE_READING;
-		} else {
-			printf("http_client: tcp_write failed (%d)\n", (int)e);
-			abort_and_retry();
-		}
-	} else {
-		abort_and_retry();
-	}
+	printf("http_client: connected to %s:%d\n", s_host, s_port);
 	return ERR_OK;
 }
 
@@ -155,44 +181,22 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t e
 	(void)arg;
 	(void)err;
 	if (p == NULL) {
-		// Server closed connection – parse the status line
-		s_response[s_response_len] = '\0';
-		if (s_response_len > 0) {
-			// Extract status code from "HTTP/1.x NNN ..."
-			const char *sp = strchr(s_response, ' ');
-			if (sp) {
-				int code = atoi(sp + 1);
-				if (code >= 200 && code < 300) {
-					printf("http_client: POST OK (%d)\n", code);
-				} else {
-					printf("http_client: POST returned %d\n", code);
-				}
-			}
-		}
+		printf("http_client: server closed connection\n");
 		s_pcb = NULL;
-		s_state = HTTP_STATE_IDLE;
-		s_has_pending = false;
+		s_state = HTTP_STATE_RETRY_WAIT;
+		s_retry_time = make_timeout_time_ms(HTTP_CLIENT_RETRY_MS);
 		return ERR_OK;
-	}
-
-	// Accumulate up to s_response capacity (just need the status line)
-	if (s_response_len < sizeof(s_response) - 1) {
-		size_t copy = p->tot_len;
-		if (copy > sizeof(s_response) - 1 - s_response_len)
-			copy = sizeof(s_response) - 1 - s_response_len;
-		pbuf_copy_partial(p, s_response + s_response_len, (u16_t)copy, 0);
-		s_response_len += copy;
 	}
 
 	tcp_recved(pcb, p->tot_len);
 	pbuf_free(p);
+	s_timeout = make_timeout_time_ms(HTTP_CLIENT_TIMEOUT_MS);
 	return ERR_OK;
 }
 
 static void tcp_err_cb(void *arg, err_t err) {
 	(void)arg;
-	(void)err;
-	printf("http_client: TCP error %d – retrying\n", (int)err);
+	printf("http_client: TCP error %d – reconnecting\n", (int)err);
 	s_pcb = NULL;
 	s_state = HTTP_STATE_RETRY_WAIT;
 	s_retry_time = make_timeout_time_ms(HTTP_CLIENT_RETRY_MS);
@@ -211,20 +215,47 @@ static void dns_found_cb(const char *name, const ip_addr_t *addr, void *arg) {
 	do_connect();
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-static void abort_and_retry(void) {
+static void abort_connection(void) {
 	if (s_pcb != NULL) {
 		tcp_abort(s_pcb);
 		s_pcb = NULL;
 	}
+}
+
+static void abort_and_retry(void) {
+	abort_connection();
 	s_state = HTTP_STATE_RETRY_WAIT;
 	s_retry_time = make_timeout_time_ms(HTTP_CLIENT_RETRY_MS);
 }
 
+static void flush_queue(void) {
+	while (s_state == HTTP_STATE_CONNECTED && s_pcb != NULL && s_queue_count > 0) {
+		telemetry_frame_t *frame = queue_peek();
+		if (frame == NULL) {
+			return;
+		}
+		err_t err = tcp_write(s_pcb, frame->bytes, (u16_t)frame->len, TCP_WRITE_FLAG_COPY);
+		if (err == ERR_OK) {
+			tcp_output(s_pcb);
+			printf("http_client: sent telemetry frame (%u bytes)\n", (unsigned)frame->len);
+			queue_pop();
+			s_timeout = make_timeout_time_ms(HTTP_CLIENT_TIMEOUT_MS);
+			continue;
+		}
+		if (err == ERR_MEM) {
+			return;
+		}
+		printf("http_client: tcp_write failed (%d)\n", (int)err);
+		abort_and_retry();
+		return;
+	}
+}
+
 static void do_connect(void) {
+	if (s_pcb != NULL || s_host[0] == '\0' || s_port == 0) {
+		return;
+	}
+
 	s_pcb = tcp_new_ip_type(IP_GET_TYPE(&s_server_addr));
 	if (s_pcb == NULL) {
 		printf("http_client: tcp_new failed\n");
@@ -232,6 +263,7 @@ static void do_connect(void) {
 		s_retry_time = make_timeout_time_ms(HTTP_CLIENT_RETRY_MS);
 		return;
 	}
+
 	tcp_err(s_pcb, tcp_err_cb);
 	tcp_recv(s_pcb, tcp_recv_cb);
 	s_state = HTTP_STATE_CONNECTING;
@@ -239,22 +271,22 @@ static void do_connect(void) {
 	err_t err = tcp_connect(s_pcb, &s_server_addr, s_port, tcp_connected_cb);
 	if (err != ERR_OK) {
 		printf("http_client: tcp_connect failed (%d)\n", (int)err);
-		tcp_close(s_pcb);
-		s_pcb = NULL;
-		s_state = HTTP_STATE_RETRY_WAIT;
-		s_retry_time = make_timeout_time_ms(HTTP_CLIENT_RETRY_MS);
+		abort_and_retry();
 	}
 }
 
 static void start_connect(void) {
-	s_response_len = 0;
-	// Try to parse as numeric IP first
+	if (s_pcb != NULL || s_host[0] == '\0' || s_port == 0) {
+		return;
+	}
+
 	if (ipaddr_aton(s_host, &s_server_addr)) {
 		do_connect();
 		return;
 	}
-	// Fall back to DNS
+
 	s_state = HTTP_STATE_RESOLVING;
+	s_timeout = make_timeout_time_ms(HTTP_CLIENT_TIMEOUT_MS);
 	err_t err = dns_gethostbyname(s_host, &s_server_addr, dns_found_cb, NULL);
 	if (err == ERR_OK) {
 		do_connect();
@@ -265,71 +297,81 @@ static void start_connect(void) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-void http_client_init(const char *host, uint16_t port, const char *auth_token) {
+void http_client_init(const char *host, uint16_t port, const char *device_key) {
 	snprintf(s_host, sizeof(s_host), "%s", host ? host : "");
 	s_port = port;
-	snprintf(s_auth_token, sizeof(s_auth_token), "%s", auth_token ? auth_token : "");
+	snprintf(s_device_key, sizeof(s_device_key), "%s", device_key ? device_key : "");
+	s_queue_head = 0;
+	s_queue_count = 0;
 	s_state = HTTP_STATE_IDLE;
-	s_has_pending = false;
-	s_request_len = 0;
-	s_pcb = NULL;
+	abort_connection();
 	memset(&s_server_addr, 0, sizeof(s_server_addr));
+
+	if (s_device_id[0] == '\0' &&
+		!wifi_config_get_device_id(s_device_id, sizeof(s_device_id))) {
+		s_device_id[0] = '\0';
+	}
+	if (s_boot_counter == 0) {
+		s_message_counter = 0;
+		if (!wifi_config_reserve_boot_counter(&s_boot_counter)) {
+			s_boot_counter = (uint32_t)(time_us_64() & 0xffffffffu);
+		}
+	}
+
+	if (s_host[0] != '\0' && s_device_key[0] != '\0') {
+		printf("http_client: ready for device %s -> %s:%d (boot counter %lu)\n", s_device_id,
+			   s_host, s_port, (unsigned long)s_boot_counter);
+	} else if (s_device_key[0] == '\0') {
+		printf("http_client: telemetry key missing – provision DEVICEKEY via USB\n");
+	}
 }
 
 void http_client_send_data(const viking_bio_data_t *data) {
-	if (data == NULL)
-		return;
+	uint8_t frame[TELEMETRY_FRAME_MAX];
+	size_t frame_len = 0;
 
-	// Build JSON body
-	char body[128];
-	int blen = snprintf(body, sizeof(body),
-						"{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
-						data->flame_detected ? "true" : "false", data->fan_speed, data->temperature,
-						data->error_code, data->valid ? "true" : "false");
-	if (blen <= 0 || blen >= (int)sizeof(body))
-		return;
-
-	// Build full HTTP request
-	size_t rlen = build_request(body);
-	if (rlen == 0) {
-		printf("http_client: request buffer overflow\n");
+	if (data == NULL || s_host[0] == '\0' || s_port == 0 || s_device_key[0] == '\0' ||
+		s_device_id[0] == '\0') {
 		return;
 	}
 
-	s_request_len = rlen;
-	s_has_pending = true;
-
-	// If idle, start a new connection immediately
-	if (s_state == HTTP_STATE_IDLE && s_host[0] != '\0' && s_port != 0) {
-		printf("http_client: connecting to %s:%d\n", s_host, s_port);
-		start_connect();
+	if (!build_frame(data, frame, &frame_len)) {
+		printf("http_client: failed to build telemetry frame\n");
+		return;
 	}
+	if (!queue_push(frame, frame_len)) {
+		printf("http_client: failed to queue telemetry frame\n");
+		return;
+	}
+
 }
 
 void http_client_poll(void) {
-	// Check for connection/response timeout
-	if ((s_state == HTTP_STATE_CONNECTING || s_state == HTTP_STATE_READING ||
-		 s_state == HTTP_STATE_SENDING) &&
+	if ((s_state == HTTP_STATE_RESOLVING || s_state == HTTP_STATE_CONNECTING ||
+		 (s_state == HTTP_STATE_CONNECTED && s_queue_count > 0)) &&
 		time_reached(s_timeout)) {
-		printf("http_client: timeout – retrying\n");
+		printf("http_client: timeout – reconnecting\n");
 		abort_and_retry();
 	}
 
-	// Retry after backoff
 	if (s_state == HTTP_STATE_RETRY_WAIT && time_reached(s_retry_time)) {
 		s_state = HTTP_STATE_IDLE;
-		// Re-send pending data if any
-		if (s_has_pending && s_host[0] != '\0' && s_port != 0) {
-			printf("http_client: retrying POST to %s:%d\n", s_host, s_port);
-			start_connect();
-		}
+	}
+
+	if (s_queue_count == 0 || s_host[0] == '\0' || s_port == 0 || s_device_key[0] == '\0') {
+		return;
+	}
+
+	if (s_state == HTTP_STATE_IDLE) {
+		start_connect();
+		return;
+	}
+	if (s_state == HTTP_STATE_CONNECTED) {
+		flush_queue();
 	}
 }
 
 bool http_client_is_active(void) {
-	return s_state != HTTP_STATE_IDLE && s_state != HTTP_STATE_RETRY_WAIT;
+	return s_state == HTTP_STATE_RESOLVING || s_state == HTTP_STATE_CONNECTING ||
+		   s_state == HTTP_STATE_CONNECTED;
 }

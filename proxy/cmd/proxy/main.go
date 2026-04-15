@@ -132,7 +132,7 @@ func runServer(noOpenBrowser bool, notifyOnly bool) {
 	}
 
 	// Create server
-	srv := server.New(cfg, pushMgr, notifyOnly)
+	srv := server.New(cfg, pushMgr, store, notifyOnly)
 
 	// Open the browser automatically unless disabled by flag or CI environment.
 	if !noOpenBrowser && !notifyOnly && os.Getenv("CI") == "" {
@@ -189,11 +189,20 @@ func runNotifyTest() {
 func runConfigurator(portArg string) {
 	cfg, _ := config.Load()
 	portName := portArg
+	dataDir := config.DefaultDataDir()
 	if portName == "" && cfg != nil {
 		portName = cfg.PicoSerialPort
 	}
+	if cfg != nil && cfg.DataDir != "" {
+		dataDir = cfg.DataDir
+	}
 
 	bridge := serial.New(portName)
+	store, err := storage.NewStore(dataDir)
+	if err != nil {
+		fmt.Printf("Failed to open storage: %v\n", err)
+		return
+	}
 
 	if portName == "" {
 		// List ports and ask the user
@@ -222,7 +231,7 @@ func runConfigurator(portArg string) {
 	}
 	defer bridge.Disconnect()
 
-	tui := configure.NewTUI(bridge)
+	tui := configure.NewTUI(bridge, store)
 	tui.Run()
 }
 

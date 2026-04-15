@@ -5,24 +5,22 @@
 #include <stdbool.h>
 #include "viking_bio_protocol.h"
 
-// Retry delay after a connection or HTTP failure (ms)
+// Retry delay after a connection failure (ms)
 #define HTTP_CLIENT_RETRY_MS 5000
 
-// Timeout waiting for a TCP connection or HTTP response (ms)
+// Timeout waiting for a TCP connection or ingest activity (ms)
 #define HTTP_CLIENT_TIMEOUT_MS 10000
 
 /**
- * Initialize the HTTP webhook client.
+ * Initialize the persistent telemetry client.
  * @param host       Proxy server hostname or IP (IPv4 or bare IPv6 without brackets)
- * @param port       Proxy server port
- * @param auth_token X-Hook-Auth token (may be NULL or empty to omit the header)
+ * @param port       Proxy ingest TCP port
+ * @param device_key Provisioned device key (may be NULL or empty when not provisioned yet)
  */
-void http_client_init(const char *host, uint16_t port, const char *auth_token);
+void http_client_init(const char *host, uint16_t port, const char *device_key);
 
 /**
- * Queue burner data for delivery to the proxy webhook endpoint.
- * If a request is already in-flight the queued data is replaced with the
- * latest value so the proxy always receives the most recent telemetry.
+ * Queue burner data for delivery over the persistent telemetry connection.
  * @param data  Pointer to current burner data
  */
 void http_client_send_data(const viking_bio_data_t *data);

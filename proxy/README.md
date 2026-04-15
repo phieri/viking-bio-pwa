@@ -31,6 +31,8 @@ make run
 | Variable | Default | Description |
 |---|---|---|
 | `HTTP_PORT` | `3000` | HTTP/HTTPS listen port |
+| `INGEST_TCP_PORT` | `9000` | Framed TCP telemetry ingest port |
+| `INGEST_TCP_TLS` | `false` | Require TLS on the ingest listener (uses `TLS_CERT_PATH`/`TLS_KEY_PATH`) |
 | `MACHINE_WEBHOOK_AUTH_TOKEN` | _(empty)_ | Webhook auth token (`X-Hook-Auth` header) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
@@ -53,6 +55,7 @@ Variables already set in the environment take precedence:
 
 ```env
 HTTP_PORT=3000
+INGEST_TCP_PORT=9000
 MACHINE_WEBHOOK_AUTH_TOKEN=changeme
 MDNS_NAME=Viking Bio
 ```
@@ -99,8 +102,26 @@ The TUI allows you to:
 - Set WiFi SSID + password
 - Set Wi-Fi country code
 - Set proxy server address and port
-- Set webhook auth token
+- Provision and sync a per-device telemetry key over USB
 - Clear all stored credentials
+
+Provisioning stores the proxy-side device secret in `<DATA_DIR>/devices.json`
+and sends the same key to the Pico over USB. The Pico then uses that key to
+sign each TCP telemetry frame with HMAC-SHA256.
+
+## Telemetry ingest
+
+The Pico bridge now opens a long-lived TCP connection to the proxy's ingest
+port and sends length-prefixed JSON frames:
+
+```text
+4-byte big-endian payload length + {"device","seq","ts","data","sig"}
+```
+
+The proxy verifies the per-device HMAC signature, persists `last_seq` for
+anti-replay protection, forwards accepted messages asynchronously into the
+normal state/update/notification pipeline, and writes overflow traffic to
+`<DATA_DIR>/ingest-fallback.log`.
 
 ## mDNS / DNS-SD
 
@@ -175,5 +196,7 @@ themselves are forward-compatible.
 | File | Description |
 |---|---|
 | `<DATA_DIR>/subscriptions.json` | Web Push subscriptions (max 32) |
+| `<DATA_DIR>/devices.json` | Provisioned device secrets and last accepted sequence numbers |
+| `<DATA_DIR>/ingest-fallback.log` | JSONL fallback log when the ingest queue overflows |
 | `<DATA_DIR>/server-vapid.pub` | Server VAPID public key (base64url) |
 | `<DATA_DIR>/server-vapid.priv` | Server VAPID private key (base64url, mode 0600) |

@@ -2,11 +2,14 @@ package configure
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/serial"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 const (
@@ -36,13 +39,15 @@ func color(s, c string) string {
 // TUI provides the interactive device configurator menu.
 type TUI struct {
 	bridge  *serial.Bridge
+	store   *storage.Store
 	scanner *bufio.Scanner
 }
 
 // NewTUI creates a TUI attached to the given bridge.
-func NewTUI(bridge *serial.Bridge) *TUI {
+func NewTUI(bridge *serial.Bridge, store *storage.Store) *TUI {
 	return &TUI{
 		bridge:  bridge,
+		store:   store,
 		scanner: bufio.NewScanner(os.Stdin),
 	}
 }
@@ -68,7 +73,7 @@ func (t *TUI) printMenu() {
 	fmt.Println(color("  2.", colorYellow) + " Configure WiFi (SSID + password)")
 	fmt.Println(color("  3.", colorYellow) + " Set Wi-Fi country code")
 	fmt.Println(color("  4.", colorYellow) + " Set proxy server address & port")
-	fmt.Println(color("  5.", colorYellow) + " Set webhook auth token")
+	fmt.Println(color("  5.", colorYellow) + " Provision telemetry device key")
 	fmt.Println(color("  6.", colorYellow) + " Clear all credentials")
 	fmt.Println(color("  0.", colorRed) + " Exit")
 	fmt.Println()
@@ -117,8 +122,17 @@ func (t *TUI) showStatus() {
 	if status.Country != "" {
 		fmt.Println("  Country:  " + status.Country)
 	}
+	if status.DeviceID != "" {
+		fmt.Println("  Device:   " + status.DeviceID)
+	}
 	if status.Server != "" {
 		fmt.Printf("  Server:   %s:%d\n", status.Server, status.Port)
+	}
+	if status.Telemetry != "" {
+		fmt.Println("  Telemetry:" + " " + status.Telemetry)
+	}
+	if status.DeviceKey != "" {
+		fmt.Println("  DeviceKey:" + " " + status.DeviceKey)
 	}
 	if status.Token != "" {
 		fmt.Println("  Token:    " + status.Token)
@@ -162,9 +176,35 @@ func (t *TUI) setServer() {
 	t.sendAndPrint("PORT=" + port)
 }
 
-func (t *TUI) setToken() {
-	token := t.readLine("Auth token (empty to clear): ")
-	t.sendAndPrint("TOKEN=" + token)
+func randomDeviceKey() (string, error) {
+	var raw [32]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(raw[:]), nil
+}
+
+func (t *TUI) provisionDeviceKey() {
+	status, err := t.bridge.GetStatus()
+	if err != nil {
+		fmt.Println(color("Error reading status: "+err.Error(), colorRed))
+		return
+	}
+	if status.DeviceID == "" {
+		fmt.Println(color("Device ID missing from STATUS output.", colorRed))
+		return
+	}
+	key, err := randomDeviceKey()
+	if err != nil {
+		fmt.Println(color("Error generating device key: "+err.Error(), colorRed))
+		return
+	}
+	if err := t.store.ProvisionDevice(status.DeviceID, key); err != nil {
+		fmt.Println(color("Error storing device key: "+err.Error(), colorRed))
+		return
+	}
+	t.sendAndPrint("DEVICEKEY=" + key)
+	fmt.Println(color("Telemetry key provisioned for "+status.DeviceID+".", colorGreen))
 }
 
 func (t *TUI) clearCredentials() {
@@ -193,7 +233,7 @@ func (t *TUI) Run() {
 		case "4":
 			t.setServer()
 		case "5":
-			t.setToken()
+			t.provisionDeviceKey()
 		case "6":
 			t.clearCredentials()
 		case "0", "q", "quit", "exit":

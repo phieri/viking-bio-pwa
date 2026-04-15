@@ -239,6 +239,12 @@ func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
 	}
 }
 
+func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {
+	result := h.updateBurnerState(body, now)
+	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
+	h.triggerNotifications(result)
+}
+
 // HandleMachineData serves POST /api/machine-data.
 func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 	if !h.authenticateWebhook(r) {
@@ -252,11 +258,7 @@ func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := h.updateBurnerState(body, time.Now())
-
-	log.Printf("webhook: data received (flame=%v, temp=%.1f°C, err=%.0f)", result.flame, result.temp, result.err)
-
-	h.triggerNotifications(result)
+	h.processMachineData(body, "webhook", time.Now())
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

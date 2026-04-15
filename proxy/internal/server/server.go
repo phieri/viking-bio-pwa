@@ -17,6 +17,7 @@ import (
 	"github.com/phieri/viking-bio-pwa/proxy/internal/cert"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 // localNetworks holds the private and loopback IP ranges used by localNetworkOnly.
@@ -77,6 +78,7 @@ type Server struct {
 	handler    *Handlers
 	httpSrv    *http.Server
 	acmeSrv    *http.Server
+	ingestSrv  *tcpIngestServer
 	notifyOnly bool
 	// OnReady is called with the dashboard URL once the server is accepting connections.
 	OnReady func(url string)
@@ -84,9 +86,14 @@ type Server struct {
 
 // New creates a Server. When notifyOnly is true the server skips the dashboard,
 // Let's Encrypt/ACME, and restricts connections to the local network.
-func New(cfg *config.Config, pushMgr *push.Manager, notifyOnly bool) *Server {
+func New(cfg *config.Config, pushMgr *push.Manager, store *storage.Store, notifyOnly bool) *Server {
 	h := NewHandlers(cfg, pushMgr)
-	return &Server{cfg: cfg, handler: h, notifyOnly: notifyOnly}
+	return &Server{
+		cfg:        cfg,
+		handler:    h,
+		ingestSrv:  newTCPIngestServer(cfg, store, h),
+		notifyOnly: notifyOnly,
+	}
 }
 
 // staticFS returns the filesystem to serve static files from.
@@ -149,6 +156,12 @@ func jsonMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	go func() {
+		if err := s.ingestSrv.Start(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("ingest: %v", err)
+		}
+	}()
+
 	mux := s.buildMux()
 	addr := fmt.Sprintf("[::]:%d", s.cfg.HTTPPort)
 	if !s.notifyOnly {
