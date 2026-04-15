@@ -129,10 +129,10 @@ func (t *TUI) showStatus() {
 		fmt.Printf("  Server:   %s:%d\n", status.Server, status.Port)
 	}
 	if status.Telemetry != "" {
-		fmt.Println("  Telemetry:" + " " + status.Telemetry)
+		fmt.Println("  Telemetry: " + status.Telemetry)
 	}
 	if status.DeviceKey != "" {
-		fmt.Println("  DeviceKey:" + " " + status.DeviceKey)
+		fmt.Println("  DeviceKey: " + status.DeviceKey)
 	}
 	if status.Token != "" {
 		fmt.Println("  Token:    " + status.Token)
