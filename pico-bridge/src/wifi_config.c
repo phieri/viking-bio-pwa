@@ -193,11 +193,21 @@ bool wifi_config_save(const char *ssid, const char *password) {
 }
 
 void wifi_config_clear(void) {
-	lfs_hal_delete_file(WIFI_CONFIG_FILE);
-	lfs_hal_delete_file(WIFI_SERVER_FILE);
-	lfs_hal_delete_file(WIFI_HOOK_FILE);
-	lfs_hal_delete_file(WIFI_DEVICE_KEY_FILE);
-	lfs_hal_delete_file(WIFI_BOOT_COUNTER_FILE);
+	if (!lfs_hal_delete_file(WIFI_CONFIG_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_CONFIG_FILE);
+	}
+	if (!lfs_hal_delete_file(WIFI_SERVER_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_SERVER_FILE);
+	}
+	if (!lfs_hal_delete_file(WIFI_HOOK_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_HOOK_FILE);
+	}
+	if (!lfs_hal_delete_file(WIFI_DEVICE_KEY_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_DEVICE_KEY_FILE);
+	}
+	if (!lfs_hal_delete_file(WIFI_BOOT_COUNTER_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_BOOT_COUNTER_FILE);
+	}
 
 	memset(s_ssid, 0, sizeof(s_ssid));
 	memset(s_pass, 0, sizeof(s_pass));

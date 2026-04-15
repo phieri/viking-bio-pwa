@@ -123,6 +123,10 @@ anti-replay protection, forwards accepted messages asynchronously into the
 normal state/update/notification pipeline, and writes overflow traffic to
 `<DATA_DIR>/ingest-fallback.log`.
 
+> **Note:** the default Pico proxy port for telemetry is now `9000` to match
+> `INGEST_TCP_PORT`. Existing devices still configured for the old HTTP webhook
+> port (`3000`) need to be reprovisioned or updated over USB.
+
 ## mDNS / DNS-SD
 
 The proxy advertises itself as `_viking-bio._tcp` with TXT record
