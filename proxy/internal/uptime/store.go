@@ -117,45 +117,46 @@ func dateFromISO8601(s string) string {
 	return time.Now().UTC().Format("2006-01-02")
 }
 
-func (s *Store) bucketsPath(deviceID, date string) string {
-	// Defense-in-depth: bucket files are keyed by YYYY-MM-DD only.
-	// Keep path construction safe even if callers pass unchecked input.
+// bucketsPath returns the validated path for the bucket JSONL file.
+// It uses filepath.Clean and a prefix guard so that CodeQL can verify
+// that user-supplied values cannot escape the storage directory.
+func (s *Store) bucketsPath(deviceID, date string) (string, error) {
 	if !isValidDate(date) {
-		date = "invalid-date"
+		return "", fmt.Errorf("invalid date: %q", date)
 	}
-	return filepath.Join(s.dataDir, "uptime", "buckets", sanitizeID(deviceID), date+".jsonl")
+	base := filepath.Clean(filepath.Join(s.dataDir, "uptime", "buckets"))
+	p := filepath.Clean(filepath.Join(base, sanitizeID(deviceID), date+".jsonl"))
+	if !strings.HasPrefix(p, base+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes storage directory")
+	}
+	return p, nil
 }
 
-func (s *Store) dailyPath(deviceID, date string) string {
-	// Defense-in-depth: daily summaries are keyed by YYYY-MM-DD only.
-	// Callers already validate, but keep path construction safe even if called directly.
+// dailyPath returns the validated path for the daily summary JSON file.
+// It uses filepath.Clean and a prefix guard so that CodeQL can verify
+// that user-supplied values cannot escape the storage directory.
+func (s *Store) dailyPath(deviceID, date string) (string, error) {
 	if !isValidDate(date) {
-		date = "invalid-date"
+		return "", fmt.Errorf("invalid date: %q", date)
 	}
-	return filepath.Join(s.dataDir, "uptime", "daily", sanitizeID(deviceID), date+".json")
+	base := filepath.Clean(filepath.Join(s.dataDir, "uptime", "daily"))
+	p := filepath.Clean(filepath.Join(base, sanitizeID(deviceID), date+".json"))
+	if !strings.HasPrefix(p, base+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes storage directory")
+	}
+	return p, nil
 }
 
-func ensureWithinBase(baseDir, targetPath string) error {
-	absBase, err := filepath.Abs(baseDir)
-	if err != nil {
-		return fmt.Errorf("resolve base dir: %w", err)
+// seenBatchesPath returns the validated path for the seen-batches text file.
+// It uses filepath.Clean and a prefix guard so that CodeQL can verify
+// that user-supplied values cannot escape the storage directory.
+func (s *Store) seenBatchesPath(deviceID string) (string, error) {
+	base := filepath.Clean(filepath.Join(s.dataDir, "uptime", "seen-batches"))
+	p := filepath.Clean(filepath.Join(base, sanitizeID(deviceID)+".txt"))
+	if !strings.HasPrefix(p, base+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes storage directory")
 	}
-	absTarget, err := filepath.Abs(targetPath)
-	if err != nil {
-		return fmt.Errorf("resolve target path: %w", err)
-	}
-	rel, err := filepath.Rel(absBase, absTarget)
-	if err != nil {
-		return fmt.Errorf("compute relative path: %w", err)
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return fmt.Errorf("invalid path outside allowed directory")
-	}
-	return nil
-}
-
-func (s *Store) seenBatchesPath(deviceID string) string {
-	return filepath.Join(s.dataDir, "uptime", "seen-batches", sanitizeID(deviceID)+".txt")
+	return p, nil
 }
 
 // AppendBuckets deduplicates and persists buckets from a BucketBatch, then
@@ -235,9 +236,8 @@ func (s *Store) appendDayBuckets(deviceID, date string, buckets []Bucket) ([]Buc
 		return nil, nil
 	}
 
-	path := s.bucketsPath(deviceID, date)
-	baseDir := filepath.Join(s.dataDir, "uptime", "buckets")
-	if err := ensureWithinBase(baseDir, path); err != nil {
+	path, err := s.bucketsPath(deviceID, date)
+	if err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -260,7 +260,10 @@ func (s *Store) appendDayBuckets(deviceID, date string, buckets []Bucket) ([]Buc
 // aggregateToDailySummary reads the existing daily summary (if any), adds the
 // contribution of newBuckets, and writes the result atomically.
 func (s *Store) aggregateToDailySummary(deviceID, date string, newBuckets []Bucket, source string) error {
-	path := s.dailyPath(deviceID, date)
+	path, err := s.dailyPath(deviceID, date)
+	if err != nil {
+		return err
+	}
 	dir := filepath.Dir(path)
 
 	var sum DailySummary
@@ -296,8 +299,8 @@ func (s *Store) UpsertDailySummary(sum DailySummary) error {
 		return fmt.Errorf("date must be a valid YYYY-MM-DD string, got %q", sum.Date)
 	}
 
-	path := s.dailyPath(sum.DeviceID, sum.Date)
-	if err := ensureWithinBase(filepath.Join(s.dataDir, "uptime", "daily"), path); err != nil {
+	path, err := s.dailyPath(sum.DeviceID, sum.Date)
+	if err != nil {
 		return err
 	}
 	dir := filepath.Dir(path)
@@ -333,7 +336,11 @@ func (s *Store) GetDailySummaries(deviceID, from, to string) ([]DailySummary, er
 		return nil, fmt.Errorf("to must be a valid YYYY-MM-DD string, got %q", to)
 	}
 
-	dir := filepath.Join(s.dataDir, "uptime", "daily", sanitizeID(deviceID))
+	base := filepath.Clean(filepath.Join(s.dataDir, "uptime", "daily"))
+	dir := filepath.Clean(filepath.Join(base, sanitizeID(deviceID)))
+	if !strings.HasPrefix(dir, base+string(os.PathSeparator)) {
+		return nil, fmt.Errorf("invalid device_id")
+	}
 	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -376,11 +383,13 @@ func (s *Store) GetDailySummaries(deviceID, from, to string) ([]DailySummary, er
 // loadBucketIDs reads the bucket JSONL file for (deviceID, date) and returns
 // the set of bucket_ids already stored there.
 func (s *Store) loadBucketIDs(deviceID, date string) (map[string]bool, error) {
-	// Defense-in-depth at the sink: refuse unexpected date path components.
 	if !isValidDate(date) {
 		return make(map[string]bool), nil
 	}
-	path := s.bucketsPath(deviceID, date)
+	path, err := s.bucketsPath(deviceID, date)
+	if err != nil {
+		return nil, err
+	}
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return make(map[string]bool), nil
@@ -402,7 +411,11 @@ func (s *Store) loadBucketIDs(deviceID, date string) (map[string]bool, error) {
 
 // hasSeenBatch reports whether batchID appears in the device's seen-batches file.
 func (s *Store) hasSeenBatch(deviceID, batchID string) bool {
-	f, err := os.Open(s.seenBatchesPath(deviceID))
+	path, err := s.seenBatchesPath(deviceID)
+	if err != nil {
+		return false
+	}
+	f, err := os.Open(path)
 	if err != nil {
 		return false
 	}
@@ -418,7 +431,11 @@ func (s *Store) hasSeenBatch(deviceID, batchID string) bool {
 
 // recordSeenBatch appends batchID to the device's seen-batches file.
 func (s *Store) recordSeenBatch(deviceID, batchID string) {
-	path := s.seenBatchesPath(deviceID)
+	path, err := s.seenBatchesPath(deviceID)
+	if err != nil {
+		log.Printf("uptime: invalid device ID for seen-batches: %v", err)
+		return
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		log.Printf("uptime: mkdir seen-batches: %v", err)
 		return
@@ -436,15 +453,9 @@ func (s *Store) recordSeenBatch(deviceID, batchID string) {
 
 // atomicWriteJSON marshals v as indented JSON and writes it to path via a
 // temporary file in the same directory (rename is atomic on POSIX).
+// Both dir and path must have been validated by the caller (e.g. via dailyPath).
 func atomicWriteJSON(dir, path string, v any) error {
-	// Validate the directory target before creating it.
-	if err := ensureWithinBase(filepath.Dir(path), dir); err != nil {
-		return err
-	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	if err := ensureWithinBase(dir, path); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(v, "", "  ")
