@@ -2,32 +2,13 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
-
-// State holds the shared burner telemetry state.
-type State struct {
-	mu                       sync.RWMutex
-	Flame                    bool    `json:"flame"`
-	Fan                      float64 `json:"fan"`
-	Temp                     float64 `json:"temp"`
-	Err                      float64 `json:"err"`
-	Valid                    bool    `json:"valid"`
-	FlameSecs                int64   `json:"flame_secs"`
-	UpdatedAt                int64   `json:"updated_at"`
-	lastFlameTime            int64   // ms; zero means flame was off last update
-	errorNotified            bool
-	lastCleanReminderDay     int64
-	lastCleanReminderSeconds int64
-}
 
 // Handlers bundles all HTTP handler dependencies.
 type Handlers struct {
@@ -54,24 +35,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 // HandleGetData serves GET /api/data.
 func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
-	h.state.mu.RLock()
-	out := struct {
-		Flame     bool    `json:"flame"`
-		Fan       float64 `json:"fan"`
-		Temp      float64 `json:"temp"`
-		Err       float64 `json:"err"`
-		Valid     bool    `json:"valid"`
-		FlameSecs int64   `json:"flame_secs"`
-	}{
-		Flame:     h.state.Flame,
-		Fan:       h.state.Fan,
-		Temp:      h.state.Temp,
-		Err:       h.state.Err,
-		Valid:     h.state.Valid,
-		FlameSecs: h.state.FlameSecs,
-	}
-	h.state.mu.RUnlock()
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, h.state.snapshot())
 }
 
 // HandleGetVapidKey serves GET /api/vapid-public-key.
@@ -87,143 +51,13 @@ func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]int{"count": h.pushMgr.GetSubscriptionCount()})
 }
 
-// machineDataBody is the shared telemetry payload shape used by ingest and state updates.
-type machineDataBody struct {
-	Flame *bool    `json:"flame"`
-	Fan   *float64 `json:"fan"`
-	Temp  *float64 `json:"temp"`
-	Err   *float64 `json:"err"`
-	Valid *bool    `json:"valid"`
-}
-
-type machineDataUpdateResult struct {
-	flameChanged bool
-	newErr       bool
-	cleanDue     bool
-	flame        bool
-	temp         float64
-	err          float64
-	cleanBody    string
-}
-
-func formatFlameSeconds(secs int64) string {
-	hours := secs / 3600
-	minutes := (secs % 3600) / 60
-	switch {
-	case hours == 0:
-		return fmt.Sprintf("%d min", minutes)
-	case minutes == 0:
-		return fmt.Sprintf("%d h", hours)
-	default:
-		return fmt.Sprintf("%d h %d min", hours, minutes)
-	}
-}
-
-func isCleaningReminderWindow(now time.Time) bool {
-	now = now.UTC()
-	month := now.Month()
-	inSeason := month == time.November ||
-		month == time.December ||
-		month == time.January ||
-		month == time.February ||
-		month == time.March
-	if !inSeason {
-		return false
-	}
-	return now.Weekday() == time.Saturday && now.Hour() == 7 && now.Minute() < 30
-}
-
-func decodeMachineData(r io.Reader) (machineDataBody, error) {
-	var body machineDataBody
-	if err := json.NewDecoder(r).Decode(&body); err != nil {
-		return machineDataBody{}, err
-	}
-	if body.Flame == nil || body.Fan == nil || body.Temp == nil || body.Err == nil || body.Valid == nil {
-		return machineDataBody{}, fmt.Errorf("missing required field")
-	}
-	return body, nil
-}
-
 func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machineDataUpdateResult {
-	h.state.mu.Lock()
-	defer h.state.mu.Unlock()
-
-	prevFlame := h.state.Flame
-	prevErr := h.state.Err
-	nowMillis := now.UnixMilli()
-
-	if prevFlame && h.state.lastFlameTime != 0 {
-		elapsed := nowMillis - h.state.lastFlameTime
-		if elapsed > 0 {
-			h.state.FlameSecs += elapsed / 1000
-			h.state.lastFlameTime = nowMillis - (elapsed % 1000)
-		}
-	}
-
-	h.state.Flame = *body.Flame
-	h.state.Fan = *body.Fan
-	h.state.Temp = *body.Temp
-	h.state.Err = *body.Err
-	h.state.Valid = *body.Valid
-
-	h.state.UpdatedAt = nowMillis
-	if h.state.Flame {
-		if !prevFlame {
-			h.state.lastFlameTime = nowMillis
-		}
-	} else {
-		h.state.lastFlameTime = 0
-	}
-
-	result := machineDataUpdateResult{
-		flameChanged: h.state.Flame != prevFlame,
-		newErr:       h.state.Err != 0 && h.state.Err != prevErr && !h.state.errorNotified,
-		flame:        h.state.Flame,
-		temp:         h.state.Temp,
-		err:          h.state.Err,
-	}
-	if result.newErr {
-		h.state.errorNotified = true
-	}
-	if h.state.Err == 0 {
-		h.state.errorNotified = false
-	}
-	if isCleaningReminderWindow(now) {
-		today := now.UTC().Unix() / 86400
-		if h.state.lastCleanReminderDay == 0 || today-h.state.lastCleanReminderDay >= 7 {
-			flameSecsSinceReminder := h.state.FlameSecs - h.state.lastCleanReminderSeconds
-			if flameSecsSinceReminder < 0 {
-				flameSecsSinceReminder = 0
-			}
-			result.cleanDue = true
-			result.cleanBody = fmt.Sprintf(
-				"Clean the burner. Flame-on since last reminder: %s.",
-				formatFlameSeconds(flameSecsSinceReminder),
-			)
-			h.state.lastCleanReminderDay = today
-			h.state.lastCleanReminderSeconds = h.state.FlameSecs
-		}
-	}
-
-	return result
+	return h.state.applyMachineData(body, now)
 }
 
 func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
-	if result.flameChanged {
-		title := "Viking Bio: Låga släckt"
-		body := "Pannan har slocknat"
-		if result.flame {
-			title = "Viking Bio: Låga tänd"
-			body = fmt.Sprintf("Pannan tänd – %.0f °C", result.temp)
-		}
-		go h.notifyByType("flame", title, body)
-	}
-	if result.newErr {
-		go h.notifyByType("error", "Viking Bio: Fel",
-			fmt.Sprintf("Felkod %.0f detekterad", result.err))
-	}
-	if result.cleanDue {
-		go h.notifyByType("clean", "Viking Bio: Cleaning Reminder", result.cleanBody)
+	for _, notification := range notificationsForMachineData(result) {
+		go h.notifyByType(notification.typ, notification.title, notification.body)
 	}
 }
 

@@ -175,8 +175,7 @@ func staticFS() http.FileSystem {
 	return http.FS(sub)
 }
 
-func (s *Server) buildMux() http.Handler {
-	mux := http.NewServeMux()
+func (s *Server) registerAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/data", methodGuard(http.MethodGet, s.handler.HandleGetData))
 	mux.HandleFunc("/api/vapid-public-key", methodGuard(http.MethodGet, s.handler.HandleGetVapidKey))
 	mux.HandleFunc("/api/subscribers", methodGuard(http.MethodGet, s.handler.HandleGetSubscribers))
@@ -185,6 +184,11 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
+}
+
+func (s *Server) buildMux() http.Handler {
+	mux := http.NewServeMux()
+	s.registerAPIRoutes(mux)
 	if !s.notifyOnly {
 		mux.Handle("/", http.FileServer(staticFS()))
 	}
