@@ -95,6 +95,13 @@ jobs:
         sock.close()
         PY
         sleep 1
+        python - <<'PY'
+        import json
+
+        with open("/tmp/proxy-data/devices.json", "r", encoding="utf-8") as f:
+            devices = json.load(f)
+        assert devices["ci-device"]["last_seq"] == 1, devices
+        PY
         test "$(curl -s -o /tmp/legacy-route.out -w '%{http_code}' -X POST http://localhost:3000/api/machine-data)" = "404"
         curl -sf http://localhost:3000/api/data | grep -q '"valid":true'
         echo "Proxy started and responded successfully"
