@@ -1,6 +1,8 @@
 package server
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -188,5 +190,38 @@ func TestStateSnapshot(t *testing.T) {
 	if got.Flame != state.Flame || got.Fan != state.Fan || got.Temp != state.Temp ||
 		got.Err != state.Err || got.Valid != state.Valid || got.FlameSecs != state.FlameSecs {
 		t.Fatalf("snapshot() = %#v, state = %#v", got, state)
+	}
+}
+
+func TestHandleGetDataReturnsStateSnapshot(t *testing.T) {
+	t.Parallel()
+
+	h := newInternalTestHandlers(t)
+	h.state.Flame = true
+	h.state.Fan = 55
+	h.state.Temp = 74
+	h.state.Err = 3
+	h.state.Valid = true
+	h.state.FlameSecs = 456
+
+	req := httptest.NewRequest(http.MethodGet, "/api/data", nil)
+	rr := httptest.NewRecorder()
+	h.HandleGetData(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	for _, needle := range []string{
+		`"flame":true`,
+		`"fan":55`,
+		`"temp":74`,
+		`"err":3`,
+		`"valid":true`,
+		`"flame_secs":456`,
+	} {
+		if !strings.Contains(body, needle) {
+			t.Fatalf("expected response body %q to contain %q", body, needle)
+		}
 	}
 }

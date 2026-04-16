@@ -18,7 +18,7 @@ type State struct {
 	Valid                    bool    `json:"valid"`
 	FlameSecs                int64   `json:"flame_secs"`
 	UpdatedAt                int64   `json:"updated_at"`
-	lastFlameTime            int64 // ms; zero means flame was off last update
+	lastFlameTime            int64   // ms; zero means flame was off last update
 	errorNotified            bool
 	lastCleanReminderDay     int64
 	lastCleanReminderSeconds int64
