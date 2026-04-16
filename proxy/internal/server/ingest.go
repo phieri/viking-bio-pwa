@@ -206,8 +206,8 @@ func (s *tcpIngestServer) Start(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return nil
 			}
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
-				log.Printf("ingest: temporary accept error: %v", err)
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				log.Printf("ingest: timeout on accept: %v", err)
 				continue
 			}
 			return fmt.Errorf("accept ingest connection: %w", err)
