@@ -27,9 +27,13 @@ type Subscription struct {
 
 // Store persists subscriptions to a JSON file with thread-safe access.
 type Store struct {
-	mu   sync.RWMutex
-	path string
-	subs []Subscription
+	mu           sync.RWMutex
+	dataDir      string
+	path         string
+	devicesPath  string
+	fallbackPath string
+	subs         []Subscription
+	devices      map[string]DeviceRecord
 }
 
 // NewStore creates a Store backed by the given file path.
@@ -48,9 +52,15 @@ func NewStore(dataDir string) (*Store, error) {
 # Port for the HTTP/HTTPS dashboard server (default: 3000)
 # HTTP_PORT=3000
 
-# Webhook authentication token – the Pico bridge must send this in X-Hook-Auth.
-# Set to a strong random string in production; leave empty to disable auth.
-# MACHINE_WEBHOOK_AUTH_TOKEN=
+# Port for framed telemetry ingest from the Pico bridge (default: 9000)
+# INGEST_TCP_PORT=9000
+
+# Set to 1/true to require TLS on the ingest listener.
+# Requires TLS_CERT_PATH and TLS_KEY_PATH.
+# INGEST_TCP_TLS=0
+
+# Webhook removed — reprovision devices to use INGEST_TCP_PORT=9000 and
+# per-device telemetry keys.
 
 # Bearer token for the uptime collection endpoints (/api/v1/uptime/*).
 # Set to a strong random string in production; leave empty to disable auth.
@@ -73,6 +83,7 @@ func NewStore(dataDir string) (*Store, error) {
 # ---------------------------------------------------------------------------
 # Data directory (VAPID keys, subscriptions, ACME cache, uptime data)
 # ---------------------------------------------------------------------------
+# Device provisioning stores per-device secrets in devices.json here.
 # DATA_DIR=/var/lib/viking-bio-proxy
 `
 		// Writing the config template is best-effort: a failure (e.g. read-only
@@ -81,8 +92,15 @@ func NewStore(dataDir string) (*Store, error) {
 			log.Printf("storage: failed to write %s: %v", cfgPath, err)
 		}
 	}
-	s := &Store{path: filepath.Join(dataDir, "subscriptions.json")}
+	s := &Store{
+		dataDir:      dataDir,
+		path:         filepath.Join(dataDir, "subscriptions.json"),
+		devicesPath:  filepath.Join(dataDir, "devices.json"),
+		fallbackPath: filepath.Join(dataDir, "ingest-fallback.log"),
+		devices:      make(map[string]DeviceRecord),
+	}
 	s.load()
+	s.loadDevices()
 	return s, nil
 }
 
@@ -105,39 +123,7 @@ func (s *Store) load() {
 }
 
 func (s *Store) save() {
-	data, err := json.MarshalIndent(s.subs, "", "  ")
-	if err != nil {
-		log.Printf("storage: failed to marshal subscriptions: %v", err)
-		return
-	}
-
-	dir := filepath.Dir(s.path)
-	tmp, err := os.CreateTemp(dir, "subscriptions-*.json")
-	if err != nil {
-		log.Printf("storage: failed to create temp file: %v", err)
-		return
-	}
-	tmpName := tmp.Name()
-	defer func() {
-		if err := os.Remove(tmpName); err != nil && !os.IsNotExist(err) {
-			log.Printf("storage: failed to remove temp file %s: %v", tmpName, err)
-		}
-	}()
-
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		log.Printf("storage: failed to write temp subscriptions: %v", err)
-		return
-	}
-	if err := tmp.Close(); err != nil {
-		log.Printf("storage: failed to close temp subscriptions: %v", err)
-		return
-	}
-	if err := os.Chmod(tmpName, 0o644); err != nil {
-		log.Printf("storage: failed to chmod temp subscriptions: %v", err)
-		return
-	}
-	if err := os.Rename(tmpName, s.path); err != nil {
+	if err := writeAtomicJSON(s.path, s.subs, 0o644); err != nil {
 		log.Printf("storage: failed to write subscriptions: %v", err)
 	}
 }

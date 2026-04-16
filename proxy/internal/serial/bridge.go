@@ -27,10 +27,11 @@ type StatusResult struct {
 	Connected bool
 	Addresses []string
 	Country   string
+	DeviceID  string
 	Server    string
 	Port      int
-	Webhook   string
-	Token     string
+	Telemetry string
+	DeviceKey string
 }
 
 // Bridge communicates with the Pico W over USB serial.
@@ -137,34 +138,46 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 		if line == "" {
 			continue
 		}
-		if strings.Contains(strings.ToLower(line), "connected") {
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "connected") && !strings.Contains(lower, "disconnected") {
 			r.Connected = true
 		}
-		if strings.HasPrefix(line, "addr:") || strings.HasPrefix(line, "Address:") {
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				r.Addresses = append(r.Addresses, strings.TrimSpace(parts[1]))
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(parts[0]))
+		value := strings.TrimSpace(parts[1])
+		switch key {
+		case "addr", "address":
+			r.Addresses = append(r.Addresses, value)
+		case "country":
+			r.Country = value
+		case "device":
+			r.DeviceID = value
+		case "server":
+			if idx := strings.LastIndex(value, ":"); idx > 0 {
+				r.Server = strings.TrimSpace(value[:idx])
+				n, err := strconv.Atoi(strings.TrimSpace(value[idx+1:]))
+				if err != nil {
+					log.Printf("serial: parse server port value: %v", err)
+				} else {
+					r.Port = n
+				}
+			} else {
+				r.Server = value
 			}
-		}
-		if strings.HasPrefix(line, "Country:") {
-			r.Country = strings.TrimSpace(strings.TrimPrefix(line, "Country:"))
-		}
-		if strings.HasPrefix(line, "Server:") {
-			r.Server = strings.TrimSpace(strings.TrimPrefix(line, "Server:"))
-		}
-		if strings.HasPrefix(line, "Port:") {
-			n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(line, "Port:")))
+		case "port":
+			n, err := strconv.Atoi(value)
 			if err != nil {
 				log.Printf("serial: parse Port value: %v", err)
 			} else {
 				r.Port = n
 			}
-		}
-		if strings.HasPrefix(line, "Webhook:") || strings.HasPrefix(line, "Hook:") {
-			r.Webhook = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
-		}
-		if strings.HasPrefix(line, "Token:") {
-			r.Token = strings.TrimSpace(strings.TrimPrefix(line, "Token:"))
+		case "telemetry":
+			r.Telemetry = value
+		case "device key":
+			r.DeviceKey = value
 		}
 	}
 	return r

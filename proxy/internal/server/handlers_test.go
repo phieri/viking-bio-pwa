@@ -8,14 +8,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/server"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/uptime"
 )
 
-func newTestHandlers(t *testing.T, cfg *config.Config) *server.Handlers {
+func newTestHandlers(t *testing.T, uptimeAuthToken string) *server.Handlers {
 	t.Helper()
 	dir := t.TempDir()
 	store, err := storage.NewStore(dir)
@@ -26,11 +25,8 @@ func newTestHandlers(t *testing.T, cfg *config.Config) *server.Handlers {
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
 	uptimeStore := uptime.NewStore(dir)
-	return server.NewHandlers(cfg, mgr, uptimeStore)
+	return server.NewHandlers(mgr, uptimeStore, uptimeAuthToken)
 }
 
 func postJSON(t *testing.T, h http.HandlerFunc, body any, headers map[string]string) *http.Response {
@@ -66,7 +62,7 @@ func decodeJSON(t *testing.T, r *http.Response) map[string]any {
 }
 
 func TestGetVapidKey_ProxySource(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	resp := getReq(t, h.HandleGetVapidKey)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
@@ -81,7 +77,7 @@ func TestGetVapidKey_ProxySource(t *testing.T) {
 }
 
 func TestSubscribe_Valid(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	body := map[string]any{
 		"endpoint": "https://example.com/push/test",
 		"p256dh":   "p256dhkey",
@@ -98,81 +94,13 @@ func TestSubscribe_Valid(t *testing.T) {
 	}
 }
 
-func TestMachineData_ValidAuth(t *testing.T) {
-	cfg := &config.Config{WebhookAuthToken: "secret123"}
-	h := newTestHandlers(t, cfg)
-	body := map[string]any{
-		"flame": true,
-		"fan":   50.0,
-		"temp":  75.0,
-		"err":   0.0,
-		"valid": true,
-	}
-	resp := postJSON(t, h.HandleMachineData, body, map[string]string{
-		"X-Hook-Auth": "secret123",
-	})
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
-	}
-	m := decodeJSON(t, resp)
-	if m["status"] != "ok" {
-		t.Errorf("expected status=ok, got %v", m["status"])
-	}
-}
-
-func TestMachineData_WrongToken(t *testing.T) {
-	cfg := &config.Config{WebhookAuthToken: "secret123"}
-	h := newTestHandlers(t, cfg)
-	body := map[string]any{
-		"flame": false,
-		"fan":   0.0,
-		"temp":  20.0,
-		"err":   0.0,
-		"valid": true,
-	}
-	resp := postJSON(t, h.HandleMachineData, body, map[string]string{
-		"X-Hook-Auth": "wrongtoken",
-	})
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", resp.StatusCode)
-	}
-}
-
-func TestMachineData_InvalidBody(t *testing.T) {
-	h := newTestHandlers(t, nil)
-	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(`{"flame":true}`)))
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-	h.HandleMachineData(rr, req)
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", rr.Code)
-	}
-}
-
-func FuzzHandleMachineData(f *testing.F) {
-	f.Add(`{"flame":true,"fan":50,"temp":75,"err":0,"valid":true}`)
-	f.Add(`{"flame":false}`)
-	f.Add(`not-json`)
-
-	f.Fuzz(func(t *testing.T, body string) {
-		h := newTestHandlers(t, nil)
-		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(body)))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		h.HandleMachineData(rr, req)
-		if rr.Code != http.StatusOK && rr.Code != http.StatusBadRequest {
-			t.Fatalf("unexpected status code %d for body %q", rr.Code, body)
-		}
-	})
-}
-
 func FuzzHandleSubscribe(f *testing.F) {
 	f.Add(`{"endpoint":"https://example.com","p256dh":"key","auth":"auth","prefs":{"flame":true}}`)
 	f.Add(`{"endpoint":""}`)
 	f.Add(`oops`)
 
 	f.Fuzz(func(t *testing.T, body string) {
-		h := newTestHandlers(t, nil)
+		h := newTestHandlers(t, "")
 		req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(body)))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
@@ -186,7 +114,7 @@ func FuzzHandleSubscribe(f *testing.F) {
 // --- Uptime handler tests ---------------------------------------------------
 
 func TestPostUptimeBuckets_ValidBatch(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	body := map[string]any{
 		"device_id": "pico-1",
 		"source":    "pico",
@@ -208,7 +136,7 @@ func TestPostUptimeBuckets_ValidBatch(t *testing.T) {
 }
 
 func TestPostUptimeBuckets_ValidDailySummary(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	body := map[string]any{
 		"device_id":    "pico-1",
 		"date":         "2024-01-15",
@@ -227,7 +155,7 @@ func TestPostUptimeBuckets_ValidDailySummary(t *testing.T) {
 }
 
 func TestPostUptimeBuckets_MissingDeviceID(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	body := map[string]any{
 		"buckets": []map[string]any{
 			{"start": "2024-01-15T10:00:00Z", "duration_seconds": 300, "seconds_on": 200},
@@ -240,8 +168,7 @@ func TestPostUptimeBuckets_MissingDeviceID(t *testing.T) {
 }
 
 func TestPostUptimeBuckets_RequiresAuth(t *testing.T) {
-	cfg := &config.Config{UptimeAuthToken: "secret"}
-	h := newTestHandlers(t, cfg)
+	h := newTestHandlers(t, "secret")
 	body := map[string]any{
 		"device_id":  "pico-1",
 		"date":       "2024-01-15",
@@ -269,7 +196,7 @@ func TestPostUptimeBuckets_RequiresAuth(t *testing.T) {
 }
 
 func TestGetUptimeDaily_RequiresDeviceID(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/uptime/daily", nil)
 	rr := httptest.NewRecorder()
 	h.HandleGetUptimeDaily(rr, req)
@@ -279,7 +206,7 @@ func TestGetUptimeDaily_RequiresDeviceID(t *testing.T) {
 }
 
 func TestGetUptimeDaily_ReturnsEmptyForUnknownDevice(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/uptime/daily?device_id=unknown", nil)
 	rr := httptest.NewRecorder()
 	h.HandleGetUptimeDaily(rr, req)
@@ -295,7 +222,7 @@ func TestGetUptimeDaily_ReturnsEmptyForUnknownDevice(t *testing.T) {
 }
 
 func TestPostThenGetUptimeDaily(t *testing.T) {
-	h := newTestHandlers(t, nil)
+	h := newTestHandlers(t, "")
 	// Post a daily summary
 	postBody := map[string]any{
 		"device_id":  "dev-42",
@@ -340,7 +267,7 @@ func FuzzHandlePostUptimeBuckets(f *testing.F) {
 	f.Add(`not-json`)
 
 	f.Fuzz(func(t *testing.T, body string) {
-		h := newTestHandlers(t, nil)
+		h := newTestHandlers(t, "")
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/uptime/buckets", bytes.NewReader([]byte(body)))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()

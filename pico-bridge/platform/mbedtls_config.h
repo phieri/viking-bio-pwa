@@ -5,7 +5,7 @@
  * Enables:
  *   - AES-128-GCM + SHA-256 for WiFi credential encryption
  *   - ECC P-256 (ECDH + ECDSA + CTR-DRBG + Entropy) for TLS client support
- *   - TLS 1.2 client (ECDHE-ECDSA, ECDHE-RSA) for HTTPS webhook delivery via altcp_tls
+ *   - TLS 1.2 client support available for secured proxy connections
  */
 
 #ifndef MBEDTLS_CONFIG_H

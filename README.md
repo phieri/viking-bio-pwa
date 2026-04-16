@@ -2,25 +2,23 @@
 
 A monorepo for the Viking Bio 20 pellet burner integration system. It consists of two components:
 
-1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it via HTTP webhook to the proxy
-2. **[proxy/](proxy/)** – Go proxy server that receives burner data via authenticated webhook, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, stores browser subscriptions, and sends Web Push notifications using proxy-managed VAPID keys
+1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the proxy
+2. **[proxy/](proxy/)** – Go proxy server that receives burner data over signed TCP ingest, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, stores browser subscriptions, and sends Web Push notifications using proxy-managed VAPID keys
 
 ## Architecture
 
 ```
 Viking Bio 20 ──UART──► Pico W (pico-bridge)
                               │
-                     HTTP webhook POST /api/machine-data
-                     X-Hook-Auth: <token>  (IPv6, e.g. [::1]:3000)
+                     Signed TCP ingest on INGEST_TCP_PORT
                               │
-                         Go Proxy (proxy)
-                         ├── HTTP/HTTPS server (IPv6 [::]:3000)
-                         │   ├── GET /                     Dashboard PWA
-                         │   ├── GET /api/data             Burner state (JSON)
-                         │   ├── POST /api/machine-data    Webhook from Pico (auth required)
-                         │   ├── GET /api/vapid-public-key Proxy VAPID public key
-                         │   ├── GET /api/subscribers      Subscription count
-                         │   ├── POST /api/subscribe       Add/update subscription
+                          Go Proxy (proxy)
+                          ├── HTTP/HTTPS server (IPv6 [::]:3000)
+                          │   ├── GET /                     Dashboard PWA
+                          │   ├── GET /api/data             Burner state (JSON)
+                          │   ├── GET /api/vapid-public-key Proxy VAPID public key
+                          │   ├── GET /api/subscribers      Subscription count
+                          │   ├── POST /api/subscribe       Add/update subscription
                          │   └── POST /api/unsubscribe     Remove subscription
                          └── Web Push notifications
  Browser push subscriptions and all notification handling live in the proxy.
@@ -31,8 +29,8 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
 The Pico firmware:
 - Reads Viking Bio 20 serial data (UART0, GPIO1, 9600 baud, 8N1)
 - Parses binary (`[0xAA] [FLAGS] [SPEED] [TEMP_H] [TEMP_L] [0x55]`) and text (`F:1,S:50,T:75`) protocols
-- Posts parsed data as JSON to the proxy via **HTTP webhook** (replaces the old TCP transport)
-- WiFi credentials, proxy server address, and webhook auth token stored in LittleFS (credentials encrypted with AES-128-GCM)
+- Streams parsed data to the proxy via signed persistent TCP ingest
+- WiFi credentials, proxy server address, and telemetry device key stored in LittleFS (credentials encrypted with AES-128-GCM)
 - Configurable via USB serial (115200 baud)
 
 ### Hardware
@@ -66,15 +64,15 @@ Connect via USB serial (115200 baud) to configure:
 | `PASS=<password>` | Set password and save (reboots) |
 | `COUNTRY=<CC>` | Set Wi-Fi country code (e.g. SE, US, GB) |
 | `SERVER=<ip>` | Set proxy server IP/hostname (IPv6 bare address without brackets) |
-| `PORT=<port>` | Set proxy server port (default: 3000) |
-| `TOKEN=<token>` | Set webhook `X-Hook-Auth` authentication token |
-| `STATUS` | Show WiFi, server, webhook, and token status |
+| `PORT=<port>` | Set proxy server port (default: 9000) |
+| `DEVICEKEY=<key>` | Set the provisioned telemetry device key |
+| `STATUS` | Show WiFi, server, and telemetry status |
 | `CLEAR` | Erase stored credentials (reboots) |
 
 ## proxy
 
 The Go proxy server (replaces the previous Node.js implementation):
-- **HTTP webhook** endpoint (`POST /api/machine-data`, authenticated via `X-Hook-Auth` header) receives JSON telemetry from the Pico bridge
+- Signed TCP ingest on `INGEST_TCP_PORT` receives framed telemetry from the Pico bridge
 - Go net/http server serves the PWA dashboard; binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
 - Web Push notifications via `web-push` with proxy-generated VAPID keys
@@ -96,11 +94,11 @@ The TUI guides you through:
 
 | Option | Description |
 |--------|-------------|
-| **Show status** | Reads WiFi state, server config, and token status from the device |
+| **Show status** | Reads WiFi state, server config, and telemetry status from the device |
 | **Configure WiFi** | Sets SSID + password (device reboots to connect) |
 | **Set country code** | Sets the Wi-Fi regulatory domain (e.g. `SE`, `US`, `GB`) |
 | **Set proxy server** | Sets the IP address and port of this proxy computer |
-| **Set auth token** | Sets the `X-Hook-Auth` token (must match `MACHINE_WEBHOOK_AUTH_TOKEN`) |
+| **Provision telemetry key** | Generates/stores a per-device key on the proxy and sends it to the Pico |
 | **Clear credentials** | Erases all stored credentials and reboots the device |
 
 ### PWA Dashboard
@@ -122,7 +120,7 @@ With custom configuration:
 
 ```bash
 HTTP_PORT=8080 \
-MACHINE_WEBHOOK_AUTH_TOKEN=mysecrettoken \
+INGEST_TCP_PORT=9000 \
 ./viking-bio-proxy
 ```
 
@@ -130,8 +128,10 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 
 Defensive validation notes:
 - `HTTP_PORT` and `ACME_HTTP_PORT` must be integers in the range `1..65535`
-- `POST /api/machine-data`, `POST /api/subscribe`, and `POST /api/unsubscribe`
+- `POST /api/subscribe` and `POST /api/unsubscribe`
   reject malformed JSON or missing required fields with `400 Bad Request`
+- Existing devices must be reprovisioned to use `INGEST_TCP_PORT` (`9000`) and
+  a per-device telemetry key because the legacy webhook API has been removed
 
 ### IPv6-only environments
 

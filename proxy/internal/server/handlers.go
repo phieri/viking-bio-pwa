@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/uptime"
@@ -38,21 +37,21 @@ type State struct {
 
 // Handlers bundles all HTTP handler dependencies.
 type Handlers struct {
-	cfg          *config.Config
-	state        *State
-	pushMgr      *push.Manager
-	notifyByType func(string, string, string)
-	uptimeStore  *uptime.Store
+	state           *State
+	pushMgr         *push.Manager
+	notifyByType    func(string, string, string)
+	uptimeStore     *uptime.Store
+	uptimeAuthToken string
 }
 
 // NewHandlers creates a new Handlers instance.
-func NewHandlers(cfg *config.Config, pushMgr *push.Manager, uptimeStore *uptime.Store) *Handlers {
+func NewHandlers(pushMgr *push.Manager, uptimeStore *uptime.Store, uptimeAuthToken string) *Handlers {
 	return &Handlers{
-		cfg:          cfg,
-		state:        &State{},
-		pushMgr:      pushMgr,
-		notifyByType: pushMgr.NotifyByType,
-		uptimeStore:  uptimeStore,
+		state:           &State{},
+		pushMgr:         pushMgr,
+		notifyByType:    pushMgr.NotifyByType,
+		uptimeStore:     uptimeStore,
+		uptimeAuthToken: uptimeAuthToken,
 	}
 }
 
@@ -98,7 +97,7 @@ func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]int{"count": h.pushMgr.GetSubscriptionCount()})
 }
 
-// machineDataBody is the expected JSON body for POST /api/machine-data.
+// machineDataBody is the shared telemetry payload shape used by ingest and state updates.
 type machineDataBody struct {
 	Flame *bool    `json:"flame"`
 	Fan   *float64 `json:"fan"`
@@ -142,14 +141,6 @@ func isCleaningReminderWindow(now time.Time) bool {
 		return false
 	}
 	return now.Weekday() == time.Saturday && now.Hour() == 7 && now.Minute() < 30
-}
-
-func (h *Handlers) authenticateWebhook(r *http.Request) bool {
-	if token := h.cfg.WebhookAuthToken; token != "" {
-		provided := r.Header.Get("X-Hook-Auth")
-		return subtle.ConstantTimeCompare([]byte(token), []byte(provided)) == 1
-	}
-	return true
 }
 
 func decodeMachineData(r io.Reader) (machineDataBody, error) {
@@ -246,26 +237,10 @@ func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
 	}
 }
 
-// HandleMachineData serves POST /api/machine-data.
-func (h *Handlers) HandleMachineData(w http.ResponseWriter, r *http.Request) {
-	if !h.authenticateWebhook(r) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-		return
-	}
-
-	body, err := decodeMachineData(r.Body)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
-		return
-	}
-
-	result := h.updateBurnerState(body, time.Now())
-
-	log.Printf("webhook: data received (flame=%v, temp=%.1f°C, err=%.0f)", result.flame, result.temp, result.err)
-
+func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {
+	result := h.updateBurnerState(body, now)
+	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
 	h.triggerNotifications(result)
-
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // HandleSubscribe serves POST /api/subscribe.
@@ -303,9 +278,9 @@ func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 }
 
 // authenticateUptime checks the Bearer token in the Authorization header
-// against cfg.UptimeAuthToken. When no token is configured all requests pass.
+// against the configured uptimeAuthToken. When no token is configured all requests pass.
 func (h *Handlers) authenticateUptime(r *http.Request) bool {
-	token := h.cfg.UptimeAuthToken
+	token := h.uptimeAuthToken
 	if token == "" {
 		return true
 	}

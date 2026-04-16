@@ -143,3 +143,34 @@ func TestStoreConcurrentWritesKeepJSONValid(t *testing.T) {
 		t.Fatalf("expected persisted JSON to remain valid, got %v", err)
 	}
 }
+
+func TestStorePersistsProvisionedDevicesAndReplayState(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	if err := store.ProvisionDevice("device-1", "secret"); err != nil {
+		t.Fatalf("ProvisionDevice: %v", err)
+	}
+	if err := store.AcceptSequence("device-1", 10); err != nil {
+		t.Fatalf("AcceptSequence: %v", err)
+	}
+
+	reloaded, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore reload: %v", err)
+	}
+	record, ok := reloaded.Device("device-1")
+	if !ok {
+		t.Fatal("expected provisioned device to persist")
+	}
+	if record.Key != "secret" || record.LastSeq != 10 {
+		t.Fatalf("unexpected device record after reload: %+v", record)
+	}
+	if err := reloaded.AcceptSequence("device-1", 9); err == nil {
+		t.Fatal("expected replayed sequence to be rejected")
+	}
+}

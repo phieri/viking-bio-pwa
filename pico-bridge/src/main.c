@@ -44,7 +44,7 @@ volatile uint32_t event_flags = 0;
 #define USB_COUNTRY_PREFIX "COUNTRY="
 #define USB_SERVER_PREFIX "SERVER="
 #define USB_PORT_PREFIX "PORT="
-#define USB_TOKEN_PREFIX "TOKEN="
+#define USB_DEVICE_KEY_PREFIX "DEVICEKEY="
 #define USB_STATUS_COMMAND "STATUS"
 #define USB_CLEAR_COMMAND "CLEAR"
 
@@ -94,7 +94,7 @@ static void print_usb_help(void) {
 	printf("  COUNTRY=<CC>     – set Wi-Fi country (e.g. SE, US)\n");
 	printf("  SERVER=<ip>      – set proxy server IP/hostname\n");
 	printf("  PORT=<port>      – set proxy server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
-	printf("  TOKEN=<token>    – set webhook X-Hook-Auth token\n");
+	printf("  DEVICEKEY=<key>  – set telemetry device key\n");
 	printf("  STATUS           – show status\n");
 	printf("  CLEAR            – erase stored credentials\n");
 }
@@ -145,9 +145,9 @@ static bool handle_server_command(const char *arg) {
 
 	load_current_server_config(cur_ip, sizeof(cur_ip), &cur_port);
 	if (wifi_config_save_server(arg, cur_port)) {
-		printf("webhook: server IP set to %s – reboot to apply\n", arg);
+		printf("telemetry: server IP set to %s – reboot to apply\n", arg);
 	} else {
-		printf("webhook: ERROR saving server IP\n");
+		printf("telemetry: ERROR saving server IP\n");
 	}
 	return false;
 }
@@ -155,7 +155,7 @@ static bool handle_server_command(const char *arg) {
 static bool handle_port_command(const char *arg) {
 	int port = atoi(arg);
 	if (port <= 0 || port > 65535) {
-		printf("webhook: port must be 1-65535\n");
+		printf("telemetry: port must be 1-65535\n");
 		return false;
 	}
 
@@ -164,20 +164,20 @@ static bool handle_port_command(const char *arg) {
 
 	load_current_server_config(cur_ip, sizeof(cur_ip), &cur_port);
 	if (cur_ip[0] == '\0') {
-		printf("webhook: set SERVER=<ip> first\n");
+		printf("telemetry: set SERVER=<ip> first\n");
 	} else if (wifi_config_save_server(cur_ip, (uint16_t)port)) {
-		printf("webhook: port set to %d – reboot to apply\n", port);
+		printf("telemetry: port set to %d – reboot to apply\n", port);
 	} else {
-		printf("webhook: ERROR saving port\n");
+		printf("telemetry: ERROR saving port\n");
 	}
 	return false;
 }
 
-static bool handle_token_command(const char *arg) {
-	if (wifi_config_save_hook_token(arg)) {
-		printf("webhook: auth token saved – reboot to apply\n");
+static bool handle_device_key_command(const char *arg) {
+	if (wifi_config_save_device_key(arg)) {
+		printf("telemetry: device key saved – reboot to apply\n");
 	} else {
-		printf("webhook: ERROR saving token (max %d chars)\n", WIFI_HOOK_TOKEN_MAX_LEN);
+		printf("telemetry: ERROR saving device key (max %d chars)\n", WIFI_DEVICE_KEY_MAX_LEN);
 	}
 	return false;
 }
@@ -208,11 +208,16 @@ static bool handle_status_command(const char *arg) {
 		printf("  server:  not configured\n");
 	}
 
-	printf("  webhook: %s\n", http_client_is_active() ? "active" : "idle");
+	char device_id[WIFI_DEVICE_ID_MAX_LEN + 1] = {0};
+	if (wifi_config_get_device_id(device_id, sizeof(device_id))) {
+		printf("  device:  %s\n", device_id);
+	}
 
-	char tok_check[WIFI_HOOK_TOKEN_MAX_LEN + 1];
-	printf("  token:   %s\n",
-		   wifi_config_load_hook_token(tok_check, sizeof(tok_check)) ? "(set)" : "not set");
+	char device_key[WIFI_DEVICE_KEY_MAX_LEN + 1];
+	printf("  device key: %s\n",
+		   wifi_config_load_device_key(device_key, sizeof(device_key)) ? "(set)" : "not set");
+
+	printf("  telemetry: %s\n", http_client_is_active() ? "active" : "idle");
 
 	return false;
 }
@@ -230,7 +235,7 @@ static const usb_command_entry_t s_usb_commands[] = {
 	{USB_COUNTRY_PREFIX, false, handle_country_command},
 	{USB_SERVER_PREFIX, false, handle_server_command},
 	{USB_PORT_PREFIX, false, handle_port_command},
-	{USB_TOKEN_PREFIX, false, handle_token_command},
+	{USB_DEVICE_KEY_PREFIX, false, handle_device_key_command},
 	{USB_STATUS_COMMAND, true, handle_status_command},
 	{USB_CLEAR_COMMAND, true, handle_clear_command},
 };
@@ -279,8 +284,8 @@ static bool process_usb_commands(void) {
 
 /*
  * Called from the lwIP poll context when a _viking-bio._tcp mDNS announcement
- * is received.  Saves the new proxy address and (re-)initialises the HTTP
- * webhook client only when the address actually changed.
+ * is received. Saves the new proxy address and re-initialises the telemetry
+ * client only when the address actually changed.
  */
 static void on_proxy_discovered(const char *ip6addr, uint16_t port) {
 	char cur_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
@@ -296,9 +301,9 @@ static void on_proxy_discovered(const char *ip6addr, uint16_t port) {
 	if (!wifi_config_save_server(ip6addr, port)) {
 		printf("dns_sd: failed to save proxy config\n");
 	}
-	char hook_token[WIFI_HOOK_TOKEN_MAX_LEN + 1] = {0};
-	wifi_config_load_hook_token(hook_token, sizeof(hook_token));
-	http_client_init(ip6addr, port, hook_token[0] ? hook_token : NULL);
+	char device_key[WIFI_DEVICE_KEY_MAX_LEN + 1] = {0};
+	wifi_config_load_device_key(device_key, sizeof(device_key));
+	http_client_init(ip6addr, port, device_key[0] ? device_key : NULL);
 }
 
 bool periodic_timer_callback(struct repeating_timer *t) {
@@ -414,13 +419,17 @@ static bool start_wifi_services(const char *ssid, const char *password, bool hav
 	char srv_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
 	uint16_t srv_port = WIFI_SERVER_PORT_DEFAULT;
 	wifi_config_load_server(srv_ip, sizeof(srv_ip), &srv_port);
-	char hook_token[WIFI_HOOK_TOKEN_MAX_LEN + 1] = {0};
-	wifi_config_load_hook_token(hook_token, sizeof(hook_token));
+	char device_key[WIFI_DEVICE_KEY_MAX_LEN + 1] = {0};
+	wifi_config_load_device_key(device_key, sizeof(device_key));
 	if (srv_ip[0] != '\0') {
 		printf("Proxy server: %s:%d\n", srv_ip, srv_port);
-		http_client_init(srv_ip, srv_port, hook_token[0] ? hook_token : NULL);
+		http_client_init(srv_ip, srv_port, device_key[0] ? device_key : NULL);
 	} else {
 		printf("Proxy server not configured – use SERVER=<ip> via USB serial\n");
+	}
+
+	if (device_key[0] == '\0') {
+		printf("Telemetry key not configured – provision DEVICEKEY=<key> via USB serial\n");
 	}
 
 	watchdog_enable(WATCHDOG_TIMEOUT_MS, false);
@@ -484,7 +493,9 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 	}
 	event_flags &= ~EVENT_BROADCAST;
 	if (wifi_up) {
+		cyw43_arch_lwip_begin();
 		http_client_poll();
+		cyw43_arch_lwip_end();
 	}
 }
 

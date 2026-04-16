@@ -12,7 +12,8 @@ import (
 // Config holds all runtime configuration parsed from environment variables.
 type Config struct {
 	HTTPPort          int
-	WebhookAuthToken  string
+	IngestTCPPort     int
+	IngestTCPTLS      bool
 	UptimeAuthToken   string
 	TLSCertPath       string
 	TLSKeyPath        string
@@ -82,6 +83,10 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	ingestTCPPort, err := parsePort("INGEST_TCP_PORT", os.Getenv("INGEST_TCP_PORT"), 9000)
+	if err != nil {
+		return nil, err
+	}
 	acmeHTTPPort, err := parsePort("ACME_HTTP_PORT", os.Getenv("ACME_HTTP_PORT"), 80)
 	if err != nil {
 		return nil, err
@@ -105,7 +110,8 @@ func Load() (*Config, error) {
 
 	return &Config{
 		HTTPPort:          httpPort,
-		WebhookAuthToken:  os.Getenv("MACHINE_WEBHOOK_AUTH_TOKEN"),
+		IngestTCPPort:     ingestTCPPort,
+		IngestTCPTLS:      parseBool(os.Getenv("INGEST_TCP_TLS")),
 		UptimeAuthToken:   os.Getenv("UPTIME_AUTH_TOKEN"),
 		TLSCertPath:       os.Getenv("TLS_CERT_PATH"),
 		TLSKeyPath:        os.Getenv("TLS_KEY_PATH"),
