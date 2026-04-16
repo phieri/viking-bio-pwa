@@ -1,6 +1,7 @@
 package server
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -144,5 +145,48 @@ func TestTriggerNotifications(t *testing.T) {
 	got := []call{<-calls, <-calls}
 	if len(got) != 2 {
 		t.Fatalf("expected 2 notifications, got %d", len(got))
+	}
+}
+
+func TestNotificationsForMachineData(t *testing.T) {
+	t.Parallel()
+
+	got := notificationsForMachineData(machineDataUpdateResult{
+		flameChanged: true,
+		newErr:       true,
+		cleanDue:     true,
+		flame:        true,
+		temp:         73,
+		err:          12,
+		cleanBody:    "clean now",
+	})
+
+	want := []notificationMessage{
+		{typ: "flame", title: "Viking Bio: Låga tänd", body: "Pannan tänd – 73 °C"},
+		{typ: "error", title: "Viking Bio: Fel", body: "Felkod 12 detekterad"},
+		{typ: "clean", title: "Viking Bio: Cleaning Reminder", body: "clean now"},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("notificationsForMachineData() = %#v, want %#v", got, want)
+	}
+}
+
+func TestStateSnapshot(t *testing.T) {
+	t.Parallel()
+
+	state := &State{
+		Flame:     true,
+		Fan:       50,
+		Temp:      78,
+		Err:       2,
+		Valid:     true,
+		FlameSecs: 123,
+		UpdatedAt: 999,
+	}
+
+	got := state.snapshot()
+	if got.Flame != state.Flame || got.Fan != state.Fan || got.Temp != state.Temp ||
+		got.Err != state.Err || got.Valid != state.Valid || got.FlameSecs != state.FlameSecs {
+		t.Fatalf("snapshot() = %#v, state = %#v", got, state)
 	}
 }

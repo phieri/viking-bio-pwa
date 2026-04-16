@@ -74,6 +74,26 @@ func TestGetVapidKey_ProxySource(t *testing.T) {
 	}
 }
 
+func TestGetData_ReturnsStateSnapshot(t *testing.T) {
+	h := newTestHandlers(t)
+	h.state.Flame = true
+	h.state.Fan = 55
+	h.state.Temp = 74
+	h.state.Err = 3
+	h.state.Valid = true
+	h.state.FlameSecs = 456
+
+	resp := getReq(t, h.HandleGetData)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	m := decodeJSON(t, resp)
+	if m["flame"] != true || m["fan"] != 55.0 || m["temp"] != 74.0 ||
+		m["err"] != 3.0 || m["valid"] != true || m["flame_secs"] != 456.0 {
+		t.Fatalf("unexpected response body: %#v", m)
+	}
+}
+
 func TestSubscribe_Valid(t *testing.T) {
 	h := newTestHandlers(t)
 	body := map[string]any{
