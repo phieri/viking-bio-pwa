@@ -113,6 +113,9 @@ func TestBuildMux_DoesNotExposeLegacyMachineDataRoute(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
+	if len(body) != 1 {
+		t.Fatalf("expected single-field error response, got %#v", body)
+	}
 	if body["error"] != "not found" {
 		t.Fatalf("expected not found error, got %#v", body)
 	}
