@@ -10,10 +10,11 @@
 #include "lfs_hal.h"
 
 // LittleFS file paths
-#define WIFI_CONFIG_FILE   "/wifi.dat"
-#define WIFI_COUNTRY_FILE  "/country.dat"
-#define WIFI_SERVER_FILE   "/server.dat"
-#define WIFI_HOOK_FILE     "/hook.dat"
+#define WIFI_CONFIG_FILE       "/wifi.dat"
+#define WIFI_COUNTRY_FILE      "/country.dat"
+#define WIFI_SERVER_FILE       "/server.dat"
+#define WIFI_DEVICE_KEY_FILE   "/device_key.dat"
+#define WIFI_BOOT_COUNTER_FILE "/boot_counter.dat"
 
 #define WIFI_CONFIG_MAGIC 0x57494649U  // "WIFI"
 
@@ -191,7 +192,18 @@ bool wifi_config_save(const char *ssid, const char *password) {
 }
 
 void wifi_config_clear(void) {
-	lfs_hal_delete_file(WIFI_CONFIG_FILE);
+	if (!lfs_hal_delete_file(WIFI_CONFIG_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_CONFIG_FILE);
+	}
+	if (!lfs_hal_delete_file(WIFI_SERVER_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_SERVER_FILE);
+	}
+	if (!lfs_hal_delete_file(WIFI_DEVICE_KEY_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_DEVICE_KEY_FILE);
+	}
+	if (!lfs_hal_delete_file(WIFI_BOOT_COUNTER_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_BOOT_COUNTER_FILE);
+	}
 
 	memset(s_ssid, 0, sizeof(s_ssid));
 	memset(s_pass, 0, sizeof(s_pass));
@@ -280,31 +292,62 @@ bool wifi_config_save_server(const char *ip, uint16_t port) {
 	return true;
 }
 
-bool wifi_config_load_hook_token(char *token, size_t len) {
-	if (!token || len == 0) return false;
+bool wifi_config_load_device_key(char *key, size_t len) {
+	if (!key || len == 0) return false;
 
-	char buf[WIFI_HOOK_TOKEN_MAX_LEN + 1];
-	int n = lfs_hal_read_file(WIFI_HOOK_FILE, buf, sizeof(buf));
-	if (n <= 0 || n > WIFI_HOOK_TOKEN_MAX_LEN) return false;
+	char buf[WIFI_DEVICE_KEY_MAX_LEN + 1];
+	int n = lfs_hal_read_file(WIFI_DEVICE_KEY_FILE, buf, sizeof(buf));
+	if (n <= 0 || n > WIFI_DEVICE_KEY_MAX_LEN) return false;
 
-	buf[n] = '\0';  // safe: buf is WIFI_HOOK_TOKEN_MAX_LEN+1 bytes, n <= WIFI_HOOK_TOKEN_MAX_LEN
-	// Ensure the stored string is null-terminated within its length
+	buf[n] = '\0';
 	if (strlen(buf) == 0) return false;
 	if (strlen(buf) + 1 > len) return false;
 
-	memcpy(token, buf, strlen(buf) + 1);
+	memcpy(key, buf, strlen(buf) + 1);
 	return true;
 }
 
-bool wifi_config_save_hook_token(const char *token) {
-	if (!token) return false;
-	size_t tlen = strlen(token);
-	if (tlen == 0 || tlen > WIFI_HOOK_TOKEN_MAX_LEN) return false;
+bool wifi_config_save_device_key(const char *key) {
+	if (!key) return false;
+	size_t klen = strlen(key);
+	if (klen == 0 || klen > WIFI_DEVICE_KEY_MAX_LEN) return false;
 
-	if (!lfs_hal_write_file(WIFI_HOOK_FILE, token, tlen)) {
-		printf("wifi_config: ERROR saving hook token\n");
+	if (!lfs_hal_write_file(WIFI_DEVICE_KEY_FILE, key, klen)) {
+		printf("wifi_config: ERROR saving device key\n");
 		return false;
 	}
-	printf("wifi_config: webhook auth token saved\n");
+	printf("wifi_config: telemetry device key saved\n");
+	return true;
+}
+
+bool wifi_config_get_device_id(char *device_id, size_t len) {
+	if (!device_id || len < WIFI_DEVICE_ID_MAX_LEN + 1) return false;
+
+	pico_unique_board_id_t uid;
+	pico_get_unique_board_id(&uid);
+	for (size_t i = 0; i < PICO_UNIQUE_BOARD_ID_SIZE_BYTES; i++) {
+		snprintf(device_id + (i * 2), len - (i * 2), "%02x", uid.id[i]);
+	}
+	device_id[WIFI_DEVICE_ID_MAX_LEN] = '\0';
+	return true;
+}
+
+bool wifi_config_reserve_boot_counter(uint32_t *counter) {
+	if (!counter) return false;
+
+	uint32_t stored = 0;
+	int n = lfs_hal_read_file(WIFI_BOOT_COUNTER_FILE, &stored, sizeof(stored));
+	if (n != (int)sizeof(stored)) {
+		stored = 0;
+	}
+	if (stored == UINT32_MAX) {
+		stored = 0;
+	}
+	stored++;
+	if (!lfs_hal_write_file(WIFI_BOOT_COUNTER_FILE, &stored, sizeof(stored))) {
+		printf("wifi_config: ERROR saving boot counter\n");
+		return false;
+	}
+	*counter = stored;
 	return true;
 }

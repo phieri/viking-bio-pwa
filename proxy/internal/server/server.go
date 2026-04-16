@@ -18,6 +18,7 @@ import (
 	"github.com/phieri/viking-bio-pwa/proxy/internal/cert"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 // localNetworks holds the private and loopback IP ranges used by localNetworkOnly.
@@ -140,6 +141,7 @@ type Server struct {
 	handler    *Handlers
 	httpSrv    *http.Server
 	acmeSrv    *http.Server
+	ingestSrv  *tcpIngestServer
 	notifyOnly bool
 	// OnReady is called with the dashboard URL once the server is accepting connections.
 	OnReady func(url string)
@@ -147,9 +149,14 @@ type Server struct {
 
 // New creates a Server. When notifyOnly is true the server skips the dashboard,
 // Let's Encrypt/ACME, and restricts connections to the local network.
-func New(cfg *config.Config, pushMgr *push.Manager, notifyOnly bool) *Server {
-	h := NewHandlers(cfg, pushMgr)
-	return &Server{cfg: cfg, handler: h, notifyOnly: notifyOnly}
+func New(cfg *config.Config, pushMgr *push.Manager, store *storage.Store, notifyOnly bool) *Server {
+	h := NewHandlers(pushMgr)
+	return &Server{
+		cfg:        cfg,
+		handler:    h,
+		ingestSrv:  newTCPIngestServer(cfg, store, h),
+		notifyOnly: notifyOnly,
+	}
 }
 
 // staticFS returns the filesystem to serve static files from.
@@ -174,7 +181,6 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("/api/data", methodGuard(http.MethodGet, s.handler.HandleGetData))
 	mux.HandleFunc("/api/vapid-public-key", methodGuard(http.MethodGet, s.handler.HandleGetVapidKey))
 	mux.HandleFunc("/api/subscribers", methodGuard(http.MethodGet, s.handler.HandleGetSubscribers))
-	mux.HandleFunc("/api/machine-data", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleMachineData)))
 	mux.HandleFunc("/api/subscribe", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleSubscribe)))
 	mux.HandleFunc("/api/unsubscribe", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleUnsubscribe)))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
@@ -212,6 +218,12 @@ func jsonMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	go func() {
+		if err := s.ingestSrv.Start(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("ingest: %v", err)
+		}
+	}()
+
 	mux := s.buildMux()
 	addr := fmt.Sprintf("[::]:%d", s.cfg.HTTPPort)
 	if !s.notifyOnly {

@@ -15,8 +15,8 @@
 // Proxy server IP address max length (IPv6 max string + null)
 #define WIFI_SERVER_IP_MAX_LEN 46
 
-// Default proxy server port (matches the proxy's HTTP_PORT default)
-#define WIFI_SERVER_PORT_DEFAULT 3000
+// Default proxy ingest port (matches the proxy's INGEST_TCP_PORT default)
+#define WIFI_SERVER_PORT_DEFAULT 9000
 
 /**
  * Initialize the WiFi config module (resets in-memory state).
@@ -92,22 +92,40 @@ bool wifi_config_load_server(char *ip, size_t ip_len, uint16_t *port);
  */
 bool wifi_config_save_server(const char *ip, uint16_t port);
 
-// Webhook auth token max length
-#define WIFI_HOOK_TOKEN_MAX_LEN 64
+// Provisioned telemetry device key max length
+#define WIFI_DEVICE_KEY_MAX_LEN 128
+
+// Hex-encoded RP2040 unique ID length
+#define WIFI_DEVICE_ID_MAX_LEN 16
 
 /**
- * Load the webhook auth token from storage (LittleFS).
- * @param token  Output buffer (at least WIFI_HOOK_TOKEN_MAX_LEN+1 bytes)
- * @param len    Size of output buffer
- * @return true if a token was loaded, false otherwise
+ * Load the telemetry device key from storage (LittleFS).
+ * @param key  Output buffer (at least WIFI_DEVICE_KEY_MAX_LEN+1 bytes)
+ * @param len  Size of output buffer
+ * @return true if a key was loaded, false otherwise
  */
-bool wifi_config_load_hook_token(char *token, size_t len);
+bool wifi_config_load_device_key(char *key, size_t len);
 
 /**
- * Save the webhook auth token to storage (LittleFS).
- * @param token  Auth token string (max WIFI_HOOK_TOKEN_MAX_LEN chars)
+ * Save the telemetry device key to storage (LittleFS).
+ * @param key  Device key string (max WIFI_DEVICE_KEY_MAX_LEN chars)
  * @return true on success, false on error
  */
-bool wifi_config_save_hook_token(const char *token);
+bool wifi_config_save_device_key(const char *key);
+
+/**
+ * Fill the output buffer with the device ID derived from the RP2040 unique ID.
+ * @param device_id Output buffer (at least WIFI_DEVICE_ID_MAX_LEN+1 bytes)
+ * @param len       Size of output buffer
+ * @return true on success, false on error
+ */
+bool wifi_config_get_device_id(char *device_id, size_t len);
+
+/**
+ * Reserve and persist the next boot counter used for telemetry sequence numbers.
+ * @param counter Output for the reserved counter value
+ * @return true on success, false on error
+ */
+bool wifi_config_reserve_boot_counter(uint32_t *counter);
 
 #endif // WIFI_CONFIG_H
