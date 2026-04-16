@@ -10,7 +10,6 @@ var configEnvKeys = []string{
 	"HTTP_PORT",
 	"INGEST_TCP_PORT",
 	"INGEST_TCP_TLS",
-	"MACHINE_WEBHOOK_AUTH_TOKEN",
 	"TLS_CERT_PATH",
 	"TLS_KEY_PATH",
 	"ACME_EMAIL",
@@ -123,7 +122,6 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("HTTP_PORT", "3001")
 	t.Setenv("INGEST_TCP_PORT", "9443")
 	t.Setenv("INGEST_TCP_TLS", "true")
-	t.Setenv("MACHINE_WEBHOOK_AUTH_TOKEN", "secret")
 	t.Setenv("TLS_CERT_PATH", "/cert.pem")
 	t.Setenv("TLS_KEY_PATH", "/key.pem")
 	t.Setenv("ACME_EMAIL", "acme@example.com")

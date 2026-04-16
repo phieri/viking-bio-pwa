@@ -44,7 +44,6 @@ volatile uint32_t event_flags = 0;
 #define USB_COUNTRY_PREFIX "COUNTRY="
 #define USB_SERVER_PREFIX "SERVER="
 #define USB_PORT_PREFIX "PORT="
-#define USB_TOKEN_PREFIX "TOKEN="
 #define USB_DEVICE_KEY_PREFIX "DEVICEKEY="
 #define USB_STATUS_COMMAND "STATUS"
 #define USB_CLEAR_COMMAND "CLEAR"
@@ -96,7 +95,6 @@ static void print_usb_help(void) {
 	printf("  SERVER=<ip>      – set proxy server IP/hostname\n");
 	printf("  PORT=<port>      – set proxy server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
 	printf("  DEVICEKEY=<key>  – set telemetry device key\n");
-	printf("  TOKEN=<token>    – set legacy webhook X-Hook-Auth token\n");
 	printf("  STATUS           – show status\n");
 	printf("  CLEAR            – erase stored credentials\n");
 }
@@ -147,9 +145,9 @@ static bool handle_server_command(const char *arg) {
 
 	load_current_server_config(cur_ip, sizeof(cur_ip), &cur_port);
 	if (wifi_config_save_server(arg, cur_port)) {
-		printf("webhook: server IP set to %s – reboot to apply\n", arg);
+		printf("telemetry: server IP set to %s – reboot to apply\n", arg);
 	} else {
-		printf("webhook: ERROR saving server IP\n");
+		printf("telemetry: ERROR saving server IP\n");
 	}
 	return false;
 }
@@ -157,7 +155,7 @@ static bool handle_server_command(const char *arg) {
 static bool handle_port_command(const char *arg) {
 	int port = atoi(arg);
 	if (port <= 0 || port > 65535) {
-		printf("webhook: port must be 1-65535\n");
+		printf("telemetry: port must be 1-65535\n");
 		return false;
 	}
 
@@ -166,20 +164,11 @@ static bool handle_port_command(const char *arg) {
 
 	load_current_server_config(cur_ip, sizeof(cur_ip), &cur_port);
 	if (cur_ip[0] == '\0') {
-		printf("webhook: set SERVER=<ip> first\n");
+		printf("telemetry: set SERVER=<ip> first\n");
 	} else if (wifi_config_save_server(cur_ip, (uint16_t)port)) {
-		printf("webhook: port set to %d – reboot to apply\n", port);
+		printf("telemetry: port set to %d – reboot to apply\n", port);
 	} else {
-		printf("webhook: ERROR saving port\n");
-	}
-	return false;
-}
-
-static bool handle_token_command(const char *arg) {
-	if (wifi_config_save_hook_token(arg)) {
-		printf("webhook: auth token saved – reboot to apply\n");
-	} else {
-		printf("webhook: ERROR saving token (max %d chars)\n", WIFI_HOOK_TOKEN_MAX_LEN);
+		printf("telemetry: ERROR saving port\n");
 	}
 	return false;
 }
@@ -230,10 +219,6 @@ static bool handle_status_command(const char *arg) {
 
 	printf("  telemetry: %s\n", http_client_is_active() ? "active" : "idle");
 
-	char tok_check[WIFI_HOOK_TOKEN_MAX_LEN + 1];
-	printf("  token:   %s\n",
-		   wifi_config_load_hook_token(tok_check, sizeof(tok_check)) ? "(set)" : "not set");
-
 	return false;
 }
 
@@ -251,7 +236,6 @@ static const usb_command_entry_t s_usb_commands[] = {
 	{USB_SERVER_PREFIX, false, handle_server_command},
 	{USB_PORT_PREFIX, false, handle_port_command},
 	{USB_DEVICE_KEY_PREFIX, false, handle_device_key_command},
-	{USB_TOKEN_PREFIX, false, handle_token_command},
 	{USB_STATUS_COMMAND, true, handle_status_command},
 	{USB_CLEAR_COMMAND, true, handle_clear_command},
 };

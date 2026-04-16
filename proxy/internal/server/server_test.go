@@ -1,9 +1,14 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 func TestMethodGuard_AllowsExpectedMethod(t *testing.T) {
@@ -50,7 +55,7 @@ func TestJSONMiddleware_AcceptsApplicationJSONWithCharset(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/machine-data", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/subscribe", nil)
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	rr := httptest.NewRecorder()
 	handler(rr, req)
@@ -69,7 +74,7 @@ func TestJSONMiddleware_RejectsNonJSONContentType(t *testing.T) {
 		called = true
 	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/machine-data", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/subscribe", nil)
 	req.Header.Set("Content-Type", "text/plain")
 	rr := httptest.NewRecorder()
 	handler(rr, req)
@@ -79,6 +84,37 @@ func TestJSONMiddleware_RejectsNonJSONContentType(t *testing.T) {
 	}
 	if rr.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("expected 415, got %d", rr.Code)
+	}
+}
+
+func TestBuildMux_DoesNotExposeLegacyMachineDataRoute(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	store, err := storage.NewStore(dir)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	mgr, err := push.New(dir, "admin@test.local", store)
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+
+	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, mgr, store, false)
+	req := httptest.NewRequest(http.MethodPost, "/api/machine-data", nil)
+	rr := httptest.NewRecorder()
+	srv.buildMux().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for removed route, got %d", rr.Code)
+	}
+
+	var body map[string]string
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["error"] != "not found" {
+		t.Fatalf("expected not found error, got %#v", body)
 	}
 }
 

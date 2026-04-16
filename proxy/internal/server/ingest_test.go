@@ -23,7 +23,7 @@ func newIngestTestServer(t *testing.T) (*tcpIngestServer, *storage.Store) {
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
-	handler := NewHandlers(&config.Config{}, mgr)
+	handler := NewHandlers(mgr)
 	return newTCPIngestServer(&config.Config{IngestTCPPort: 9000}, store, handler), store
 }
 

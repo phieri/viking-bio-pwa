@@ -92,29 +92,11 @@ bool wifi_config_load_server(char *ip, size_t ip_len, uint16_t *port);
  */
 bool wifi_config_save_server(const char *ip, uint16_t port);
 
-// Legacy webhook auth token max length
-#define WIFI_HOOK_TOKEN_MAX_LEN 64
-
 // Provisioned telemetry device key max length
 #define WIFI_DEVICE_KEY_MAX_LEN 128
 
 // Hex-encoded RP2040 unique ID length
 #define WIFI_DEVICE_ID_MAX_LEN 16
-
-/**
- * Load the webhook auth token from storage (LittleFS).
- * @param token  Output buffer (at least WIFI_HOOK_TOKEN_MAX_LEN+1 bytes)
- * @param len    Size of output buffer
- * @return true if a token was loaded, false otherwise
- */
-bool wifi_config_load_hook_token(char *token, size_t len);
-
-/**
- * Save the webhook auth token to storage (LittleFS).
- * @param token  Auth token string (max WIFI_HOOK_TOKEN_MAX_LEN chars)
- * @return true on success, false on error
- */
-bool wifi_config_save_hook_token(const char *token);
 
 /**
  * Load the telemetry device key from storage (LittleFS).

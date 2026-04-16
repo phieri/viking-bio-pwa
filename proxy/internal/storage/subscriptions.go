@@ -59,9 +59,8 @@ func NewStore(dataDir string) (*Store, error) {
 # Requires TLS_CERT_PATH and TLS_KEY_PATH.
 # INGEST_TCP_TLS=0
 
-# Webhook authentication token – the Pico bridge must send this in X-Hook-Auth.
-# Set to a strong random string in production; leave empty to disable auth.
-# MACHINE_WEBHOOK_AUTH_TOKEN=
+# Webhook removed — reprovision devices to use INGEST_TCP_PORT=9000 and
+# per-device telemetry keys.
 
 # ---------------------------------------------------------------------------
 # Automatic HTTPS via DuckDNS + Let's Encrypt (recommended for production)

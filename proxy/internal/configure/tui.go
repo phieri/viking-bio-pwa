@@ -134,9 +134,6 @@ func (t *TUI) showStatus() {
 	if status.DeviceKey != "" {
 		fmt.Println("  DeviceKey: " + status.DeviceKey)
 	}
-	if status.Token != "" {
-		fmt.Println("  Token:    " + status.Token)
-	}
 	fmt.Println()
 }
 

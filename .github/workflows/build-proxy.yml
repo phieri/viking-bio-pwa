@@ -53,13 +53,50 @@ jobs:
     - name: "Smoke-test: server starts and API responds"
       run: |
         mkdir -p /tmp/proxy-data
+        cat > /tmp/proxy-data/devices.json <<'JSON'
+        {
+          "ci-device": {
+            "key": "ci-secret",
+            "last_seq": 0,
+            "updated_at": 0
+          }
+        }
+        JSON
         DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 proxy/dist/linux_amd64/viking-bio-proxy &
         SERVER_PID=$!
         sleep 2
         curl -sf http://localhost:3000/api/data
-        curl -sf -X POST http://localhost:3000/api/machine-data \
-          -H "Content-Type: application/json" \
-          -d '{"flame":false,"fan":0,"temp":0,"err":0,"valid":true}'
+        python - <<'PY'
+        import base64
+        import hmac
+        import json
+        import socket
+        import struct
+
+        device = "ci-device"
+        secret = b"ci-secret"
+        seq = 1
+        ts = 1
+        data = {"flame": False, "fan": 0, "temp": 0, "err": 0, "valid": True}
+        data_json = json.dumps(data, separators=(",", ":"))
+        canonical = f"{device}\n{seq}\n{ts}\n{data_json}".encode()
+        sig = base64.b64encode(hmac.new(secret, canonical, "sha256").digest()).decode()
+        payload = json.dumps({
+            "device": device,
+            "seq": seq,
+            "ts": ts,
+            "data": data,
+            "sig": sig,
+        }, separators=(",", ":")).encode()
+
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.connect(("::1", 9000))
+        sock.sendall(struct.pack(">I", len(payload)) + payload)
+        sock.close()
+        PY
+        sleep 1
+        test "$(curl -s -o /tmp/legacy-route.out -w '%{http_code}' -X POST http://localhost:3000/api/machine-data)" = "404"
+        curl -sf http://localhost:3000/api/data | grep -q '"valid":true'
         echo "Proxy started and responded successfully"
         kill "$SERVER_PID" || true
 

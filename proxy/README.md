@@ -20,7 +20,7 @@ make build
 ./viking-bio-proxy
 
 # With environment variables
-HTTP_PORT=8080 MACHINE_WEBHOOK_AUTH_TOKEN=mysecret ./viking-bio-proxy
+HTTP_PORT=8080 INGEST_TCP_PORT=9000 ./viking-bio-proxy
 
 # Using make
 make run
@@ -33,7 +33,6 @@ make run
 | `HTTP_PORT` | `3000` | HTTP/HTTPS listen port |
 | `INGEST_TCP_PORT` | `9000` | Framed TCP telemetry ingest port |
 | `INGEST_TCP_TLS` | `false` | Require TLS on the ingest listener (uses `TLS_CERT_PATH`/`TLS_KEY_PATH`) |
-| `MACHINE_WEBHOOK_AUTH_TOKEN` | _(empty)_ | Webhook auth token (`X-Hook-Auth` header) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
 | `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt registration |
@@ -56,9 +55,11 @@ Variables already set in the environment take precedence:
 ```env
 HTTP_PORT=3000
 INGEST_TCP_PORT=9000
-MACHINE_WEBHOOK_AUTH_TOKEN=changeme
 MDNS_NAME=Viking Bio
 ```
+
+Webhook removed — reprovision devices to use `INGEST_TCP_PORT` (`9000`) and
+per-device telemetry keys.
 
 ## TLS / ACME
 
@@ -98,7 +99,7 @@ Connect the Pico W via USB and run the interactive configurator:
 
 The TUI allows you to:
 
-- View device status (IP, country, server, token)
+- View device status (IP, country, server, telemetry state)
 - Set WiFi SSID + password
 - Set Wi-Fi country code
 - Set proxy server address and port
@@ -124,8 +125,10 @@ normal state/update/notification pipeline, and writes overflow traffic to
 `<DATA_DIR>/ingest-fallback.log`.
 
 > **Note:** the default Pico proxy port for telemetry is now `9000` to match
-> `INGEST_TCP_PORT`. Existing devices still configured for the old HTTP webhook
-> port (`3000`) need to be reprovisioned or updated over USB.
+> `INGEST_TCP_PORT`. The legacy HTTP webhook has been removed; existing devices
+> still configured for the old dashboard/webhook port (`3000`) must be
+> reprovisioned or updated over USB with a server/port change and a per-device
+> telemetry key.
 
 ## mDNS / DNS-SD
 

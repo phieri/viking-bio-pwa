@@ -14,7 +14,6 @@ type Config struct {
 	HTTPPort          int
 	IngestTCPPort     int
 	IngestTCPTLS      bool
-	WebhookAuthToken  string
 	TLSCertPath       string
 	TLSKeyPath        string
 	ACMEEmail         string
@@ -112,7 +111,6 @@ func Load() (*Config, error) {
 		HTTPPort:          httpPort,
 		IngestTCPPort:     ingestTCPPort,
 		IngestTCPTLS:      parseBool(os.Getenv("INGEST_TCP_TLS")),
-		WebhookAuthToken:  os.Getenv("MACHINE_WEBHOOK_AUTH_TOKEN"),
 		TLSCertPath:       os.Getenv("TLS_CERT_PATH"),
 		TLSKeyPath:        os.Getenv("TLS_KEY_PATH"),
 		ACMEEmail:         os.Getenv("ACME_EMAIL"),

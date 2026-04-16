@@ -32,8 +32,6 @@ type StatusResult struct {
 	Port      int
 	Telemetry string
 	DeviceKey string
-	Webhook   string
-	Token     string
 }
 
 // Bridge communicates with the Pico W over USB serial.
@@ -180,10 +178,6 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 			r.Telemetry = value
 		case "device key":
 			r.DeviceKey = value
-		case "webhook", "hook":
-			r.Webhook = value
-		case "token":
-			r.Token = value
 		}
 	}
 	return r
