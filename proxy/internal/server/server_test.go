@@ -139,8 +139,8 @@ func TestIsLocalNetwork(t *testing.T) {
 	}{
 		{"::1", true},
 		{"[::1]:5000", true},
-		{"fc00::1", true},              // same /64 prefix as injected fc00::2/64
-		{"fc01::1", false},             // different /64 within fc00::/7 — rejected
+		{"fc00::1", true},  // same /64 prefix as injected fc00::2/64
+		{"fc01::1", false}, // different /64 within fc00::/7 — rejected
 		{"[fe80::1]:80", true},
 		{"2001:db8::1", false},
 	}

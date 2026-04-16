@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -90,7 +89,7 @@ func sharesPrefix64WithLocal(ip net.IP) bool {
 		if local16 == nil {
 			continue
 		}
-		if bytes.Equal(ip16[:8], local16[:8]) {
+		if ip16.Mask(net.CIDRMask(64, 128)).Equal(local16.Mask(net.CIDRMask(64, 128))) {
 			return true
 		}
 	}
