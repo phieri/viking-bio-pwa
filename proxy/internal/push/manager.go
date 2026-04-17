@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/vapid"
 )
 
 // Manager handles VAPID key lifecycle and Web Push notification delivery.
@@ -26,41 +25,15 @@ type Manager struct {
 
 // New creates a Manager, loading or generating VAPID keys in dataDir.
 func New(dataDir, contactEmail string, store *storage.Store) (*Manager, error) {
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		return nil, fmt.Errorf("push: mkdir %s: %w", dataDir, err)
-	}
-
-	pubPath := filepath.Join(dataDir, "server-vapid.pub")
-	privPath := filepath.Join(dataDir, "server-vapid.priv")
-
-	var pub, priv string
-	pubBytes, pubErr := os.ReadFile(pubPath)
-	privBytes, privErr := os.ReadFile(privPath)
-
-	if pubErr == nil && privErr == nil {
-		pub = string(pubBytes)
-		priv = string(privBytes)
-		log.Println("push: loaded VAPID keys from disk")
-	} else {
-		var err error
-		// GenerateVAPIDKeys returns (privateKey, publicKey, error)
-		priv, pub, err = webpush.GenerateVAPIDKeys()
-		if err != nil {
-			return nil, fmt.Errorf("push: generate VAPID keys: %w", err)
-		}
-		if err := os.WriteFile(pubPath, []byte(pub), 0o644); err != nil {
-			return nil, fmt.Errorf("push: write public key: %w", err)
-		}
-		if err := os.WriteFile(privPath, []byte(priv), 0o600); err != nil {
-			return nil, fmt.Errorf("push: write private key: %w", err)
-		}
-		log.Println("push: generated new VAPID keys")
+	keys, err := vapid.LoadOrGenerate(dataDir)
+	if err != nil {
+		return nil, fmt.Errorf("push: %w", err)
 	}
 
 	contact := fmt.Sprintf("mailto:%s", contactEmail)
 	return &Manager{
-		vapidPub:         pub,
-		vapidPriv:        priv,
+		vapidPub:         keys.Public,
+		vapidPriv:        keys.Private,
 		contact:          contact,
 		store:            store,
 		sendNotification: webpush.SendNotification,
@@ -102,52 +75,81 @@ type notifyPayload struct {
 	TS       int64  `json:"ts"`
 }
 
-// SendTest sends a test push notification to all subscribers, ignoring per-type preferences.
-func (m *Manager) SendTest() {
-	subs := m.store.All()
-	payload, err := json.Marshal(notifyPayload{
-		Title:    "Viking Bio: Test",
-		Body:     "Testnotis från Viking Bio Proxy",
+var notificationPrefEnabled = map[string]func(storage.Prefs) bool{
+	"flame": func(p storage.Prefs) bool { return p.Flame },
+	"error": func(p storage.Prefs) bool { return p.Error },
+	"clean": func(p storage.Prefs) bool { return p.Clean },
+}
+
+func (m *Manager) buildPayload(title, body, typ, priority string) ([]byte, error) {
+	return json.Marshal(notifyPayload{
+		Title:    title,
+		Body:     body,
 		Icon:     "/icon-192.png",
-		Type:     "test",
-		Priority: "low",
+		Type:     typ,
+		Priority: priority,
 		TS:       time.Now().UnixMilli(),
 	})
-	if err != nil {
-		log.Printf("push: marshal payload: %v", err)
-		return
-	}
+}
 
+func (m *Manager) subscriptionFor(sub storage.Subscription) *webpush.Subscription {
+	return &webpush.Subscription{
+		Endpoint: sub.Endpoint,
+		Keys: webpush.Keys{
+			P256dh: sub.P256DH,
+			Auth:   sub.Auth,
+		},
+	}
+}
+
+func (m *Manager) sendOptions() *webpush.Options {
+	return &webpush.Options{
+		VAPIDPublicKey:  m.vapidPub,
+		VAPIDPrivateKey: m.vapidPriv,
+		Subscriber:      m.contact,
+		TTL:             30,
+	}
+}
+
+func (m *Manager) sendPayload(payload []byte, subs []storage.Subscription, shouldSend func(storage.Subscription) bool, onSuccess func(storage.Subscription, int)) {
 	var expired []string
 	for _, sub := range subs {
+		if shouldSend != nil && !shouldSend(sub) {
+			continue
+		}
+
 		m.notifySem <- struct{}{}
-		resp, err := m.sendNotification(payload, &webpush.Subscription{
-			Endpoint: sub.Endpoint,
-			Keys: webpush.Keys{
-				P256dh: sub.P256DH,
-				Auth:   sub.Auth,
-			},
-		}, &webpush.Options{
-			VAPIDPublicKey:  m.vapidPub,
-			VAPIDPrivateKey: m.vapidPriv,
-			Subscriber:      m.contact,
-			TTL:             30,
-		})
+		resp, err := m.sendNotification(payload, m.subscriptionFor(sub), m.sendOptions())
 		<-m.notifySem
 		if err != nil {
 			log.Printf("push: send error for %s: %v", sub.Endpoint, err)
 			continue
 		}
 		resp.Body.Close()
-		if resp.StatusCode == 410 || resp.StatusCode == 404 {
+		if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
 			expired = append(expired, sub.Endpoint)
-		} else {
-			log.Printf("push: test notification sent to %s (%d)", sub.Endpoint, resp.StatusCode)
+			continue
+		}
+		if onSuccess != nil {
+			onSuccess(sub, resp.StatusCode)
 		}
 	}
 	if len(expired) > 0 {
 		m.store.RemoveAll(expired)
 	}
+}
+
+// SendTest sends a test push notification to all subscribers, ignoring per-type preferences.
+func (m *Manager) SendTest() {
+	subs := m.store.All()
+	payload, err := m.buildPayload("Viking Bio: Test", "Testnotis från Viking Bio Proxy", "test", "low")
+	if err != nil {
+		log.Printf("push: marshal payload: %v", err)
+		return
+	}
+	m.sendPayload(payload, subs, nil, func(sub storage.Subscription, statusCode int) {
+		log.Printf("push: test notification sent to %s (%d)", sub.Endpoint, statusCode)
+	})
 }
 
 // NotifyByType sends a push notification to all subscribers opted in to the given type.
@@ -157,58 +159,17 @@ func (m *Manager) NotifyByType(typ, title, body string) {
 	if typ == "error" {
 		priority = "high"
 	}
-	payload, err := json.Marshal(notifyPayload{
-		Title:    title,
-		Body:     body,
-		Icon:     "/icon-192.png",
-		Type:     typ,
-		Priority: priority,
-		TS:       time.Now().UnixMilli(),
-	})
+	payload, err := m.buildPayload(title, body, typ, priority)
 	if err != nil {
 		log.Printf("push: marshal payload: %v", err)
 		return
 	}
 
-	var expired []string
-	for _, sub := range subs {
-		var enabled bool
-		switch typ {
-		case "flame":
-			enabled = sub.Prefs.Flame
-		case "error":
-			enabled = sub.Prefs.Error
-		case "clean":
-			enabled = sub.Prefs.Clean
-		}
-		if !enabled {
-			continue
-		}
-
-		m.notifySem <- struct{}{}
-		resp, err := m.sendNotification(payload, &webpush.Subscription{
-			Endpoint: sub.Endpoint,
-			Keys: webpush.Keys{
-				P256dh: sub.P256DH,
-				Auth:   sub.Auth,
-			},
-		}, &webpush.Options{
-			VAPIDPublicKey:  m.vapidPub,
-			VAPIDPrivateKey: m.vapidPriv,
-			Subscriber:      m.contact,
-			TTL:             30,
-		})
-		<-m.notifySem
-		if err != nil {
-			log.Printf("push: send error for %s: %v", sub.Endpoint, err)
-			continue
-		}
-		resp.Body.Close()
-		if resp.StatusCode == 410 || resp.StatusCode == 404 {
-			expired = append(expired, sub.Endpoint)
-		}
+	enabledForType, ok := notificationPrefEnabled[typ]
+	if !ok {
+		return
 	}
-	if len(expired) > 0 {
-		m.store.RemoveAll(expired)
-	}
+	m.sendPayload(payload, subs, func(sub storage.Subscription) bool {
+		return enabledForType(sub.Prefs)
+	}, nil)
 }
