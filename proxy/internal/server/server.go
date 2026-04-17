@@ -24,6 +24,10 @@ import (
 // localNetworks holds the private and loopback IP ranges used by localNetworkOnly.
 var localNetworks []*net.IPNet
 
+// ulaNetwork is the fc00::/7 entry in localNetworks, stored separately so it
+// can be identified by pointer in isLocalNetwork without string comparison.
+var ulaNetwork *net.IPNet
+
 func init() {
 	for _, cidr := range []string{
 		"127.0.0.0/8",
@@ -38,12 +42,64 @@ func init() {
 		if err != nil {
 			panic("server: invalid local network CIDR " + cidr + ": " + err.Error())
 		}
+		if cidr == "fc00::/7" {
+			ulaNetwork = network
+		}
 		localNetworks = append(localNetworks, network)
 	}
 }
 
+// netInterfaceAddrs returns all addresses from up, non-loopback network
+// interfaces. It is a variable to allow replacement in tests.
+var netInterfaceAddrs = func() []net.Addr {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.Printf("server: failed to enumerate interfaces: %v", err)
+		return nil
+	}
+	var addrs []net.Addr
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		ifaceAddrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		addrs = append(addrs, ifaceAddrs...)
+	}
+	return addrs
+}
+
+// sharesPrefix64WithLocal returns true if ip (a ULA IPv6 address) shares the
+// same /64 prefix as at least one of the proxy's own IPv6 interface addresses.
+func sharesPrefix64WithLocal(ip net.IP) bool {
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return false
+	}
+	for _, addr := range netInterfaceAddrs() {
+		var localIP net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			localIP = v.IP
+		case *net.IPAddr:
+			localIP = v.IP
+		}
+		local16 := localIP.To16()
+		if local16 == nil {
+			continue
+		}
+		if ip16.Mask(net.CIDRMask(64, 128)).Equal(local16.Mask(net.CIDRMask(64, 128))) {
+			return true
+		}
+	}
+	return false
+}
+
 // isLocalNetwork reports whether remoteAddr (host:port or bare host) is a
-// loopback or private-network address.
+// loopback or private-network address. ULA (fc00::/7) addresses are only
+// accepted when they share the same /64 prefix as a local interface address.
 func isLocalNetwork(remoteAddr string) bool {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
@@ -54,6 +110,12 @@ func isLocalNetwork(remoteAddr string) bool {
 		return false
 	}
 	for _, network := range localNetworks {
+		if network == ulaNetwork {
+			if sharesPrefix64WithLocal(ip) {
+				return true
+			}
+			continue
+		}
 		if network.Contains(ip) {
 			return true
 		}
@@ -115,8 +177,7 @@ func staticFS() http.FileSystem {
 	return http.FS(sub)
 }
 
-func (s *Server) buildMux() http.Handler {
-	mux := http.NewServeMux()
+func (s *Server) registerAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/data", methodGuard(http.MethodGet, s.handler.HandleGetData))
 	mux.HandleFunc("/api/vapid-public-key", methodGuard(http.MethodGet, s.handler.HandleGetVapidKey))
 	mux.HandleFunc("/api/subscribers", methodGuard(http.MethodGet, s.handler.HandleGetSubscribers))
@@ -127,6 +188,11 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
+}
+
+func (s *Server) buildMux() http.Handler {
+	mux := http.NewServeMux()
+	s.registerAPIRoutes(mux)
 	if !s.notifyOnly {
 		mux.Handle("/", http.FileServer(staticFS()))
 	}
