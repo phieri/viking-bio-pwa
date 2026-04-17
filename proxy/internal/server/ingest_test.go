@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
+	ingestcodec "github.com/phieri/viking-bio-pwa/proxy/internal/ingest"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
@@ -27,11 +28,11 @@ func newIngestTestServer(t *testing.T) (*tcpIngestServer, *storage.Store) {
 	return newTCPIngestServer(&config.Config{IngestTCPPort: 9000}, store, handler), store
 }
 
-func signPayload(t *testing.T, secret string, payload ingestPayload) ingestPayload {
+func signPayload(t *testing.T, secret string, payload ingestcodec.Payload) ingestcodec.Payload {
 	t.Helper()
-	canonical, err := canonicalTelemetryString(payload)
+	canonical, err := ingestcodec.CanonicalTelemetryString(payload)
 	if err != nil {
-		t.Fatalf("canonicalTelemetryString: %v", err)
+		t.Fatalf("CanonicalTelemetryString: %v", err)
 	}
 	sum := hmacSHA256([]byte(secret), []byte(canonical))
 	payload.Sig = base64.StdEncoding.EncodeToString(sum)
@@ -47,11 +48,11 @@ func hmacSHA256(key, message []byte) []byte {
 func TestVerifyTelemetrySignature(t *testing.T) {
 	t.Parallel()
 
-	payload := ingestPayload{
+	payload := ingestcodec.Payload{
 		Device: "pico-1234",
 		Seq:    1,
 		TS:     time.Now().Unix(),
-		Data: telemetryData{
+		Data: ingestcodec.TelemetryData{
 			Flame: true,
 			Fan:   42,
 			Temp:  73,
@@ -61,12 +62,12 @@ func TestVerifyTelemetrySignature(t *testing.T) {
 	}
 	payload = signPayload(t, "super-secret", payload)
 
-	if err := verifyTelemetrySignature("super-secret", payload); err != nil {
-		t.Fatalf("verifyTelemetrySignature: %v", err)
+	if err := ingestcodec.VerifySignature("super-secret", payload); err != nil {
+		t.Fatalf("VerifySignature: %v", err)
 	}
 
 	payload.Seq++
-	if err := verifyTelemetrySignature("super-secret", payload); err == nil {
+	if err := ingestcodec.VerifySignature("super-secret", payload); err == nil {
 		t.Fatal("expected signature verification to fail after payload mutation")
 	}
 }
@@ -79,21 +80,21 @@ func TestProcessPayloadRejectsReplay(t *testing.T) {
 		t.Fatalf("ProvisionDevice: %v", err)
 	}
 
-	first := signPayload(t, "super-secret", ingestPayload{
+	first := signPayload(t, "super-secret", ingestcodec.Payload{
 		Device: "pico-1234",
 		Seq:    1,
 		TS:     time.Now().Unix(),
-		Data:   telemetryData{Valid: true},
+		Data:   ingestcodec.TelemetryData{Valid: true},
 	})
 	if err := ingest.processPayload(first, "[::1]:12345", time.Now()); err != nil {
 		t.Fatalf("first processPayload: %v", err)
 	}
 
-	replay := signPayload(t, "super-secret", ingestPayload{
+	replay := signPayload(t, "super-secret", ingestcodec.Payload{
 		Device: "pico-1234",
 		Seq:    1,
 		TS:     time.Now().Add(time.Second).Unix(),
-		Data:   telemetryData{Valid: true},
+		Data:   ingestcodec.TelemetryData{Valid: true},
 	})
 	if err := ingest.processPayload(replay, "[::1]:12345", time.Now()); err == nil {
 		t.Fatal("expected replayed sequence to be rejected")

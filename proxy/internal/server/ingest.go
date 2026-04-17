@@ -2,13 +2,7 @@ package server
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
 	"crypto/tls"
-	"encoding/base64"
-	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -17,27 +11,19 @@ import (
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
+	ingestcodec "github.com/phieri/viking-bio-pwa/proxy/internal/ingest"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 const (
 	ingestQueueSize         = 64
-	ingestMaxFrameSize      = 4096
 	ingestFailureWindow     = time.Minute
 	ingestBlacklistDuration = 5 * time.Minute
 	ingestFailureThreshold  = 5
 	ingestReadTimeout       = 2 * time.Minute
 )
 
-type telemetryData struct {
-	Flame bool    `json:"flame"`
-	Fan   float64 `json:"fan"`
-	Temp  float64 `json:"temp"`
-	Err   float64 `json:"err"`
-	Valid bool    `json:"valid"`
-}
-
-func (d telemetryData) machineDataBody() machineDataBody {
+func telemetryDataToMachineDataBody(d ingestcodec.TelemetryData) machineDataBody {
 	flame := d.Flame
 	fan := d.Fan
 	temp := d.Temp
@@ -52,16 +38,8 @@ func (d telemetryData) machineDataBody() machineDataBody {
 	}
 }
 
-type ingestPayload struct {
-	Device string        `json:"device"`
-	Seq    uint64        `json:"seq"`
-	TS     int64         `json:"ts"`
-	Data   telemetryData `json:"data"`
-	Sig    string        `json:"sig"`
-}
-
 type telemetryEnvelope struct {
-	Payload    ingestPayload
+	Payload    ingestcodec.Payload
 	RemoteAddr string
 	ReceivedAt time.Time
 }
@@ -82,7 +60,7 @@ func newTelemetryPipeline(handler *Handlers) *telemetryPipeline {
 
 func (p *telemetryPipeline) run() {
 	for env := range p.queue {
-		p.handler.processMachineData(env.Payload.Data.machineDataBody(), "ingest", env.ReceivedAt)
+		p.handler.processMachineData(telemetryDataToMachineDataBody(env.Payload.Data), "ingest", env.ReceivedAt)
 	}
 }
 
@@ -230,7 +208,7 @@ func (s *tcpIngestServer) handleConn(conn net.Conn) {
 			log.Printf("ingest: set deadline failed for %s: %v", remote, err)
 			return
 		}
-		payload, err := readIngestFrame(conn)
+		payload, err := ingestcodec.ReadFrame(conn)
 		if err != nil {
 			if err == io.EOF {
 				return
@@ -261,63 +239,12 @@ func isConnectionClose(err error) bool {
 	return err == io.EOF || err == net.ErrClosed
 }
 
-func readIngestFrame(r io.Reader) (ingestPayload, error) {
-	var frameLenBuf [4]byte
-	if _, err := io.ReadFull(r, frameLenBuf[:]); err != nil {
-		return ingestPayload{}, err
-	}
-	frameLen := binary.BigEndian.Uint32(frameLenBuf[:])
-	if frameLen == 0 || frameLen > ingestMaxFrameSize {
-		return ingestPayload{}, fmt.Errorf("invalid frame size %d", frameLen)
-	}
-	frame := make([]byte, frameLen)
-	if _, err := io.ReadFull(r, frame); err != nil {
-		return ingestPayload{}, err
-	}
-	var payload ingestPayload
-	if err := json.Unmarshal(frame, &payload); err != nil {
-		return ingestPayload{}, fmt.Errorf("decode frame JSON: %w", err)
-	}
-	if payload.Device == "" || payload.Sig == "" || payload.TS == 0 {
-		return ingestPayload{}, fmt.Errorf("missing required payload fields")
-	}
-	return payload, nil
-}
-
-func canonicalTelemetryString(payload ingestPayload) (string, error) {
-	dataJSON, err := json.Marshal(payload.Data)
-	if err != nil {
-		return "", fmt.Errorf("marshal telemetry data: %w", err)
-	}
-	return fmt.Sprintf("%s\n%d\n%d\n%s", payload.Device, payload.Seq, payload.TS, dataJSON), nil
-}
-
-func verifyTelemetrySignature(secret string, payload ingestPayload) error {
-	canonical, err := canonicalTelemetryString(payload)
-	if err != nil {
-		return err
-	}
-	provided, err := base64.StdEncoding.DecodeString(payload.Sig)
-	if err != nil {
-		return fmt.Errorf("decode signature: %w", err)
-	}
-	mac := hmac.New(sha256.New, []byte(secret))
-	if _, err := mac.Write([]byte(canonical)); err != nil {
-		return fmt.Errorf("hash canonical payload: %w", err)
-	}
-	expected := mac.Sum(nil)
-	if subtle.ConstantTimeCompare(expected, provided) != 1 {
-		return fmt.Errorf("signature verification failed")
-	}
-	return nil
-}
-
-func (s *tcpIngestServer) processPayload(payload ingestPayload, remote string, receivedAt time.Time) error {
+func (s *tcpIngestServer) processPayload(payload ingestcodec.Payload, remote string, receivedAt time.Time) error {
 	record, ok := s.store.Device(payload.Device)
 	if !ok {
 		return fmt.Errorf("unknown device %q", payload.Device)
 	}
-	if err := verifyTelemetrySignature(record.Key, payload); err != nil {
+	if err := ingestcodec.VerifySignature(record.Key, payload); err != nil {
 		return err
 	}
 	if err := s.store.AcceptSequence(payload.Device, payload.Seq); err != nil {
