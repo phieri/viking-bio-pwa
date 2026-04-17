@@ -75,12 +75,6 @@ type notifyPayload struct {
 	TS       int64  `json:"ts"`
 }
 
-var notificationPrefEnabled = map[string]func(storage.Prefs) bool{
-	"flame": func(p storage.Prefs) bool { return p.Flame },
-	"error": func(p storage.Prefs) bool { return p.Error },
-	"clean": func(p storage.Prefs) bool { return p.Clean },
-}
-
 func (m *Manager) buildPayload(title, body, typ, priority string) ([]byte, error) {
 	return json.Marshal(notifyPayload{
 		Title:    title,
@@ -99,6 +93,19 @@ func (m *Manager) subscriptionFor(sub storage.Subscription) *webpush.Subscriptio
 			P256dh: sub.P256DH,
 			Auth:   sub.Auth,
 		},
+	}
+}
+
+func notificationPreferenceSelector(typ string) (func(storage.Prefs) bool, bool) {
+	switch typ {
+	case "flame":
+		return func(prefs storage.Prefs) bool { return prefs.Flame }, true
+	case "error":
+		return func(prefs storage.Prefs) bool { return prefs.Error }, true
+	case "clean":
+		return func(prefs storage.Prefs) bool { return prefs.Clean }, true
+	default:
+		return nil, false
 	}
 }
 
@@ -155,6 +162,11 @@ func (m *Manager) SendTest() {
 // NotifyByType sends a push notification to all subscribers opted in to the given type.
 func (m *Manager) NotifyByType(typ, title, body string) {
 	subs := m.store.All()
+	enabledForType, ok := notificationPreferenceSelector(typ)
+	if !ok {
+		log.Printf("push: unsupported notification type %q (valid: flame, error, clean)", typ)
+		return
+	}
 	priority := "low"
 	if typ == "error" {
 		priority = "high"
@@ -162,11 +174,6 @@ func (m *Manager) NotifyByType(typ, title, body string) {
 	payload, err := m.buildPayload(title, body, typ, priority)
 	if err != nil {
 		log.Printf("push: marshal payload: %v", err)
-		return
-	}
-
-	enabledForType, ok := notificationPrefEnabled[typ]
-	if !ok {
 		return
 	}
 	m.sendPayload(payload, subs, func(sub storage.Subscription) bool {

@@ -23,7 +23,7 @@ const (
 	ingestReadTimeout       = 2 * time.Minute
 )
 
-func machineDataFromTelemetry(d ingestcodec.TelemetryData) machineDataBody {
+func telemetryDataToMachineDataBody(d ingestcodec.TelemetryData) machineDataBody {
 	flame := d.Flame
 	fan := d.Fan
 	temp := d.Temp
@@ -60,7 +60,7 @@ func newTelemetryPipeline(handler *Handlers) *telemetryPipeline {
 
 func (p *telemetryPipeline) run() {
 	for env := range p.queue {
-		p.handler.processMachineData(machineDataFromTelemetry(env.Payload.Data), "ingest", env.ReceivedAt)
+		p.handler.processMachineData(telemetryDataToMachineDataBody(env.Payload.Data), "ingest", env.ReceivedAt)
 	}
 }
 

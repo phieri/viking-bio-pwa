@@ -18,7 +18,9 @@ func signPayload(t *testing.T, secret string, payload Payload) Payload {
 		t.Fatalf("CanonicalTelemetryString: %v", err)
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
-	_, _ = mac.Write([]byte(canonical))
+	if _, err := mac.Write([]byte(canonical)); err != nil {
+		t.Fatalf("mac.Write: %v", err)
+	}
 	payload.Sig = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	return payload
 }

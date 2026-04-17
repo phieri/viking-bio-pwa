@@ -11,7 +11,7 @@ import (
 	"io"
 )
 
-const MaxFrameSize = 4096
+const maxFrameSize = 4096
 
 type TelemetryData struct {
 	Flame bool    `json:"flame"`
@@ -35,7 +35,7 @@ func ReadFrame(r io.Reader) (Payload, error) {
 		return Payload{}, err
 	}
 	frameLen := binary.BigEndian.Uint32(frameLenBuf[:])
-	if frameLen == 0 || frameLen > MaxFrameSize {
+	if frameLen == 0 || frameLen > maxFrameSize {
 		return Payload{}, fmt.Errorf("invalid frame size %d", frameLen)
 	}
 	frame := make([]byte, frameLen)

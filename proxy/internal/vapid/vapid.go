@@ -32,7 +32,7 @@ func LoadOrGenerate(dataDir string) (KeyPair, error) {
 	pubBytes, pubErr := os.ReadFile(pubPath)
 	privBytes, privErr := os.ReadFile(privPath)
 	if pubErr == nil && privErr == nil {
-		log.Println("push: loaded VAPID keys from disk")
+		log.Println("vapid: loaded keys from disk")
 		return KeyPair{
 			Public:  string(pubBytes),
 			Private: string(privBytes),
@@ -50,7 +50,7 @@ func LoadOrGenerate(dataDir string) (KeyPair, error) {
 		return KeyPair{}, fmt.Errorf("vapid: write private key: %w", err)
 	}
 
-	log.Println("push: generated new VAPID keys")
+	log.Println("vapid: generated new keys")
 	return KeyPair{
 		Public:  publicKey,
 		Private: privateKey,
