@@ -71,12 +71,12 @@ Connect via USB serial (115200 baud) to configure:
 
 ## proxy
 
-The Go proxy server (replaces the previous Node.js implementation):
+The Go proxy server:
 - Signed TCP ingest on `INGEST_TCP_PORT` receives framed telemetry from the Pico bridge
 - Go net/http server serves the PWA dashboard; binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
-- Web Push notifications via `web-push` with proxy-generated VAPID keys
-- Subscriptions persisted to `proxy/data/subscriptions.json`; the proxy is the only Web Push component
+- Web Push notifications via proxy-generated VAPID keys
+- Subscriptions persisted to `<DATA_DIR>/subscriptions.json`; the proxy is the only Web Push component
 - **Device configurator TUI** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial
 
 ### Device Configurator TUI
@@ -125,6 +125,17 @@ INGEST_TCP_PORT=9000 \
 ```
 
 Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured).
+
+### Command-Line Flags
+
+| Flag | Description |
+|------|-------------|
+| `--configure` | Run the interactive device configurator TUI |
+| `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
+| `--notify-only` | Notification-only mode: no dashboard, no ACME/DuckDNS, local network only |
+| `--notify-test` | Send a test push notification to all subscribers and exit |
+| `--no-open-browser` | Do not open the browser automatically on startup |
+| `--version` | Print version and exit |
 
 Defensive validation notes:
 - `HTTP_PORT` and `ACME_HTTP_PORT` must be integers in the range `1..65535`
