@@ -13,6 +13,17 @@ go build -o viking-bio-proxy ./cmd/proxy
 make build
 ```
 
+## Command-Line Flags
+
+| Flag | Description |
+|------|-------------|
+| `--configure` | Run the interactive device configurator TUI |
+| `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
+| `--notify-only` | Notification-only mode: no dashboard, no ACME/DuckDNS, local network only |
+| `--notify-test` | Send a test push notification to all subscribers and exit |
+| `--no-open-browser` | Do not open the browser automatically on startup |
+| `--version` | Print version and exit |
+
 ## Run
 
 ```bash
@@ -47,10 +58,17 @@ make run
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for `--configure` |
 | `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for VAPID keys and subscriptions |
 
-## .env File
+## Configuration Files
 
-Place a `.env` file in the current working directory before starting the proxy.
-Variables already set in the environment take precedence:
+The proxy loads configuration in this order (earlier sources take precedence):
+
+1. **Environment variables** – highest priority.
+2. **`.env`** – read from the current working directory at startup.
+3. **`<DATA_DIR>/viking-bio.conf`** – created automatically on first run as a commented
+   template; edit it and restart the proxy to apply changes without a `.env` file next
+   to the binary.
+
+Example `.env` / `viking-bio.conf` snippet:
 
 ```env
 HTTP_PORT=3000
@@ -60,6 +78,19 @@ MDNS_NAME=Viking Bio
 
 Webhook removed — reprovision devices to use `INGEST_TCP_PORT` (`9000`) and
 per-device telemetry keys.
+
+## Notification-Only Mode
+
+Run the proxy in a headless configuration without the PWA dashboard or ACME/DuckDNS
+certificate management. All HTTP routes are restricted to loopback and private-network
+addresses:
+
+```bash
+./viking-bio-proxy --notify-only
+```
+
+This is useful when the proxy runs on a local-only host and another service (e.g. a
+reverse proxy) handles public HTTPS termination.
 
 ## TLS / ACME
 
@@ -202,6 +233,7 @@ themselves are forward-compatible.
 
 | File | Description |
 |---|---|
+| `<DATA_DIR>/viking-bio.conf` | Proxy configuration template (created on first run) |
 | `<DATA_DIR>/subscriptions.json` | Web Push subscriptions (max 32) |
 | `<DATA_DIR>/devices.json` | Provisioned device secrets and last accepted sequence numbers |
 | `<DATA_DIR>/ingest-fallback.log` | JSONL fallback log when the ingest queue overflows |

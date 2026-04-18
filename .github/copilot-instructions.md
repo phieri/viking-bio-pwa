@@ -6,8 +6,8 @@ This repository is a monorepo for the Viking Bio 20 pellet burner integration sy
 There are two active components:
 
 1. **`pico-bridge/`** - Raspberry Pi Pico W / Pico 2 W firmware in C. It reads burner data
-   over UART, stores config in LittleFS, discovers the proxy over mDNS, and posts telemetry
-   to the proxy over HTTP.
+   over UART, stores config in LittleFS, discovers the proxy over mDNS, and streams telemetry
+   to the proxy over a signed persistent TCP ingest connection.
 2. **`proxy/`** - Go proxy server and PWA dashboard. It receives burner telemetry, serves
    the web UI, manages browser subscriptions, and sends Web Push notifications using
    proxy-managed VAPID keys.
@@ -25,7 +25,7 @@ Node.js implementation; verify against the current Go code before acting.
 │   ├── include/                    # Firmware public headers
 │   ├── src/
 │   │   ├── main.c                  # Main loop, USB commands, Wi-Fi startup
-│   │   ├── http_client.c           # HTTP webhook client
+│   │   ├── http_client.c           # Signed TCP ingest client
 │   │   ├── wifi_config.c           # Encrypted Wi-Fi/server/token storage
 │   │   ├── lfs_hal.c               # LittleFS flash backend
 │   │   └── dns_sd_browser.c        # Passive mDNS/DNS-SD listener for proxy discovery
@@ -60,14 +60,14 @@ Node.js implementation; verify against the current Go code before acting.
 
 ```text
 Viking Bio 20 ──UART──► Pico W firmware
-                         ├── POST /api/machine-data to proxy
+                         ├── signed TCP frames → INGEST_TCP_PORT (default 9000)
                          ├── passive mDNS listener for _viking-bio._tcp
                          └── telemetry only
 
 Proxy (Go)
+├── TCP ingest listener (INGEST_TCP_PORT)  signed framed telemetry from Pico
 ├── GET /                     PWA dashboard
 ├── GET /api/data             current burner state
-├── POST /api/machine-data    authenticated webhook from Pico
 ├── GET /api/vapid-public-key proxy VAPID public key
 ├── GET /api/subscribers      subscription count
 ├── POST /api/subscribe       add/update browser subscription
@@ -78,15 +78,15 @@ Proxy (Go)
 
 - Main entry point is `proxy/cmd/proxy/main.go`.
 - HTTP routes are registered in `proxy/internal/server/server.go`.
-- Request handling, shared burner state, webhook auth, and push triggering live in
+- Request handling, shared burner state, and push triggering live in
   `proxy/internal/server/handlers.go`.
 - Static files are served from disk when `proxy/public/` exists locally; otherwise the
   binary serves embedded assets from `proxy/assets.go`.
 - The ServiceWorker's cache key (in `sw.js`) needs to be incremented whenever there
   are changes made to any file in `proxy/public/`.
-- Subscriptions are stored in `proxy/data/subscriptions.json`.
-- Proxy VAPID keys are stored in `proxy/data/server-vapid.pub` and
-  `proxy/data/server-vapid.priv`.
+- Subscriptions are stored in `<DATA_DIR>/subscriptions.json`.
+- Proxy VAPID keys are stored in `<DATA_DIR>/server-vapid.pub` and
+  `<DATA_DIR>/server-vapid.priv`.
 - The proxy advertises `_viking-bio._tcp` with TXT `path=/api/data` via
   `proxy/internal/mdns/advertiser.go`.
 - `MDNS_DISABLE=1` disables mDNS advertisement and is used by CI smoke tests.
@@ -100,9 +100,9 @@ Proxy (Go)
   `cyw43_arch_lwip_end()`; lwIP callbacks run on core 1 and do not need extra wrapping.
 - USB serial commands are handled directly in `process_usb_commands()` inside `main.c`.
 - LittleFS-backed persistent files include Wi-Fi credentials, country, proxy server/port,
-  and webhook token.
+  and telemetry device key.
 - The default proxy port is `WIFI_SERVER_PORT_DEFAULT` in
-  `pico-bridge/include/wifi_config.h`, currently **3000**.
+  `pico-bridge/include/wifi_config.h`, currently **9000**.
 - The Pico passively listens for unsolicited mDNS announcements from the proxy; it does
   not actively query for services.
 - All Web Push delivery is handled by the proxy. The firmware does not cache VAPID keys,
@@ -127,13 +127,19 @@ The existing CI smoke test is:
 
 ```bash
 mkdir -p /tmp/proxy-data
+# Write a provisioned device record so the ingest listener accepts frames
+cat > /tmp/proxy-data/devices.json <<'JSON'
+{
+  "ci-device": { "key": "ci-secret", "last_seq": 0, "updated_at": 0 }
+}
+JSON
 DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-proxy &
 SERVER_PID=$!
 sleep 2
 curl -sf http://localhost:3000/api/data
-curl -sf -X POST http://localhost:3000/api/machine-data \
-  -H "Content-Type: application/json" \
-  -d '{"flame":false,"fan":0,"temp":0,"err":0,"valid":true}'
+# Send a signed TCP frame to INGEST_TCP_PORT (9000) via Python
+# POST /api/machine-data returns 404 (webhook removed)
+test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/machine-data)" = "404"
 ```
 
 Useful shortcuts:
@@ -191,14 +197,14 @@ The workflow builds both `pico_w` and `pico2_w`.
 ### Firmware config or networking changes
 
 - Wi-Fi/server/token persistence lives in `pico-bridge/src/wifi_config.c`.
-- HTTP webhook logic lives in `pico-bridge/src/http_client.c`.
+- Signed TCP ingest client logic lives in `pico-bridge/src/http_client.c`.
 - mDNS discovery logic lives in `pico-bridge/src/dns_sd_browser.c`.
 - USB command behavior lives in `pico-bridge/src/main.c`.
 
 ## Important Runtime Behavior
 
-- `POST /api/machine-data` requires `Content-Type: application/json` and validates
-  `X-Hook-Auth` when `MACHINE_WEBHOOK_AUTH_TOKEN` is set.
+- The Pico bridge connects to `INGEST_TCP_PORT` (default `9000`) using a signed framed TCP
+  connection; `POST /api/machine-data` has been removed and returns 404.
 - For the Pico USB `SERVER=` command, use the bare IPv6 address without brackets.
 - The proxy binds to `[::]:<port>` and prefers IPv6.
 - The proxy serves static files from disk first, then falls back to embedded assets.
@@ -208,8 +214,9 @@ The workflow builds both `pico_w` and `pico2_w`.
 
 1. **Do not assume Node.js tooling exists for the proxy.** The proxy is Go; use Go commands
    and Go files.
-2. **Do not trust stale docs blindly.** Older text may still mention Node.js, port `9000`,
-   or push notifications handled only by the proxy.
+2. **Do not trust stale docs blindly.** Older text may still mention Node.js, the legacy
+   HTTP webhook (`/api/machine-data`), or the old dashboard port (`3000`) being used for
+   telemetry. The current ingest uses signed TCP on port `9000`.
 3. **When changing proxy routes, update tests too.** Existing tests are small and fast.
 4. **When editing dashboard assets, remember Pages copies files explicitly.** If you add a
    new static asset needed by the demo page, update `.github/workflows/pages.yml`.
