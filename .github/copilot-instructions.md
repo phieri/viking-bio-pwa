@@ -40,7 +40,7 @@ Node.js implementation; verify against the current Go code before acting.
 │   │   ├── push/                   # VAPID keys and push delivery
 │   │   ├── storage/                # subscriptions.json persistence
 │   │   ├── serial/                 # USB serial bridge for Pico configurator
-│   │   ├── configure/              # Interactive TUI for device setup
+│   │   ├── configure/              # Fyne GUI (gui.go) and TUI fallback (tui.go) for device setup
 │   │   ├── mdns/                   # Proxy DNS-SD advertisement
 │   │   ├── ddns/                   # DuckDNS updater for ACME mode
 │   │   └── cert/                   # Let's Encrypt / TLS support
@@ -191,7 +191,12 @@ The workflow builds both `pico_w` and `pico2_w`.
 ### Device configurator changes
 
 - CLI entry is `./viking-bio-proxy --configure`.
-- TUI lives in `proxy/internal/configure/tui.go`.
+- GUI (Fyne) lives in `proxy/internal/configure/gui.go`; TUI fallback lives in
+  `proxy/internal/configure/tui.go`.
+- `RunGUI(bridge, store)` is called when a graphical display is available (X11/Wayland on
+  Linux, always on Windows/macOS). Set `NO_GUI` to any non-empty value to force the TUI.
+- The Fyne GUI requires native development libraries at compile time on Linux:
+  `libgl1-mesa-dev xorg-dev libasound2-dev`.
 - Serial transport and STATUS parsing live in `proxy/internal/serial/bridge.go`.
 
 ### Firmware config or networking changes

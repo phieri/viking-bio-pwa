@@ -134,22 +134,29 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 
 	// ── Set country code ─────────────────────────────────────────────────
 	btnCountry := widget.NewButton("Set country code", func() {
-		ccEntry := widget.NewEntry()
-		ccEntry.SetPlaceHolder("SE")
+		// Offer a simple choice: Sweden (SE) or worldwide (XX).
+		// XX is the Pico SDK worldwide/permissive regulatory region.
+		regionSelect := widget.NewSelect(
+			[]string{"Sweden (SE)", "Worldwide (XX)"},
+			nil,
+		)
+		regionSelect.SetSelected("Sweden (SE)")
 
 		form := &widget.Form{
 			Items: []*widget.FormItem{
-				{Text: "Country code (2 letters, e.g. SE, US, GB)", Widget: ccEntry},
+				{Text: "Wi-Fi region", Widget: regionSelect},
 			},
 		}
 		d := dialog.NewCustomConfirm("Set Wi-Fi country code", "Set", "Cancel", form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
-			cc := strings.ToUpper(strings.TrimSpace(ccEntry.Text))
-			if len(cc) != 2 {
-				dialog.ShowError(fmt.Errorf("country code must be exactly 2 letters (e.g. SE, US, GB)"), w)
-				return
+			var cc string
+			switch regionSelect.Selected {
+			case "Worldwide (XX)":
+				cc = "XX"
+			default:
+				cc = "SE"
 			}
 			go func() {
 				appendLog("→ COUNTRY=" + cc)
