@@ -29,7 +29,7 @@ const version = "1.0.0"
 func main() {
 	var (
 		showVersion   = flag.Bool("version", false, "print version and exit")
-		doConfig      = flag.Bool("configure", false, "run device configurator TUI")
+		doConfig      = flag.Bool("configure", false, "run device configurator (GUI when display available, TUI otherwise)")
 		serialPort    = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
 		noOpenBrowser = flag.Bool("no-open-browser", false, "do not open the browser automatically on startup")
 		notifyTest    = flag.Bool("notify-test", false, "send a test push notification to all subscribers and exit")
@@ -231,8 +231,28 @@ func runConfigurator(portArg string) {
 	}
 	defer bridge.Disconnect()
 
-	tui := configure.NewTUI(bridge, store)
-	tui.Run()
+	if guiAvailable() {
+		configure.RunGUI(bridge, store)
+	} else {
+		tui := configure.NewTUI(bridge, store)
+		tui.Run()
+	}
+}
+
+// guiAvailable returns true when a graphical display is likely available.
+// On Linux/BSD it checks the DISPLAY (X11) and WAYLAND_DISPLAY environment
+// variables. On Windows and macOS a display is assumed to always be present.
+// Setting NO_GUI=1 forces the TUI regardless of platform.
+func guiAvailable() bool {
+	if os.Getenv("NO_GUI") != "" {
+		return false
+	}
+	switch runtime.GOOS {
+	case "windows", "darwin":
+		return true
+	default:
+		return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
+	}
 }
 
 // openBrowser opens the given URL in the system default browser.

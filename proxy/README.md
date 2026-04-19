@@ -17,7 +17,7 @@ make build
 
 | Flag | Description |
 |------|-------------|
-| `--configure` | Run the interactive device configurator TUI |
+| `--configure` | Run the interactive device configurator (GUI when a display is available, TUI otherwise) |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, no ACME/DuckDNS, local network only |
 | `--notify-test` | Send a test push notification to all subscribers and exit |
@@ -128,7 +128,12 @@ Connect the Pico W via USB and run the interactive configurator:
 ./viking-bio-proxy --configure --port /dev/ttyACM0
 ```
 
-The TUI allows you to:
+When a graphical display is available (X11 `DISPLAY` or Wayland `WAYLAND_DISPLAY` on
+Linux; always on Windows and macOS) the configurator opens a **Fyne-based GUI window**.
+On headless machines or when the environment variable `NO_GUI` is set to any non-empty
+value (e.g. `NO_GUI=1`), it falls back to the interactive **terminal TUI**.
+
+The configurator allows you to:
 
 - View device status (IP, country, server, telemetry state)
 - Set WiFi SSID + password
@@ -140,6 +145,21 @@ The TUI allows you to:
 Provisioning stores the proxy-side device secret in `<DATA_DIR>/devices.json`
 and sends the same key to the Pico over USB. The Pico then uses that key to
 sign each TCP telemetry frame with HMAC-SHA256.
+
+### Building with GUI support on Linux
+
+The Fyne GUI requires a few native development libraries at compile time.  Install
+them before running `go build` on Linux:
+
+```bash
+sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
+```
+
+For cross-compilation and producing distribution packages, see the
+[Fyne packaging docs](https://docs.fyne.io/started/packaging) and
+[fyne-cross](https://github.com/fyne-io/fyne-cross).  In CI, add the above
+packages to the build step (or set `CGO_ENABLED=0` and build a static binary
+without GUI support where only the TUI path is needed).
 
 ## Telemetry ingest
 

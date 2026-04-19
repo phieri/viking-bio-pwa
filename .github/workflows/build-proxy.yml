@@ -30,6 +30,9 @@ jobs:
         go-version-file: proxy/go.mod
         cache-dependency-path: proxy/go.sum
 
+    - name: Install Fyne build dependencies
+      run: sudo apt-get update -q && sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
+
     - name: Install golangci-lint
       working-directory: proxy
       run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest

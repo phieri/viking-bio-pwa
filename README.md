@@ -77,12 +77,12 @@ The Go proxy server:
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
 - Web Push notifications via proxy-generated VAPID keys
 - Subscriptions persisted to `<DATA_DIR>/subscriptions.json`; the proxy is the only Web Push component
-- **Device configurator TUI** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial
+- **Device configurator** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available, falls back to a terminal TUI on headless hosts (set `NO_GUI` to any non-empty value to force TUI)
 
-### Device Configurator TUI
+### Device Configurator
 
-The proxy includes an interactive terminal utility for configuring the Pico W
-bridge over USB serial – no separate serial terminal application required.
+The proxy includes an interactive utility for configuring the Pico W bridge over
+USB serial – no separate serial terminal application required.
 
 ```bash
 ./viking-bio-proxy --configure                        # auto-detect Pico W USB port
@@ -90,7 +90,12 @@ bridge over USB serial – no separate serial terminal application required.
 ./viking-bio-proxy --configure --port COM3           # Windows
 ```
 
-The TUI guides you through:
+When a graphical display is available (X11/Wayland on Linux, always on Windows/macOS)
+a **Fyne GUI window** opens.  On headless machines or when `NO_GUI` is set to any
+non-empty value (e.g. `NO_GUI=1`), the configurator falls back to the interactive
+**terminal TUI**.
+
+Both interfaces provide:
 
 | Option | Description |
 |--------|-------------|
