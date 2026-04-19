@@ -130,8 +130,8 @@ Connect the Pico W via USB and run the interactive configurator:
 
 When a graphical display is available (X11 `DISPLAY` or Wayland `WAYLAND_DISPLAY` on
 Linux; always on Windows and macOS) the configurator opens a **Fyne-based GUI window**.
-On headless machines or when the environment variable `NO_GUI=1` is set, it falls back
-to the interactive **terminal TUI**.
+On headless machines or when the environment variable `NO_GUI` is set to any non-empty
+value (e.g. `NO_GUI=1`), it falls back to the interactive **terminal TUI**.
 
 The configurator allows you to:
 

@@ -314,4 +314,3 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 	w.SetContent(content)
 	w.ShowAndRun()
 }
-
