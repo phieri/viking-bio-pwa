@@ -6,24 +6,39 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
+	"github.com/phieri/viking-bio-pwa/proxy/internal/elspot"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
+
+// spotPriceFetcher abstracts the elprisetjustnu spot price lookup.
+type spotPriceFetcher interface {
+	CurrentHourSEKPerKWh(region string, now time.Time) (float64, error)
+}
 
 // Handlers bundles all HTTP handler dependencies.
 type Handlers struct {
 	state        *State
 	pushMgr      *push.Manager
 	notifyByType func(string, string, string)
+	energyCfg    *config.Config
+	spotFetcher  spotPriceFetcher
 }
 
-// NewHandlers creates a new Handlers instance.
-func NewHandlers(pushMgr *push.Manager) *Handlers {
-	return &Handlers{
+// NewHandlers creates a new Handlers instance. cfg may be nil to disable the
+// energy price card (used in tests).
+func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
+	h := &Handlers{
 		state:        &State{},
 		pushMgr:      pushMgr,
 		notifyByType: pushMgr.NotifyByType,
+		energyCfg:    cfg,
 	}
+	if cfg != nil && cfg.EnergyCardEnabled {
+		h.spotFetcher = elspot.NewFetcher()
+	}
+	return h
 }
 
 // writeJSON writes a JSON response with the given status code.
@@ -99,4 +114,53 @@ func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	h.pushMgr.RemoveSubscription(body.Endpoint)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// energyPriceResponse is the JSON payload for GET /api/energy-price.
+type energyPriceResponse struct {
+	Enabled         bool    `json:"enabled"`
+	SpotSEKPerKWh   float64 `json:"spot_sek_kwh,omitempty"`
+	ElecTotalSEKPerKWh float64 `json:"elec_total_sek_kwh,omitempty"`
+	BurnerTotalSEKPerKWh float64 `json:"burner_total_sek_kwh,omitempty"`
+	DiffSEKPerKWh   float64 `json:"diff_sek_kwh,omitempty"`
+	Error           string  `json:"error,omitempty"`
+}
+
+// HandleGetEnergyPrice serves GET /api/energy-price.
+// It computes the current difference in cost per kWh between electrical and
+// burner heating. A positive diff means the burner is cheaper (saving money).
+func (h *Handlers) HandleGetEnergyPrice(w http.ResponseWriter, r *http.Request) {
+	if h.energyCfg == nil || !h.energyCfg.EnergyCardEnabled {
+		writeJSON(w, http.StatusOK, energyPriceResponse{Enabled: false})
+		return
+	}
+
+	cfg := h.energyCfg
+	annualKWh := cfg.AnnualHeatingKWh
+	if annualKWh <= 0 {
+		annualKWh = 20000
+	}
+
+	spot, err := h.spotFetcher.CurrentHourSEKPerKWh(cfg.ElecPriceRegion, time.Now())
+	if err != nil {
+		log.Printf("energy-price: spot fetch failed: %v", err)
+		writeJSON(w, http.StatusOK, energyPriceResponse{
+			Enabled: true,
+			Error:   "Kunde inte hämta spotpris",
+		})
+		return
+	}
+
+	elecTotal := spot + cfg.ElecGridFeeSEKPerKWh + cfg.ElecTaxSEKPerKWh +
+		cfg.ElecFixedCostSEKYear/annualKWh
+	burnerTotal := cfg.BurnerCostSEKPerKWh +
+		cfg.BurnerFixedCostSEKYear/annualKWh
+
+	writeJSON(w, http.StatusOK, energyPriceResponse{
+		Enabled:              true,
+		SpotSEKPerKWh:        spot,
+		ElecTotalSEKPerKWh:   elecTotal,
+		BurnerTotalSEKPerKWh: burnerTotal,
+		DiffSEKPerKWh:        elecTotal - burnerTotal,
+	})
 }
