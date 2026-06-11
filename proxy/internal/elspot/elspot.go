@@ -19,9 +19,9 @@ type hourlyPrice struct {
 
 // cached holds a fetched day's prices plus metadata for cache invalidation.
 type cached struct {
-	date   string    // "YYYY/MM-DD"
-	region string
-	prices []hourlyPrice
+	date      string // date key in "YYYY/MM-DD" format (e.g. "2026/06-11") matching the API URL path
+	region    string
+	prices    []hourlyPrice
 	fetchedAt time.Time
 }
 

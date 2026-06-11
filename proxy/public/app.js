@@ -49,6 +49,10 @@ function pollSubscribers() {
 		.catch(() => {});
 }
 
+function fmtSEK(val) {
+	return val.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function pollEnergyPrice() {
 	fetch('/api/energy-price')
 		.then((r) => r.json())
@@ -71,11 +75,12 @@ function pollEnergyPrice() {
 				return;
 			}
 			const diff = d.diff_sek_kwh;
-			diffEl.textContent = diff.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+			diffEl.textContent = fmtSEK(diff);
 			diffEl.className = 'value' + (diff < 0 ? ' price-expensive' : ' price-saving');
 			unitEl.textContent = diff >= 0 ? 'kr/kWh besparing' : 'kr/kWh dyrare';
 			if (detailEl) {
-				detailEl.textContent = `El: ${d.elec_total_sek_kwh.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | Panna: ${d.burner_total_sek_kwh.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr/kWh`;
+				detailEl.textContent =
+					`El: ${fmtSEK(d.elec_total_sek_kwh)} | Panna: ${fmtSEK(d.burner_total_sek_kwh)} kr/kWh`;
 			}
 		})
 		.catch(() => {});
