@@ -63,15 +63,18 @@ func NewStore(dataDir string) (*Store, error) {
 # per-device telemetry keys.
 
 # ---------------------------------------------------------------------------
-# Automatic HTTPS via DuckDNS + Let's Encrypt (recommended for production)
+# Automatic HTTPS via Let's Encrypt
 # ---------------------------------------------------------------------------
-# DDNS_SUBDOMAIN=my-viking-bio
-# DDNS_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# ACME_DOMAIN=burner.example.com
+# ACME_CHALLENGE=http-01
+# ACME_DNS_PROVIDER=cloudflare
 # ACME_EMAIL=admin@example.com
 # ACME_STAGING=1
+# CLOUDFLARE_API_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# CLOUDFLARE_ZONE_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # ---------------------------------------------------------------------------
-# Manual HTTPS with a user-supplied certificate (alternative to DDNS above)
+# Manual HTTPS with a user-supplied certificate (alternative to ACME above)
 # ---------------------------------------------------------------------------
 # TLS_CERT_PATH=/etc/ssl/certs/server.crt
 # TLS_KEY_PATH=/etc/ssl/private/server.key

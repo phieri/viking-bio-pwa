@@ -231,9 +231,8 @@ func (s *Server) Start(ctx context.Context) error {
 	mux := s.buildMux()
 	addr := fmt.Sprintf("[::]:%d", s.cfg.HTTPPort)
 	if !s.notifyOnly {
-		if s.cfg.DDNSSubdomain != "" && s.cfg.DDNSToken != "" {
-			domain := s.cfg.DDNSSubdomain + ".duckdns.org"
-			return s.startACME(ctx, mux, addr, domain)
+		if s.cfg.ACMEDomain != "" {
+			return s.startACME(ctx, mux, addr, s.cfg.ACMEDomain)
 		}
 		if s.cfg.TLSCertPath != "" && s.cfg.TLSKeyPath != "" {
 			return s.startManualTLS(ctx, mux, addr)
@@ -315,29 +314,34 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 }
 
 func (s *Server) startACME(ctx context.Context, mux http.Handler, addr, domain string) error {
-	mgr, err := cert.NewManager(domain, s.cfg.ACMEEmail, s.cfg.ACMECertDir, s.cfg.ACMEStaging)
+	mgr, err := cert.NewManager(domain, s.cfg.ACMEEmail, s.cfg.ACMECertDir, s.cfg.ACMEStaging, s.cfg.ACMEChallenge, s.cfg.ACMEDNSProvider)
 	if err != nil {
 		return fmt.Errorf("cert manager: %w", err)
 	}
-	challengeSrv := &http.Server{
-		Addr:    fmt.Sprintf("[::]:%d", s.cfg.ACMEHTTPPort),
-		Handler: mgr.HTTPHandler(),
-	}
-	s.acmeSrv = challengeSrv
-	go func() {
-		log.Printf("cert: ACME HTTP-01 challenge server on :%d", s.cfg.ACMEHTTPPort)
-		if err := challengeSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("cert: challenge server error: %v", err)
+	if mgr.UsesHTTPChallenge() {
+		challengeSrv := &http.Server{
+			Addr:    fmt.Sprintf("[::]:%d", s.cfg.ACMEHTTPPort),
+			Handler: mgr.HTTPHandler(),
 		}
-	}()
+		s.acmeSrv = challengeSrv
+		go func() {
+			log.Printf("cert: ACME HTTP-01 challenge server on :%d", s.cfg.ACMEHTTPPort)
+			if err := challengeSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Printf("cert: challenge server error: %v", err)
+			}
+		}()
+	}
+	if err := mgr.Manage(ctx); err != nil {
+		return fmt.Errorf("manage certificate: %w", err)
+	}
 	srv := &http.Server{Addr: addr, Handler: mux, TLSConfig: mgr.TLSConfig()}
 	s.httpSrv = srv
 	ln, err := listen(addr)
 	if err != nil {
 		return err
 	}
-	log.Printf("Viking Bio Proxy listening on https://%s:%d (Let's Encrypt)", domain, s.cfg.HTTPPort)
-	shutdownOnContext(ctx, srv, challengeSrv)
+	log.Printf("Viking Bio Proxy listening on https://%s:%d (Let's Encrypt %s)", domain, s.cfg.HTTPPort, s.cfg.ACMEChallenge)
+	shutdownOnContext(ctx, srv, s.acmeSrv)
 	s.notifyReady(fmt.Sprintf("https://%s:%d", domain, s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, "", "")
 }

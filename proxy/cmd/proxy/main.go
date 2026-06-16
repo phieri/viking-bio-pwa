@@ -16,7 +16,6 @@ import (
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/configure"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/ddns"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/mdns"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/serial"
@@ -33,7 +32,7 @@ func main() {
 		serialPort    = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
 		noOpenBrowser = flag.Bool("no-open-browser", false, "do not open the browser automatically on startup")
 		notifyTest    = flag.Bool("notify-test", false, "send a test push notification to all subscribers and exit")
-		notifyOnly    = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, no Let's Encrypt/DuckDNS, local network connections only")
+		notifyOnly    = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, no automatic Let's Encrypt, local network connections only")
 	)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Viking Bio Proxy v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
@@ -120,15 +119,6 @@ func runServer(noOpenBrowser bool, notifyOnly bool) {
 		defer mdnsAdv.Stop()
 	} else {
 		log.Println("mdns: disabled (MDNS_DISABLE is set)")
-	}
-
-	// DDNS client – skipped in notify-only mode
-	if !notifyOnly {
-		ddnsClient := ddns.New(cfg.DDNSSubdomain, cfg.DDNSToken)
-		if ddnsClient != nil {
-			ddnsClient.Start()
-			defer ddnsClient.Stop()
-		}
 	}
 
 	// Create server

@@ -42,7 +42,6 @@ Node.js implementation; verify against the current Go code before acting.
 │   │   ├── serial/                 # USB serial bridge for Pico configurator
 │   │   ├── configure/              # Fyne GUI (gui.go) and TUI fallback (tui.go) for device setup
 │   │   ├── mdns/                   # Proxy DNS-SD advertisement
-│   │   ├── ddns/                   # DuckDNS updater for ACME mode
 │   │   └── cert/                   # Let's Encrypt / TLS support
 │   ├── public/                     # Static PWA files (served from disk or embedded)
 │   ├── assets.go                   # go:embed for proxy/public
