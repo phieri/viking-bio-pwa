@@ -12,12 +12,13 @@ var configEnvKeys = []string{
 	"INGEST_TCP_TLS",
 	"TLS_CERT_PATH",
 	"TLS_KEY_PATH",
+	"ACME_DOMAIN",
+	"ACME_CHALLENGE",
+	"ACME_DNS_PROVIDER",
 	"ACME_EMAIL",
 	"ACME_STAGING",
 	"ACME_CERT_DIR",
 	"ACME_HTTP_PORT",
-	"DDNS_SUBDOMAIN",
-	"DDNS_TOKEN",
 	"VAPID_CONTACT_EMAIL",
 	"MDNS_NAME",
 	"MDNS_DISABLE",
@@ -103,6 +104,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ACMEHTTPPort != 80 {
 		t.Fatalf("expected default ACME HTTP port 80, got %d", cfg.ACMEHTTPPort)
 	}
+	if cfg.ACMEChallenge != ACMEChallengeHTTP01 {
+		t.Fatalf("expected default ACME challenge %q, got %q", ACMEChallengeHTTP01, cfg.ACMEChallenge)
+	}
 	if cfg.DataDir != expectedDataDir {
 		t.Fatalf("unexpected default data dir: %q", cfg.DataDir)
 	}
@@ -124,12 +128,13 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("INGEST_TCP_TLS", "true")
 	t.Setenv("TLS_CERT_PATH", "/cert.pem")
 	t.Setenv("TLS_KEY_PATH", "/key.pem")
+	t.Setenv("ACME_DOMAIN", "burner.example.com")
+	t.Setenv("ACME_CHALLENGE", "dns-01")
+	t.Setenv("ACME_DNS_PROVIDER", "cloudflare")
 	t.Setenv("ACME_EMAIL", "acme@example.com")
 	t.Setenv("ACME_STAGING", "true")
 	t.Setenv("ACME_CERT_DIR", "/certs")
 	t.Setenv("ACME_HTTP_PORT", "8080")
-	t.Setenv("DDNS_SUBDOMAIN", "burner")
-	t.Setenv("DDNS_TOKEN", "token")
 	t.Setenv("VAPID_CONTACT_EMAIL", "push@example.com")
 	t.Setenv("MDNS_NAME", "Custom Name")
 	t.Setenv("MDNS_DISABLE", "1")
@@ -147,6 +152,9 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.DataDir != "/data" || cfg.ACMECertDir != "/certs" {
 		t.Fatalf("unexpected string overrides: %+v", cfg)
 	}
+	if cfg.ACMEDomain != "burner.example.com" || cfg.ACMEChallenge != ACMEChallengeDNS01 || cfg.ACMEDNSProvider != ACMEDNSProviderCloudflare {
+		t.Fatalf("unexpected ACME overrides: %+v", cfg)
+	}
 	if !cfg.IngestTCPTLS || !cfg.ACMEStaging || !cfg.MDNSDisable {
 		t.Fatalf("expected boolean overrides to be true: %+v", cfg)
 	}
@@ -157,5 +165,35 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 	t.Setenv("HTTP_PORT", "0")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid HTTP_PORT to fail")
+	}
+}
+
+func TestLoadRejectsACMEChallengeWithoutDomain(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("ACME_CHALLENGE", "dns-01")
+	t.Setenv("ACME_DNS_PROVIDER", "cloudflare")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected ACME_CHALLENGE without ACME_DOMAIN to fail")
+	}
+}
+
+func TestLoadRejectsInvalidACMEChallenge(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("ACME_DOMAIN", "burner.example.com")
+	t.Setenv("ACME_CHALLENGE", "tls-alpn-01")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid ACME_CHALLENGE to fail")
+	}
+}
+
+func TestLoadRejectsDNSChallengeWithoutProvider(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("ACME_DOMAIN", "burner.example.com")
+	t.Setenv("ACME_CHALLENGE", "dns-01")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected dns-01 without ACME_DNS_PROVIDER to fail")
 	}
 }

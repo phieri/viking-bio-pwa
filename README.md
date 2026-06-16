@@ -137,7 +137,7 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 |------|-------------|
 | `--configure` | Run the interactive device configurator TUI |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
-| `--notify-only` | Notification-only mode: no dashboard, no ACME/DuckDNS, local network only |
+| `--notify-only` | Notification-only mode: no dashboard, no automatic Let's Encrypt, local network only |
 | `--notify-test` | Send a test push notification to all subscribers and exit |
 | `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |

@@ -19,7 +19,7 @@ make build
 |------|-------------|
 | `--configure` | Run the interactive device configurator (GUI when a display is available, TUI otherwise) |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
-| `--notify-only` | Notification-only mode: no dashboard, no ACME/DuckDNS, local network only |
+| `--notify-only` | Notification-only mode: no dashboard, no automatic Let's Encrypt, local network only |
 | `--notify-test` | Send a test push notification to all subscribers and exit |
 | `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
@@ -46,12 +46,13 @@ make run
 | `INGEST_TCP_TLS` | `false` | Require TLS on the ingest listener (uses `TLS_CERT_PATH`/`TLS_KEY_PATH`) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
+| `ACME_DOMAIN` | _(empty)_ | Domain name to manage with Let's Encrypt |
+| `ACME_CHALLENGE` | `http-01` | Let's Encrypt challenge type (`http-01` or `dns-01`) |
+| `ACME_DNS_PROVIDER` | _(empty)_ | DNS provider for `dns-01` (`cloudflare`) |
 | `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt registration |
 | `ACME_STAGING` | `false` | Use Let's Encrypt staging (`1` or `true`) |
 | `ACME_CERT_DIR` | `<data_dir>` | Directory for ACME certificate cache |
 | `ACME_HTTP_PORT` | `80` | Port for HTTP-01 challenge server |
-| `DDNS_SUBDOMAIN` | _(empty)_ | DuckDNS subdomain (part before `.duckdns.org`) |
-| `DDNS_TOKEN` | _(empty)_ | DuckDNS account token |
 | `VAPID_CONTACT_EMAIL` | `admin@viking-bio.local` | VAPID contact email |
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
@@ -81,7 +82,8 @@ per-device telemetry keys.
 
 ## Notification-Only Mode
 
-Run the proxy in a headless configuration without the PWA dashboard or ACME/DuckDNS
+Run the proxy in a headless configuration without the PWA dashboard or automatic
+Let's Encrypt
 certificate management. All HTTP routes are restricted to loopback and private-network
 addresses:
 
@@ -101,19 +103,34 @@ TLS_CERT_PATH=/etc/letsencrypt/live/example.com/fullchain.pem
 TLS_KEY_PATH=/etc/letsencrypt/live/example.com/privkey.pem
 ```
 
-### Automatic Let's Encrypt via DuckDNS
+### Automatic Let's Encrypt
 
-Set both `DDNS_SUBDOMAIN` and `DDNS_TOKEN`. Port 80 must be reachable from
-the internet (for HTTP-01 challenge). The proxy will:
+Set `ACME_DOMAIN` to the public hostname you want the proxy to serve and choose
+an ACME challenge type:
 
-1. Register/update the DuckDNS record.
-2. Obtain a certificate from Let's Encrypt automatically.
-3. Serve HTTPS on `HTTP_PORT`.
+#### HTTP-01
+
+Port 80 must be reachable from the internet for the selected domain.
 
 ```env
-DDNS_SUBDOMAIN=my-viking-bio
-DDNS_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ACME_DOMAIN=burner.example.com
+ACME_CHALLENGE=http-01
 ACME_EMAIL=you@example.com
+```
+
+#### DNS-01 (Cloudflare)
+
+This mode does not require inbound port 80, but it does require Cloudflare API
+credentials with DNS write access for the zone.
+
+```env
+ACME_DOMAIN=burner.example.com
+ACME_CHALLENGE=dns-01
+ACME_DNS_PROVIDER=cloudflare
+ACME_EMAIL=you@example.com
+CLOUDFLARE_API_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Optional read-scoped token if your API token is zone-limited:
+# CLOUDFLARE_ZONE_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 Use `ACME_STAGING=1` while testing to avoid rate limits.
