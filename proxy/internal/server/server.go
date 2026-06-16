@@ -332,7 +332,7 @@ func (s *Server) startACME(ctx context.Context, mux http.Handler, addr, domain s
 		}()
 	}
 	if err := mgr.Manage(ctx); err != nil {
-		return fmt.Errorf("manage certificate: %w", err)
+		return fmt.Errorf("manage %s certificate: %w", s.cfg.ACMEChallenge, err)
 	}
 	srv := &http.Server{Addr: addr, Handler: mux, TLSConfig: mgr.TLSConfig()}
 	s.httpSrv = srv
