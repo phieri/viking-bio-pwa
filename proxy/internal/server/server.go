@@ -149,7 +149,7 @@ type Server struct {
 // New creates a Server. When notifyOnly is true the server skips the dashboard,
 // Let's Encrypt/ACME, and restricts connections to the local network.
 func New(cfg *config.Config, pushMgr *push.Manager, store *storage.Store, notifyOnly bool) *Server {
-	h := NewHandlers(pushMgr)
+	h := NewHandlers(pushMgr, cfg)
 	return &Server{
 		cfg:        cfg,
 		handler:    h,
@@ -179,6 +179,7 @@ func (s *Server) registerAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/data", methodGuard(http.MethodGet, s.handler.HandleGetData))
 	mux.HandleFunc("/api/vapid-public-key", methodGuard(http.MethodGet, s.handler.HandleGetVapidKey))
 	mux.HandleFunc("/api/subscribers", methodGuard(http.MethodGet, s.handler.HandleGetSubscribers))
+	mux.HandleFunc("/api/energy-price", methodGuard(http.MethodGet, s.handler.HandleGetEnergyPrice))
 	mux.HandleFunc("/api/subscribe", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleSubscribe)))
 	mux.HandleFunc("/api/unsubscribe", methodGuard(http.MethodPost, jsonMiddleware(s.handler.HandleUnsubscribe)))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {

@@ -24,7 +24,7 @@ func newTestHandlers(t *testing.T) *server.Handlers {
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
-	return server.NewHandlers(mgr)
+	return server.NewHandlers(mgr, nil)
 }
 
 func postJSON(t *testing.T, h http.HandlerFunc, body any, headers map[string]string) *http.Response {

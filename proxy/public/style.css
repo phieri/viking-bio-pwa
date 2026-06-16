@@ -42,6 +42,9 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 	.subscription .btn{width:100%}
 }
 .push-source{font-size:.8em;color:#aaa;margin-top:6px;text-align:center;width:100%}
+.price-saving{color:#4ecdc4}
+.price-expensive{color:#ff4d4d}
+.energy-price-detail{font-size:0.72em;color:#aaa;margin-top:6px}
 @keyframes blinkRed {
   0%    { background-color: var(--page-bg); }
   12.5% { background-color: var(--error-red); }

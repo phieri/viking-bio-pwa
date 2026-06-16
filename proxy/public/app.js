@@ -1,10 +1,12 @@
 let pollTimer = null;
 let seasonTimer = null;
+let energyTimer = null;
 let sw = null;
 let sub = null;
 const MS_PER_DAY = 86400000;
 const POLL_INTERVAL_MS = 2000;
 const SEASON_CHECK_INTERVAL_MS = 600000; // 10 minutes
+const ENERGY_POLL_INTERVAL_MS = 300000;  // 5 minutes
 const SEASON_START_MONTH = 10; // November (0-indexed)
 const SEASON_END_MONTH = 3;   // April (0-indexed)
 
@@ -47,6 +49,43 @@ function pollSubscribers() {
 		.catch(() => {});
 }
 
+function fmtSEK(val) {
+	return val.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function pollEnergyPrice() {
+	fetch('/api/energy-price')
+		.then((r) => r.json())
+		.then((d) => {
+			const card = document.getElementById('energy-price-card');
+			if (!card) return;
+			if (!d.enabled) {
+				card.style.display = 'none';
+				return;
+			}
+			card.style.display = '';
+			const diffEl = document.getElementById('energy-price-diff');
+			const unitEl = document.getElementById('energy-price-unit');
+			const detailEl = document.getElementById('energy-price-detail');
+			if (d.error) {
+				diffEl.textContent = '—';
+				diffEl.className = 'value';
+				unitEl.textContent = d.error;
+				if (detailEl) detailEl.textContent = '';
+				return;
+			}
+			const diff = d.diff_sek_kwh;
+			diffEl.textContent = fmtSEK(diff);
+			diffEl.className = 'value' + (diff < 0 ? ' price-expensive' : ' price-saving');
+			unitEl.textContent = diff >= 0 ? 'kr/kWh besparing' : 'kr/kWh dyrare';
+			if (detailEl) {
+				detailEl.textContent =
+					`El: ${fmtSEK(d.elec_total_sek_kwh)} | Panna: ${fmtSEK(d.burner_total_sek_kwh)} kr/kWh`;
+			}
+		})
+		.catch(() => {});
+}
+
 function poll() {
 	fetch('/api/data')
 		.then((r) => r.json())
@@ -80,10 +119,13 @@ function poll() {
 function startPolling() {
 	updateSeasonCountdown();
 	poll();
+	pollEnergyPrice();
 	if (pollTimer) clearInterval(pollTimer);
 	if (seasonTimer) clearInterval(seasonTimer);
+	if (energyTimer) clearInterval(energyTimer);
 	pollTimer = setInterval(poll, POLL_INTERVAL_MS);
 	seasonTimer = setInterval(updateSeasonCountdown, SEASON_CHECK_INTERVAL_MS);
+	energyTimer = setInterval(pollEnergyPrice, ENERGY_POLL_INTERVAL_MS);
 }
 
 function setStatus(msg, cls) {

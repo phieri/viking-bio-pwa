@@ -1,4 +1,4 @@
-const CACHE_NAME = 'viking-bio-v3';
+const CACHE_NAME = 'viking-bio-v4';
 const ASSETS = [
 	'/',
 	'/index.html',
