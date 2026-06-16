@@ -8,15 +8,6 @@ import (
 	"time"
 )
 
-func makePricesJSON(t *testing.T, entries []hourlyPrice) string {
-	t.Helper()
-	b, err := json.Marshal(entries)
-	if err != nil {
-		t.Fatalf("marshal prices: %v", err)
-	}
-	return string(b)
-}
-
 func TestCurrentHourSEKPerKWh_HappyPath(t *testing.T) {
 	t.Parallel()
 
@@ -34,10 +25,8 @@ func TestCurrentHourSEKPerKWh_HappyPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	f := &Fetcher{httpGet: func(url string) (*http.Response, error) {
-		// Rewrite URL to test server
-		url = srv.URL + "/prices.json"
-		return http.Get(url)
+	f := &Fetcher{httpGet: func(_ string) (*http.Response, error) {
+		return http.Get(srv.URL + "/prices.json")
 	}}
 
 	got, err := f.CurrentHourSEKPerKWh("SE3", now)

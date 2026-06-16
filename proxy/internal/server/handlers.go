@@ -118,12 +118,12 @@ func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 
 // energyPriceResponse is the JSON payload for GET /api/energy-price.
 type energyPriceResponse struct {
-	Enabled         bool    `json:"enabled"`
-	SpotSEKPerKWh   float64 `json:"spot_sek_kwh,omitempty"`
-	ElecTotalSEKPerKWh float64 `json:"elec_total_sek_kwh,omitempty"`
+	Enabled              bool    `json:"enabled"`
+	SpotSEKPerKWh        float64 `json:"spot_sek_kwh,omitempty"`
+	ElecTotalSEKPerKWh   float64 `json:"elec_total_sek_kwh,omitempty"`
 	BurnerTotalSEKPerKWh float64 `json:"burner_total_sek_kwh,omitempty"`
-	DiffSEKPerKWh   float64 `json:"diff_sek_kwh,omitempty"`
-	Error           string  `json:"error,omitempty"`
+	DiffSEKPerKWh        float64 `json:"diff_sek_kwh,omitempty"`
+	Error                string  `json:"error,omitempty"`
 }
 
 // HandleGetEnergyPrice serves GET /api/energy-price.
