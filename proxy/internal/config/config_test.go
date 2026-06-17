@@ -24,6 +24,10 @@ var configEnvKeys = []string{
 	"MDNS_DISABLE",
 	"PICO_SERIAL_PORT",
 	"DATA_DIR",
+	"ENERGY_CARD_ENABLED",
+	"BURNER_FIXED_COST_SEK_YEAR",
+	"BURNER_COST_SEK_KWH",
+	"ANNUAL_HEATING_KWH",
 }
 
 func clearConfigEnv(t *testing.T) {
@@ -119,6 +123,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MDNSName != "Viking Bio" {
 		t.Fatalf("unexpected default MDNS name: %q", cfg.MDNSName)
 	}
+	if cfg.EnergyCardEnabled {
+		t.Fatal("expected energy card to default to disabled")
+	}
+	if cfg.AnnualHeatingKWh != 20000 {
+		t.Fatalf("expected default annual heating kWh 20000, got %v", cfg.AnnualHeatingKWh)
+	}
 }
 
 func TestLoadOverrides(t *testing.T) {
@@ -140,6 +150,10 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("MDNS_DISABLE", "1")
 	t.Setenv("PICO_SERIAL_PORT", "/dev/ttyACM0")
 	t.Setenv("DATA_DIR", "/data")
+	t.Setenv("ENERGY_CARD_ENABLED", "true")
+	t.Setenv("BURNER_FIXED_COST_SEK_YEAR", "1200")
+	t.Setenv("BURNER_COST_SEK_KWH", "0.42")
+	t.Setenv("ANNUAL_HEATING_KWH", "15000")
 
 	cfg, err := Load()
 	if err != nil {
@@ -157,6 +171,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if !cfg.IngestTCPTLS || !cfg.ACMEStaging || !cfg.MDNSDisable {
 		t.Fatalf("expected boolean overrides to be true: %+v", cfg)
+	}
+	if !cfg.EnergyCardEnabled || cfg.BurnerFixedCostSEKYear != 1200 || cfg.BurnerCostSEKPerKWh != 0.42 || cfg.AnnualHeatingKWh != 15000 {
+		t.Fatalf("unexpected energy card overrides: %+v", cfg)
 	}
 }
 

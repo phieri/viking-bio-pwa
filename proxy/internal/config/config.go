@@ -29,14 +29,10 @@ type Config struct {
 	PicoSerialPort    string
 	DataDir           string
 
-	// Energy comparison card
+	// Energy price card
 	EnergyCardEnabled      bool
 	BurnerFixedCostSEKYear float64 // annual fixed costs for burner (service, amortization)
 	BurnerCostSEKPerKWh    float64 // direct pellet energy cost per kWh of heat
-	ElecGridFeeSEKPerKWh   float64 // electricity grid fee per kWh
-	ElecTaxSEKPerKWh       float64 // electricity tax per kWh
-	ElecFixedCostSEKYear   float64 // annual fixed electricity subscription fee
-	ElecPriceRegion        string  // spot price region: SE1, SE2, SE3, SE4
 	AnnualHeatingKWh       float64 // estimated annual heating kWh (to amortize fixed costs)
 }
 
@@ -166,25 +162,9 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	elecGrid, err := parseFloat("ELEC_GRID_FEE_SEK_KWH", os.Getenv("ELEC_GRID_FEE_SEK_KWH"), 0)
-	if err != nil {
-		return nil, err
-	}
-	elecTax, err := parseFloat("ELEC_TAX_SEK_KWH", os.Getenv("ELEC_TAX_SEK_KWH"), 0)
-	if err != nil {
-		return nil, err
-	}
-	elecFixed, err := parseFloat("ELEC_FIXED_COST_SEK_YEAR", os.Getenv("ELEC_FIXED_COST_SEK_YEAR"), 0)
-	if err != nil {
-		return nil, err
-	}
 	annualKWh, err := parseFloat("ANNUAL_HEATING_KWH", os.Getenv("ANNUAL_HEATING_KWH"), 20000)
 	if err != nil {
 		return nil, err
-	}
-	elecRegion := os.Getenv("ELEC_PRICE_REGION")
-	if elecRegion == "" {
-		elecRegion = "SE3"
 	}
 
 	return &Config{
@@ -209,10 +189,6 @@ func Load() (*Config, error) {
 		EnergyCardEnabled:      parseBool(os.Getenv("ENERGY_CARD_ENABLED")),
 		BurnerFixedCostSEKYear: burnerFixed,
 		BurnerCostSEKPerKWh:    burnerKWh,
-		ElecGridFeeSEKPerKWh:   elecGrid,
-		ElecTaxSEKPerKWh:       elecTax,
-		ElecFixedCostSEKYear:   elecFixed,
-		ElecPriceRegion:        elecRegion,
 		AnnualHeatingKWh:       annualKWh,
 	}, nil
 }
