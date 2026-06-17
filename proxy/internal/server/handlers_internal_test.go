@@ -13,16 +13,6 @@ import (
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
-// spotFetcherStub implements spotPriceFetcher for tests.
-type spotFetcherStub struct {
-	price float64
-	err   error
-}
-
-func (s *spotFetcherStub) CurrentHourSEKPerKWh(_ string, _ time.Time) (float64, error) {
-	return s.price, s.err
-}
-
 func newInternalTestHandlers(t *testing.T) *Handlers {
 	t.Helper()
 	dir := t.TempDir()
@@ -270,17 +260,10 @@ func TestHandleGetEnergyPrice_Enabled(t *testing.T) {
 		EnergyCardEnabled:      true,
 		BurnerFixedCostSEKYear: 2000,
 		BurnerCostSEKPerKWh:    0.30,
-		ElecGridFeeSEKPerKWh:   0.40,
-		ElecTaxSEKPerKWh:       0.50,
-		ElecFixedCostSEKYear:   1000,
-		ElecPriceRegion:        "SE3",
 		AnnualHeatingKWh:       10000,
 	}
 
 	h := NewHandlers(mgr, cfg)
-
-	// Inject a fake spot fetcher so the test does not make HTTP calls.
-	h.spotFetcher = &spotFetcherStub{price: 0.60}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/energy-price", nil)
 	rr := httptest.NewRecorder()
@@ -293,13 +276,13 @@ func TestHandleGetEnergyPrice_Enabled(t *testing.T) {
 	if !strings.Contains(body, `"enabled":true`) {
 		t.Fatalf("expected enabled:true, got %s", body)
 	}
-	if strings.Contains(body, `"error"`) {
-		t.Fatalf("unexpected error in response: %s", body)
+	if !strings.Contains(body, `"burner_sek_kwh":0.5`) {
+		t.Fatalf("expected burner_sek_kwh=0.5 in response, got %s", body)
 	}
-	// spot=0.60 + grid=0.40 + tax=0.50 + elec_fixed/annual=0.10 = 1.60
-	// burner=0.30 + burner_fixed/annual=0.20 = 0.50
-	// diff = 1.60 - 0.50 = 1.10
-	if !strings.Contains(body, `"diff_sek_kwh":1.1`) {
-		t.Fatalf("expected diff_sek_kwh=1.1 in response, got %s", body)
+	if !strings.Contains(body, `"fixed_sek_kwh":0.2`) {
+		t.Fatalf("expected fixed_sek_kwh=0.2 in response, got %s", body)
+	}
+	if !strings.Contains(body, `"variable_sek_kwh":0.3`) {
+		t.Fatalf("expected variable_sek_kwh=0.3 in response, got %s", body)
 	}
 }

@@ -1,6 +1,6 @@
 let pollTimer = null;
 let seasonTimer = null;
-let energyTimer = null;
+let burnerPriceTimer = null;
 let sw = null;
 let sub = null;
 const MS_PER_DAY = 86400000;
@@ -53,36 +53,25 @@ function fmtSEK(val) {
 	return val.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function pollEnergyPrice() {
+function updateBurnerPriceCard(data) {
+	const card = document.getElementById('energy-price-card');
+	if (!card) return;
+	if (!data.enabled) {
+		card.style.display = 'none';
+		return;
+	}
+
+	card.style.display = '';
+	document.getElementById('energy-price-value').textContent = fmtSEK(data.burner_sek_kwh);
+	document.getElementById('energy-price-unit').textContent = 'kr/kWh';
+	document.getElementById('energy-price-detail').textContent =
+		`Pellets: ${fmtSEK(data.variable_sek_kwh)} | Fasta kostnader: ${fmtSEK(data.fixed_sek_kwh)} kr/kWh`;
+}
+
+function pollBurnerPrice() {
 	fetch('/api/energy-price')
 		.then((r) => r.json())
-		.then((d) => {
-			const card = document.getElementById('energy-price-card');
-			if (!card) return;
-			if (!d.enabled) {
-				card.style.display = 'none';
-				return;
-			}
-			card.style.display = '';
-			const diffEl = document.getElementById('energy-price-diff');
-			const unitEl = document.getElementById('energy-price-unit');
-			const detailEl = document.getElementById('energy-price-detail');
-			if (d.error) {
-				diffEl.textContent = '—';
-				diffEl.className = 'value';
-				unitEl.textContent = d.error;
-				if (detailEl) detailEl.textContent = '';
-				return;
-			}
-			const diff = d.diff_sek_kwh;
-			diffEl.textContent = fmtSEK(diff);
-			diffEl.className = 'value' + (diff < 0 ? ' price-expensive' : ' price-saving');
-			unitEl.textContent = diff >= 0 ? 'kr/kWh besparing' : 'kr/kWh dyrare';
-			if (detailEl) {
-				detailEl.textContent =
-					`El: ${fmtSEK(d.elec_total_sek_kwh)} | Panna: ${fmtSEK(d.burner_total_sek_kwh)} kr/kWh`;
-			}
-		})
+		.then(updateBurnerPriceCard)
 		.catch(() => {});
 }
 
@@ -119,13 +108,13 @@ function poll() {
 function startPolling() {
 	updateSeasonCountdown();
 	poll();
-	pollEnergyPrice();
+	pollBurnerPrice();
 	if (pollTimer) clearInterval(pollTimer);
 	if (seasonTimer) clearInterval(seasonTimer);
-	if (energyTimer) clearInterval(energyTimer);
+	if (burnerPriceTimer) clearInterval(burnerPriceTimer);
 	pollTimer = setInterval(poll, POLL_INTERVAL_MS);
 	seasonTimer = setInterval(updateSeasonCountdown, SEASON_CHECK_INTERVAL_MS);
-	energyTimer = setInterval(pollEnergyPrice, ENERGY_POLL_INTERVAL_MS);
+	burnerPriceTimer = setInterval(pollBurnerPrice, ENERGY_POLL_INTERVAL_MS);
 }
 
 function setStatus(msg, cls) {

@@ -25,8 +25,9 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 .btn-unsub{background:#3d0000;color:#ff6b6b;border:1px solid #ff6b6b}
 .btn-unsub:hover{background:#5a0000}
 .actions{text-align:center;margin:16px auto;max-width:800px}
-.flame-on .value{font-size: 2.5em;}
-.flame-off .value{color:#555}
+.flame-value{display:flex;align-items:center;justify-content:center;height:2.5rem;line-height:1}
+.flame-on .flame-value{font-size:2.5em}
+.flame-off .flame-value{color:#555}
 .subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#252b33;padding:10px;border-radius:10px;border:1px solid #3a4048}
 .subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#fff;font-size:0.95em}
 .subs-checkboxes label{margin:2px 0}
@@ -42,8 +43,6 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 	.subscription .btn{width:100%}
 }
 .push-source{font-size:.8em;color:#aaa;margin-top:6px;text-align:center;width:100%}
-.price-saving{color:#4ecdc4}
-.price-expensive{color:#ff4d4d}
 .energy-price-detail{font-size:0.72em;color:#aaa;margin-top:6px}
 @keyframes blinkRed {
   0%    { background-color: var(--page-bg); }
