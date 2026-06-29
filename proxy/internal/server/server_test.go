@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
@@ -49,39 +50,35 @@ func TestMethodGuard_RejectsUnexpectedMethod(t *testing.T) {
 	}
 }
 
-func TestJSONMiddleware_AcceptsApplicationJSONWithCharset(t *testing.T) {
-	called := false
-	handler := jsonMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-		w.WriteHeader(http.StatusNoContent)
-	})
-
-	req := httptest.NewRequest(http.MethodPost, "/api/subscribe", nil)
+func TestDecodeJSONBody_AcceptsApplicationJSONWithCharset(t *testing.T) {
+	var payload struct {
+		Endpoint string `json:"endpoint"`
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/subscribe", strings.NewReader(`{"endpoint":"https://example.com"}`))
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	rr := httptest.NewRecorder()
-	handler(rr, req)
 
-	if !called {
-		t.Fatal("expected wrapped handler to be called")
+	if !decodeJSONBody(rr, req, &payload) {
+		t.Fatal("expected JSON body to be decoded")
 	}
-	if rr.Code != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d", rr.Code)
+	if payload.Endpoint != "https://example.com" {
+		t.Fatalf("expected endpoint to be parsed, got %q", payload.Endpoint)
+	}
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 }
 
-func TestJSONMiddleware_RejectsNonJSONContentType(t *testing.T) {
-	called := false
-	handler := jsonMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-	})
-
+func TestDecodeJSONBody_RejectsNonJSONContentType(t *testing.T) {
+	var payload struct {
+		Endpoint string `json:"endpoint"`
+	}
 	req := httptest.NewRequest(http.MethodPost, "/api/subscribe", nil)
 	req.Header.Set("Content-Type", "text/plain")
 	rr := httptest.NewRecorder()
-	handler(rr, req)
 
-	if called {
-		t.Fatal("expected wrapped handler not to be called")
+	if decodeJSONBody(rr, req, &payload) {
+		t.Fatal("expected JSON body parsing to be rejected")
 	}
 	if rr.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("expected 415, got %d", rr.Code)

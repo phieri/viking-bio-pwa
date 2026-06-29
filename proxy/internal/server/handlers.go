@@ -2,7 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log"
+	"mime"
 	"net/http"
 	"time"
 
@@ -30,11 +33,45 @@ func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
 	}
 }
 
+const maxJSONBodySize = 64 << 10
+
 // writeJSON writes a JSON response with the given status code.
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "Content-Type must be application/json"})
+		return false
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodySize)
+	defer r.Body.Close()
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(dst); err != nil {
+		if errors.Is(err, io.EOF) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "empty request body"})
+			return false
+		}
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "request body too large"})
+			return false
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return false
+	}
+	// Ensure no trailing data follows the first JSON object.
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "request body must contain exactly one JSON object"})
+		return false
+	}
+	return true
 }
 
 // HandleGetData serves GET /api/data.
@@ -79,7 +116,10 @@ func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
 		Auth     string        `json:"auth"`
 		Prefs    storage.Prefs `json:"prefs"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Endpoint == "" {
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	if body.Endpoint == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
 		return
 	}
@@ -97,7 +137,10 @@ func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Endpoint string `json:"endpoint"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Endpoint == "" {
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	if body.Endpoint == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
 		return
 	}

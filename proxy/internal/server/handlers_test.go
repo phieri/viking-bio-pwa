@@ -3,9 +3,11 @@ package server_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
@@ -89,6 +91,30 @@ func TestSubscribe_Valid(t *testing.T) {
 	m := decodeJSON(t, resp)
 	if m["status"] != "ok" {
 		t.Errorf("expected status=ok, got %v", m["status"])
+	}
+}
+
+func TestSubscribe_InvalidContentType(t *testing.T) {
+	h := newTestHandlers(t)
+	body := bytes.NewBufferString(`{"endpoint":"https://example.com/push/test"}`)
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+	h.HandleSubscribe(rr, req)
+	if rr.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("expected 415, got %d", rr.Code)
+	}
+}
+
+func TestSubscribe_RequestBodyTooLarge(t *testing.T) {
+	h := newTestHandlers(t)
+	body := fmt.Sprintf(`{"endpoint":"https://example.com/push/test","p256dh":"%s"}`, strings.Repeat("x", 1<<20))
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.HandleSubscribe(rr, req)
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d", rr.Code)
 	}
 }
 

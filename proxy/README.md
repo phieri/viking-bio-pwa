@@ -198,6 +198,17 @@ normal state/update/notification pipeline, and writes overflow traffic to
 > reprovisioned or updated over USB with a server/port change and a per-device
 > telemetry key.
 
+## HTTP API
+
+The proxy exposes a small JSON API for the dashboard and browser push integration:
+
+- `GET /api/data` returns the current burner state snapshot.
+- `GET /api/vapid-public-key` returns the proxy-managed VAPID public key.
+- `GET /api/subscribers` returns the current subscription count.
+- `POST /api/subscribe` and `POST /api/unsubscribe` accept JSON request bodies.
+  The server requires `Content-Type: application/json`, rejects unknown fields,
+  and limits request bodies to 64 KiB to avoid oversized payload abuse.
+
 ## mDNS / DNS-SD
 
 The proxy advertises itself as `_viking-bio._tcp` with TXT record
