@@ -31,7 +31,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Install dependencies
       run: |
@@ -40,14 +40,14 @@ jobs:
 
     - name: Cache Pico SDK
       id: cache-pico-sdk
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ${{ github.workspace }}/pico-sdk
         key: pico-sdk-${{ env.PICO_SDK_VERSION }}
 
     - name: Checkout Pico SDK
       if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: raspberrypi/pico-sdk
         ref: ${{ env.PICO_SDK_VERSION }}
