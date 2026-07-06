@@ -89,7 +89,40 @@ func (h *Handlers) HandleGetVapidKey(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetSubscribers serves GET /api/subscribers.
 func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]int{"count": h.pushMgr.GetSubscriptionCount()})
+	subs := h.pushMgr.GetSubscriptions()
+	items := make([]map[string]string, 0, len(subs))
+	for _, sub := range subs {
+		items = append(items, map[string]string{"endpoint": sub.Endpoint})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"count": len(items), "subscribers": items})
+}
+
+// HandleSendTestPush serves POST /api/test-push.
+func (h *Handlers) HandleSendTestPush(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Endpoint string `json:"endpoint"`
+		Priority string `json:"priority"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	if body.Endpoint == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+		return
+	}
+	priority := body.Priority
+	if priority == "" {
+		priority = "normal"
+	}
+	if err := h.pushMgr.SendTestToSubscriber(body.Endpoint, priority); err != nil {
+		if errors.Is(err, push.ErrSubscriptionNotFound) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subscriber not found"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to send test push"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machineDataUpdateResult {

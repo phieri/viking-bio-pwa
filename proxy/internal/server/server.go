@@ -178,6 +178,7 @@ func (s *Server) registerAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/data", methodGuard(http.MethodGet, s.handler.HandleGetData))
 	mux.HandleFunc("/api/vapid-public-key", methodGuard(http.MethodGet, s.handler.HandleGetVapidKey))
 	mux.HandleFunc("/api/subscribers", methodGuard(http.MethodGet, s.handler.HandleGetSubscribers))
+	mux.HandleFunc("/api/test-push", methodGuard(http.MethodPost, s.handler.HandleSendTestPush))
 	mux.HandleFunc("/api/energy-price", methodGuard(http.MethodGet, s.handler.HandleGetEnergyPrice))
 	mux.HandleFunc("/api/subscribe", methodGuard(http.MethodPost, s.handler.HandleSubscribe))
 	mux.HandleFunc("/api/unsubscribe", methodGuard(http.MethodPost, s.handler.HandleUnsubscribe))

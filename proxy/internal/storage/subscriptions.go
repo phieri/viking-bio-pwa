@@ -200,6 +200,18 @@ func (s *Store) All() []Subscription {
 	return out
 }
 
+// GetByEndpoint returns the subscription with the given endpoint, if present.
+func (s *Store) GetByEndpoint(endpoint string) (Subscription, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, sub := range s.subs {
+		if sub.Endpoint == endpoint {
+			return sub, true
+		}
+	}
+	return Subscription{}, false
+}
+
 // Count returns the number of subscriptions.
 func (s *Store) Count() int {
 	s.mu.RLock()
