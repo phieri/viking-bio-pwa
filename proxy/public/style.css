@@ -42,6 +42,11 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 	.subs-checkboxes{align-items:flex-start}
 	.subscription .btn{width:100%}
 }
+.test-push-controls{display:flex;flex-wrap:wrap;align-items:end;justify-content:center;gap:8px;width:100%;margin-top:10px}
+.test-push-control{display:flex;flex-direction:column;align-items:flex-start;gap:4px;font-size:.85em;color:#ddd}
+.test-push-control select{background:#1e242a;border:1px solid #3a4048;border-radius:6px;color:#fff;padding:6px 8px;min-width:180px}
+.test-push-control select:disabled{opacity:.6}
+.test-push-controls .btn{margin:0}
 .push-source{font-size:.8em;color:#aaa;margin-top:6px;text-align:center;width:100%}
 .energy-price-detail{font-size:0.72em;color:#aaa;margin-top:6px}
 @keyframes blinkRed {

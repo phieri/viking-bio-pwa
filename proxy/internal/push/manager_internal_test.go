@@ -46,6 +46,42 @@ func TestSendTest_SendsToAllSubscribersRegardlessOfPrefs(t *testing.T) {
 	}
 }
 
+func TestSendTestToSubscriber_SendsOnlyToSelectedSubscriber(t *testing.T) {
+	dir := t.TempDir()
+	store, err := storage.NewStore(dir)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	mgr, err := New(dir, "test@example.com", store)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	if !mgr.AddSubscription("https://example.com/push/1", "key", "auth", storage.Prefs{}) {
+		t.Fatal("AddSubscription(1) failed")
+	}
+	if !mgr.AddSubscription("https://example.com/push/2", "key", "auth", storage.Prefs{}) {
+		t.Fatal("AddSubscription(2) failed")
+	}
+
+	var sentEndpoints []string
+	mgr.sendNotification = func(_ []byte, sub *webpush.Subscription, _ *webpush.Options) (*http.Response, error) {
+		sentEndpoints = append(sentEndpoints, sub.Endpoint)
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	}
+
+	if err := mgr.SendTestToSubscriber("https://example.com/push/2", "high"); err != nil {
+		t.Fatalf("SendTestToSubscriber: %v", err)
+	}
+
+	if len(sentEndpoints) != 1 || sentEndpoints[0] != "https://example.com/push/2" {
+		t.Fatalf("expected only target subscriber to be notified, got %v", sentEndpoints)
+	}
+}
+
 func TestSendTest_RemovesExpiredSubscriptions(t *testing.T) {
 	dir := t.TempDir()
 	store, err := storage.NewStore(dir)

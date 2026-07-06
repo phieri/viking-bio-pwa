@@ -9,6 +9,8 @@ const SEASON_CHECK_INTERVAL_MS = 600000; // 10 minutes
 const ENERGY_POLL_INTERVAL_MS = 300000;  // 5 minutes
 const SEASON_START_MONTH = 10; // November (0-indexed)
 const SEASON_END_MONTH = 3;   // April (0-indexed)
+const MAX_SUBSCRIBER_LABEL_LENGTH = 48;
+const ELLIPSIS_LENGTH = 3;
 
 function updateSeasonCountdown(timestamp = Date.now()) {
 	const today = new Date(timestamp);
@@ -38,6 +40,51 @@ function updateSeasonCountdown(timestamp = Date.now()) {
 	targetEl.textContent = label;
 }
 
+function formatSubscriberLabel(endpoint) {
+	if (!endpoint) return 'Ingen aktiv prenumerant';
+	try {
+		const url = new URL(endpoint);
+		const path = url.pathname === '/' ? '' : url.pathname;
+		const label = `${url.hostname}${path}`;
+		return label.length > MAX_SUBSCRIBER_LABEL_LENGTH ? `${label.slice(0, MAX_SUBSCRIBER_LABEL_LENGTH - ELLIPSIS_LENGTH)}…` : label;
+	} catch {
+		return endpoint.length > MAX_SUBSCRIBER_LABEL_LENGTH ? `${endpoint.slice(0, MAX_SUBSCRIBER_LABEL_LENGTH - ELLIPSIS_LENGTH)}…` : endpoint;
+	}
+}
+
+function updateSubscriberSelect(data) {
+	const select = document.getElementById('subscriberSelect');
+	const btn = document.getElementById('testPushBtn');
+	if (!select) return;
+
+	const subscribers = Array.isArray(data?.subscribers) ? data.subscribers : [];
+	const previousValue = select.value;
+	select.innerHTML = '';
+	if (!subscribers.length) {
+		const opt = document.createElement('option');
+		opt.value = '';
+		opt.textContent = 'Ingen aktiv prenumerant';
+		select.appendChild(opt);
+		select.disabled = true;
+		if (btn) btn.disabled = true;
+		return;
+	}
+
+	select.disabled = false;
+	const selected = subscribers.some((sub) => sub.endpoint === previousValue) ? previousValue : subscribers[0].endpoint;
+	subscribers.forEach((sub) => {
+		const opt = document.createElement('option');
+		opt.value = sub.endpoint;
+		opt.textContent = sub.label || formatSubscriberLabel(sub.endpoint);
+		if (sub.endpoint === selected) {
+			opt.selected = true;
+		}
+		select.appendChild(opt);
+	});
+	select.value = selected;
+	if (btn) btn.disabled = false;
+}
+
 function pollSubscribers() {
 	fetch('/api/subscribers')
 		.then((r) => r.json())
@@ -45,6 +92,7 @@ function pollSubscribers() {
 			if (typeof s.count !== 'undefined') {
 				document.getElementById('subscribers').textContent = s.count;
 			}
+			updateSubscriberSelect(s);
 		})
 		.catch(() => {});
 }
@@ -261,6 +309,33 @@ async function updateSubscription() {
 	} catch (e) {
 		console.error('Updating subscription failed:', e);
 		alert('Uppdatering av prenumeration misslyckades: ' + e.message);
+	}
+}
+
+async function sendTestPush() {
+	const select = document.getElementById('subscriberSelect');
+	const priorityEl = document.getElementById('testPushPriority');
+	const endpoint = select?.value;
+	const priority = priorityEl?.value || 'normal';
+	if (!endpoint) {
+		setStatus('Inga aktiva prenumeranter att testa.', 'stale');
+		return;
+	}
+	try {
+		const resp = await fetch('/api/test-push', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ endpoint, priority })
+		});
+		const data = await resp.json().catch(() => ({}));
+		if (!resp.ok) {
+			throw new Error(data.error || 'Kunde inte skicka testaviseringen');
+		}
+		const label = select.selectedOptions[0]?.textContent || endpoint;
+		setStatus(`Testavisering skickad till ${label} (${priority})`, 'ok');
+	} catch (e) {
+		console.error('Sending test push failed:', e);
+		setStatus('Testavisering misslyckades: ' + e.message, 'error');
 	}
 }
 

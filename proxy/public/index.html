@@ -72,6 +72,21 @@
 		<div id="pushAvailability" class="push-availability" aria-live="polite"></div>
 		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Aktivera aviseringar</button>
 		<button class="btn btn-unsub" id="unsubBtn" onclick="unsubscribePush()" style="display:none">Avregistrera</button>
+		<div class="test-push-controls">
+			<label class="test-push-control">
+				<span>Prenumerant</span>
+				<select id="subscriberSelect" disabled></select>
+			</label>
+			<label class="test-push-control">
+				<span>Prioritet</span>
+				<select id="testPushPriority">
+					<option value="low">Låg</option>
+					<option value="normal" selected>Normal</option>
+					<option value="high">Hög</option>
+				</select>
+			</label>
+			<button class="btn btn-push" id="testPushBtn" onclick="sendTestPush()" disabled>Skicka testavisering</button>
+		</div>
 		<div id="pushSource" class="push-source"></div>
 	</div>
 </div>

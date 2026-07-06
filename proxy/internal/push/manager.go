@@ -2,6 +2,7 @@ package push
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,6 +23,13 @@ type Manager struct {
 	sendNotification func([]byte, *webpush.Subscription, *webpush.Options) (*http.Response, error)
 	notifySem        chan struct{}
 }
+
+var ErrSubscriptionNotFound = errors.New("subscription not found")
+
+const (
+	testNotificationTitle = "Viking Bio: Test"
+	testNotificationBody  = "Testnotifiering från Viking Bio Proxy"
+)
 
 // New creates a Manager, loading or generating VAPID keys in dataDir.
 func New(dataDir, contactEmail string, store *storage.Store) (*Manager, error) {
@@ -49,6 +57,11 @@ func (m *Manager) GetVapidPublicKey() string {
 // GetSubscriptionCount returns the number of active subscriptions.
 func (m *Manager) GetSubscriptionCount() int {
 	return m.store.Count()
+}
+
+// GetSubscriptions returns a snapshot of the active subscriptions.
+func (m *Manager) GetSubscriptions() []storage.Subscription {
+	return m.store.All()
 }
 
 // AddSubscription adds or updates a subscription. Returns false if at capacity.
@@ -144,6 +157,34 @@ func (m *Manager) sendPayload(payload []byte, subs []storage.Subscription, shoul
 	if len(expired) > 0 {
 		m.store.RemoveAll(expired)
 	}
+}
+
+// normalizePriority maps UI priorities to the Web Push urgency values used in
+// the payload and defaults invalid values to "low" for safety.
+func normalizePriority(priority string) string {
+	switch priority {
+	case "very-low", "low":
+		return "low"
+	case "normal", "high":
+		return priority
+	default:
+		return "low"
+	}
+}
+
+// SendTestToSubscriber sends a test push notification to the selected subscriber.
+func (m *Manager) SendTestToSubscriber(endpoint, priority string) error {
+	if sub, ok := m.store.GetByEndpoint(endpoint); ok {
+		payload, err := m.buildPayload(testNotificationTitle, testNotificationBody, "test", normalizePriority(priority))
+		if err != nil {
+			return fmt.Errorf("push: marshal payload: %w", err)
+		}
+		m.sendPayload(payload, []storage.Subscription{sub}, nil, func(sentSub storage.Subscription, statusCode int) {
+			log.Printf("push: test notification sent to %s (%d)", sentSub.Endpoint, statusCode)
+		})
+		return nil
+	}
+	return ErrSubscriptionNotFound
 }
 
 // SendTest sends a test push notification to all subscribers, ignoring per-type preferences.

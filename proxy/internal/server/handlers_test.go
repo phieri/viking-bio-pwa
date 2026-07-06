@@ -94,6 +94,30 @@ func TestSubscribe_Valid(t *testing.T) {
 	}
 }
 
+func TestSendTestPush_RejectsMissingEndpoint(t *testing.T) {
+	h := newTestHandlers(t)
+	resp := postJSON(t, h.HandleSendTestPush, map[string]any{"priority": "high"}, nil)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+	m := decodeJSON(t, resp)
+	if m["error"] != "bad request" {
+		t.Errorf("expected bad request error, got %v", m["error"])
+	}
+}
+
+func TestSendTestPush_ReportsMissingSubscriber(t *testing.T) {
+	h := newTestHandlers(t)
+	resp := postJSON(t, h.HandleSendTestPush, map[string]any{"endpoint": "https://example.com/push/missing", "priority": "high"}, nil)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", resp.StatusCode)
+	}
+	m := decodeJSON(t, resp)
+	if m["error"] != "subscriber not found" {
+		t.Errorf("expected subscriber not found error, got %v", m["error"])
+	}
+}
+
 func TestSubscribe_InvalidContentType(t *testing.T) {
 	h := newTestHandlers(t)
 	body := bytes.NewBufferString(`{"endpoint":"https://example.com/push/test"}`)
