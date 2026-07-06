@@ -42,7 +42,7 @@ The Pico firmware:
 ### Building
 
 ```bash
-# Prerequisites: cmake, gcc-arm-none-eabi, libnewlib-arm-none-eabi, Pico SDK 2.2.0
+# Prerequisites: cmake, gcc-arm-none-eabi, libnewlib-arm-none-eabi, Pico SDK 2.3.0
 export PICO_SDK_PATH=/path/to/pico-sdk
 
 mkdir pico-bridge/build && cd pico-bridge/build

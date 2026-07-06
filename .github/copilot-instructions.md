@@ -241,7 +241,7 @@ was not installed, so a local firmware build could not be started immediately.
 
 - For proxy-only tasks, validate with the Go commands above.
 - For firmware tasks, follow `.github/workflows/build-firmware.yml`: install `cmake`,
-  `gcc-arm-none-eabi`, `libnewlib-arm-none-eabi`, `build-essential`, fetch Pico SDK 2.2.0,
+  `gcc-arm-none-eabi`, `libnewlib-arm-none-eabi`, `build-essential`, fetch Pico SDK 2.3.0,
   and export `PICO_SDK_PATH` before running CMake.
 
 ### 2. CI/local smoke tests can fail in environments without multicast support

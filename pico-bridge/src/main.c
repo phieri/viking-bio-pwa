@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/status_led.h"
 #include "hardware/watchdog.h"
 #include "lwip/netif.h"
 #include "lwip/ip6_addr.h"
@@ -52,6 +53,13 @@ volatile uint32_t event_flags = 0;
 static absolute_time_t s_led_blink_time;
 static absolute_time_t s_serial_blink_end;
 static bool s_led_blink_on = false;
+static bool s_status_led_available = false;
+
+static void bridge_status_led_set_state(bool enabled) {
+	if (s_status_led_available) {
+		status_led_set_state(enabled);
+	}
+}
 
 static void led_update(void) {
 	bool wifi_up =
@@ -59,17 +67,17 @@ static void led_update(void) {
 
 	// Short blink overrides everything (serial data received)
 	if (!time_reached(s_serial_blink_end)) {
-		cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+		bridge_status_led_set_state(true);
 		return;
 	}
 
 	if (wifi_up) {
-		cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+		bridge_status_led_set_state(true);
 	} else {
 		if (time_reached(s_led_blink_time)) {
 			s_led_blink_on = !s_led_blink_on;
 			s_led_blink_time = make_timeout_time_ms(LED_BLINK_INTERVAL_MS);
-			cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, s_led_blink_on ? 1 : 0);
+			bridge_status_led_set_state(s_led_blink_on);
 		}
 	}
 }
@@ -361,6 +369,11 @@ static void init_bridge_components(void) {
 
 	s_led_blink_time = get_absolute_time();
 	s_serial_blink_end = get_absolute_time();
+	s_status_led_available = status_led_supported();
+	if (s_status_led_available) {
+		status_led_init();
+		bridge_status_led_set_state(false);
+	}
 
 	printf("Initializing protocol parser...\n");
 	viking_bio_init();
@@ -456,7 +469,7 @@ static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up
 	}
 
 	s_serial_blink_end = make_timeout_time_ms(SERIAL_LED_BLINK_MS);
-	cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+	bridge_status_led_set_state(true);
 
 	viking_bio_data_t new_data;
 	if (!viking_bio_parse_data(buffer, bytes, &new_data)) {
