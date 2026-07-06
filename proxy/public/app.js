@@ -11,6 +11,101 @@ const SEASON_START_MONTH = 10; // November (0-indexed)
 const SEASON_END_MONTH = 3;   // April (0-indexed)
 const MAX_SUBSCRIBER_LABEL_LENGTH = 48;
 const ELLIPSIS_LENGTH = 3;
+let wakeLockSentinel = null;
+
+function getFullscreenElement() {
+	return document.fullscreenElement ||
+		document.webkitFullscreenElement ||
+		document.mozFullScreenElement ||
+		null;
+}
+
+function isFullscreenActive() {
+	return !!getFullscreenElement();
+}
+
+async function requestFullscreen() {
+	const el = document.documentElement;
+	if (el.requestFullscreen) return el.requestFullscreen();
+	if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+	if (el.mozRequestFullScreen) return el.mozRequestFullScreen();
+	throw new Error('Fullskärm stöds inte i den här webbläsaren.');
+}
+
+async function exitFullscreen() {
+	if (document.exitFullscreen) return document.exitFullscreen();
+	if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+	if (document.mozCancelFullScreen) return document.mozCancelFullScreen();
+	throw new Error('Det gick inte att lämna fullskärm.');
+}
+
+async function requestWakeLock() {
+	if (!('wakeLock' in navigator) || wakeLockSentinel || !isFullscreenActive()) return;
+	try {
+		const wakeLock = await navigator.wakeLock.request('screen');
+		wakeLockSentinel = wakeLock;
+		wakeLock.addEventListener('release', () => {
+			if (wakeLockSentinel === wakeLock) {
+				wakeLockSentinel = null;
+			}
+		});
+	} catch (error) {
+		console.debug('Kunde inte aktivera wake lock', error);
+	}
+}
+
+async function releaseWakeLock() {
+	if (!wakeLockSentinel) return;
+	const wakeLock = wakeLockSentinel;
+	wakeLockSentinel = null;
+	try {
+		await wakeLock.release();
+	} catch (error) {
+		console.debug('Kunde inte släppa wake lock', error);
+	}
+}
+
+function updateFullscreenButton() {
+	const btn = document.getElementById('fullscreenBtn');
+	if (!btn) return;
+	const active = isFullscreenActive();
+	btn.classList.toggle('is-fullscreen', active);
+	btn.textContent = active ? 'Avsluta fullskärm' : 'Fullskärm';
+	btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+	btn.setAttribute('aria-label', active ? 'Lämna fullskärm' : 'Gå till fullskärm');
+}
+
+async function handleFullscreenChange() {
+	updateFullscreenButton();
+	if (isFullscreenActive()) {
+		await requestWakeLock();
+	} else {
+		await releaseWakeLock();
+	}
+}
+
+async function toggleFullscreen() {
+	try {
+		if (isFullscreenActive()) {
+			await exitFullscreen();
+		} else {
+			await requestFullscreen();
+		}
+	} catch (error) {
+		console.error('Fullscreen toggle failed:', error);
+		alert('Fullskärm stöds inte i den här webbläsaren.');
+	}
+}
+
+function initFullscreenButton() {
+	const btn = document.getElementById('fullscreenBtn');
+	if (!btn) return;
+	btn.addEventListener('click', (event) => {
+		event.preventDefault();
+		void toggleFullscreen();
+	});
+	updateFullscreenButton();
+}
 
 function updateSeasonCountdown(timestamp = Date.now()) {
 	const today = new Date(timestamp);
@@ -394,6 +489,22 @@ if ('serviceWorker' in navigator) {
 			}
 		});
 }
+
+initFullscreenButton();
+document.addEventListener('fullscreenchange', () => {
+	void handleFullscreenChange();
+});
+document.addEventListener('webkitfullscreenchange', () => {
+	void handleFullscreenChange();
+});
+document.addEventListener('mozfullscreenchange', () => {
+	void handleFullscreenChange();
+});
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'visible' && isFullscreenActive()) {
+		void requestWakeLock();
+	}
+});
 
 updatePushAvailability();
 startPolling();
