@@ -53,9 +53,10 @@ volatile uint32_t event_flags = 0;
 static absolute_time_t s_led_blink_time;
 static absolute_time_t s_serial_blink_end;
 static bool s_led_blink_on = false;
+static bool s_status_led_available = false;
 
 static void bridge_status_led_set_state(bool enabled) {
-	if (status_led_supported()) {
+	if (s_status_led_available) {
 		status_led_set_state(enabled);
 	}
 }
@@ -368,7 +369,8 @@ static void init_bridge_components(void) {
 
 	s_led_blink_time = get_absolute_time();
 	s_serial_blink_end = get_absolute_time();
-	if (status_led_supported()) {
+	s_status_led_available = status_led_supported();
+	if (s_status_led_available) {
 		status_led_init();
 		bridge_status_led_set_state(false);
 	}
