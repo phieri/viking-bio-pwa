@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 var configEnvKeys = []string{
@@ -25,6 +26,8 @@ var configEnvKeys = []string{
 	"PICO_SERIAL_PORT",
 	"DATA_DIR",
 	"ENERGY_CARD_ENABLED",
+	"CLEANING_REMINDER_WEEKDAY",
+	"CLEANING_REMINDER_TIME",
 	"BURNER_FIXED_COST_SEK_YEAR",
 	"BURNER_COST_SEK_KWH",
 	"ANNUAL_HEATING_KWH",
@@ -126,6 +129,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.EnergyCardEnabled {
 		t.Fatal("expected energy card to default to disabled")
 	}
+	if cfg.CleaningReminderWeekday != time.Saturday {
+		t.Fatalf("expected default reminder weekday Saturday, got %v", cfg.CleaningReminderWeekday)
+	}
+	if cfg.CleaningReminderHour != 7 || cfg.CleaningReminderMinute != 0 {
+		t.Fatalf("expected default reminder time 07:00, got %02d:%02d", cfg.CleaningReminderHour, cfg.CleaningReminderMinute)
+	}
 	if cfg.AnnualHeatingKWh != 20000 {
 		t.Fatalf("expected default annual heating kWh 20000, got %v", cfg.AnnualHeatingKWh)
 	}
@@ -151,6 +160,8 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("PICO_SERIAL_PORT", "/dev/ttyACM0")
 	t.Setenv("DATA_DIR", "/data")
 	t.Setenv("ENERGY_CARD_ENABLED", "true")
+	t.Setenv("CLEANING_REMINDER_WEEKDAY", "Monday")
+	t.Setenv("CLEANING_REMINDER_TIME", "08:30")
 	t.Setenv("BURNER_FIXED_COST_SEK_YEAR", "1200")
 	t.Setenv("BURNER_COST_SEK_KWH", "0.42")
 	t.Setenv("ANNUAL_HEATING_KWH", "15000")
@@ -175,6 +186,9 @@ func TestLoadOverrides(t *testing.T) {
 	if !cfg.EnergyCardEnabled || cfg.BurnerFixedCostSEKYear != 1200 || cfg.BurnerCostSEKPerKWh != 0.42 || cfg.AnnualHeatingKWh != 15000 {
 		t.Fatalf("unexpected energy card overrides: %+v", cfg)
 	}
+	if cfg.CleaningReminderWeekday != time.Monday || cfg.CleaningReminderHour != 8 || cfg.CleaningReminderMinute != 30 {
+		t.Fatalf("unexpected reminder schedule overrides: %+v", cfg)
+	}
 }
 
 func TestLoadRejectsInvalidValues(t *testing.T) {
@@ -182,6 +196,14 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 	t.Setenv("HTTP_PORT", "0")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid HTTP_PORT to fail")
+	}
+}
+
+func TestLoadRejectsInvalidCleaningReminderConfig(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("CLEANING_REMINDER_WEEKDAY", "not-a-day")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid CLEANING_REMINDER_WEEKDAY to fail")
 	}
 }
 
