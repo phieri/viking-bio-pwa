@@ -26,7 +26,11 @@ func TestSendTest_SendsToAllSubscribersRegardlessOfPrefs(t *testing.T) {
 	}
 
 	// Add one subscriber with all prefs off.
-	if !mgr.AddSubscription("https://example.com/push/1", "key", "auth", storage.Prefs{}) {
+	ok, err := mgr.AddSubscription("https://example.com/push/1", "key", "auth", storage.Prefs{})
+	if err != nil {
+		t.Fatalf("AddSubscription returned error: %v", err)
+	}
+	if !ok {
 		t.Fatal("AddSubscription failed")
 	}
 
@@ -57,10 +61,18 @@ func TestSendTestToSubscriber_SendsOnlyToSelectedSubscriber(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	if !mgr.AddSubscription("https://example.com/push/1", "key", "auth", storage.Prefs{}) {
+	ok, err := mgr.AddSubscription("https://example.com/push/1", "key", "auth", storage.Prefs{})
+	if err != nil {
+		t.Fatalf("AddSubscription(1) returned error: %v", err)
+	}
+	if !ok {
 		t.Fatal("AddSubscription(1) failed")
 	}
-	if !mgr.AddSubscription("https://example.com/push/2", "key", "auth", storage.Prefs{}) {
+	ok, err = mgr.AddSubscription("https://example.com/push/2", "key", "auth", storage.Prefs{})
+	if err != nil {
+		t.Fatalf("AddSubscription(2) returned error: %v", err)
+	}
+	if !ok {
 		t.Fatal("AddSubscription(2) failed")
 	}
 
@@ -93,7 +105,11 @@ func TestSendTest_RemovesExpiredSubscriptions(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	if !mgr.AddSubscription("https://example.com/push/gone", "key", "auth", storage.Prefs{}) {
+	ok, err := mgr.AddSubscription("https://example.com/push/gone", "key", "auth", storage.Prefs{})
+	if err != nil {
+		t.Fatalf("AddSubscription returned error: %v", err)
+	}
+	if !ok {
 		t.Fatal("AddSubscription failed")
 	}
 
@@ -124,12 +140,16 @@ func TestNotifyByTypeLimitsConcurrentSends(t *testing.T) {
 	mgr.notifySem = make(chan struct{}, 2)
 
 	for i := 0; i < 4; i++ {
-		if !mgr.AddSubscription(
+		ok, err := mgr.AddSubscription(
 			"https://example.com/"+time.Now().Add(time.Duration(i)*time.Second).String(),
 			"key",
 			"auth",
 			storage.Prefs{Flame: true},
-		) {
+		)
+		if err != nil {
+			t.Fatalf("expected subscription %d to be added: %v", i, err)
+		}
+		if !ok {
 			t.Fatalf("expected subscription %d to be added", i)
 		}
 	}
