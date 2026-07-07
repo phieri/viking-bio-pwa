@@ -1,6 +1,6 @@
 # Viking Bio Monorepo
 
-A monorepo for the Viking Bio 20 pellet burner integration system. It consists of two components:
+A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15/viking-bio-pelletsbrannare) pellet burner integration system. It consists of two components:
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the proxy
 2. **[proxy/](proxy/)** – Go proxy server that receives burner data over signed TCP ingest, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, stores browser subscriptions, and sends Web Push notifications using proxy-managed VAPID keys
@@ -177,7 +177,7 @@ Subscribers can opt in to three types:
 |------|---------|
 | `flame` | Flame state changes (on/off) |
 | `error` | Non-zero error code detected |
-| `clean` | Saturday-morning cleaning reminder during heating season (Nov–Mar) |
+| `clean` | Weekly cleaning reminder during heating season (Nov–Mar) |
 
 ## Wiring Diagram
 
