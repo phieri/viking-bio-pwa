@@ -6,6 +6,8 @@ import (
 	"io"
 	"sync"
 	"time"
+
+	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 )
 
 // State holds the shared burner telemetry state.
@@ -22,6 +24,13 @@ type State struct {
 	errorNotified            bool
 	lastCleanReminderDay     int64
 	lastCleanReminderSeconds int64
+	reminderSchedule         reminderSchedule
+}
+
+type reminderSchedule struct {
+	weekday time.Weekday
+	hour    int
+	minute  int
 }
 
 type machineDataSnapshot struct {
@@ -90,7 +99,18 @@ func formatFlameSeconds(secs int64) string {
 	}
 }
 
-func isCleaningReminderWindow(now time.Time) bool {
+func (s *State) setReminderSchedule(cfg *config.Config) {
+	weekday, hour, minute := config.DefaultReminderSchedule()
+	schedule := reminderSchedule{weekday: weekday, hour: hour, minute: minute}
+	if cfg != nil {
+		schedule.weekday = cfg.CleaningReminderWeekday
+		schedule.hour = cfg.CleaningReminderHour
+		schedule.minute = cfg.CleaningReminderMinute
+	}
+	s.reminderSchedule = schedule
+}
+
+func (s *State) isCleaningReminderWindow(now time.Time) bool {
 	now = now.UTC()
 	month := now.Month()
 	inSeason := month == time.November ||
@@ -101,7 +121,18 @@ func isCleaningReminderWindow(now time.Time) bool {
 	if !inSeason {
 		return false
 	}
-	return now.Weekday() == time.Saturday && now.Hour() == 7 && now.Minute() < 30
+	schedule := s.reminderSchedule
+	if schedule == (reminderSchedule{}) {
+		weekday, hour, minute := config.DefaultReminderSchedule()
+		schedule = reminderSchedule{weekday: weekday, hour: hour, minute: minute}
+	}
+	if now.Weekday() != schedule.weekday {
+		return false
+	}
+	currentMinute := now.Hour()*60 + now.Minute()
+	startMinute := schedule.hour*60 + schedule.minute
+	endMinute := startMinute + 30
+	return currentMinute >= startMinute && currentMinute < endMinute
 }
 
 func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDataUpdateResult {
@@ -148,7 +179,7 @@ func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDat
 	if s.Err == 0 {
 		s.errorNotified = false
 	}
-	if isCleaningReminderWindow(now) {
+	if s.isCleaningReminderWindow(now) {
 		today := now.UTC().Unix() / 86400
 		if s.lastCleanReminderDay == 0 || today-s.lastCleanReminderDay >= 7 {
 			flameSecsSinceReminder := s.FlameSecs - s.lastCleanReminderSeconds

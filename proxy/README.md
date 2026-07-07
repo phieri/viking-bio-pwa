@@ -56,6 +56,8 @@ make run
 | `VAPID_CONTACT_EMAIL` | `admin@viking-bio.local` | VAPID contact email |
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
+| `CLEANING_REMINDER_WEEKDAY` | `Saturday` | Weekday for cleaning reminders (e.g. `Monday`, `Saturday`) |
+| `CLEANING_REMINDER_TIME` | `07:00` | Start time (UTC) for the cleaning reminder window (`HH:MM`) |
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for `--configure` |
 | `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for VAPID keys and subscriptions |
 
@@ -75,6 +77,8 @@ Example `.env` / `viking-bio.conf` snippet:
 HTTP_PORT=3000
 INGEST_TCP_PORT=9000
 MDNS_NAME=Viking Bio
+CLEANING_REMINDER_WEEKDAY=Saturday
+CLEANING_REMINDER_TIME=07:00
 ```
 
 Webhook removed — reprovision devices to use `INGEST_TCP_PORT` (`9000`) and

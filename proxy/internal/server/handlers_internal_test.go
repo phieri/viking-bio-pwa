@@ -15,6 +15,11 @@ import (
 
 func newInternalTestHandlers(t *testing.T) *Handlers {
 	t.Helper()
+	return newInternalTestHandlersWithConfig(t, nil)
+}
+
+func newInternalTestHandlersWithConfig(t *testing.T, cfg *config.Config) *Handlers {
+	t.Helper()
 	dir := t.TempDir()
 	store, err := storage.NewStore(dir)
 	if err != nil {
@@ -24,7 +29,7 @@ func newInternalTestHandlers(t *testing.T) *Handlers {
 	if err != nil {
 		t.Fatalf("push: %v", err)
 	}
-	return NewHandlers(mgr, nil)
+	return NewHandlers(mgr, cfg)
 }
 
 func testBoolPtr(v bool) *bool { return &v }
@@ -121,6 +126,36 @@ func TestUpdateBurnerStateSchedulesCleaningReminder(t *testing.T) {
 	}, reminderTime.Add(10*time.Minute))
 	if second.cleanDue {
 		t.Fatal("expected reminder to be debounced within the same week")
+	}
+}
+
+func TestUpdateBurnerStateUsesConfiguredCleaningReminderSchedule(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.Config{CleaningReminderWeekday: time.Monday, CleaningReminderHour: 8, CleaningReminderMinute: 15}
+	h := newInternalTestHandlersWithConfig(t, cfg)
+	reminderTime := time.Date(2026, time.January, 5, 8, 15, 0, 0, time.UTC)
+
+	result := h.updateBurnerState(machineDataBody{
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(20),
+		Temp:  testFloat64Ptr(70),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
+	}, reminderTime)
+	if !result.cleanDue {
+		t.Fatal("expected cleaning reminder to honor the configured weekday and time")
+	}
+
+	second := h.updateBurnerState(machineDataBody{
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(20),
+		Temp:  testFloat64Ptr(71),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
+	}, reminderTime.Add(10*time.Minute))
+	if second.cleanDue {
+		t.Fatal("expected reminder to be debounced within the configured reminder window")
 	}
 }
 
