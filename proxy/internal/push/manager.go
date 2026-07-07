@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -24,7 +27,10 @@ type Manager struct {
 	notifySem        chan struct{}
 }
 
-var ErrSubscriptionNotFound = errors.New("subscription not found")
+var (
+	ErrSubscriptionNotFound        = errors.New("subscription not found")
+	ErrInvalidSubscriptionEndpoint = errors.New("invalid subscription endpoint")
+)
 
 const (
 	testNotificationTitle = "Viking Bio: Test"
@@ -49,6 +55,39 @@ func New(dataDir, contactEmail string, store *storage.Store) (*Manager, error) {
 	}, nil
 }
 
+func isValidPushEndpoint(endpoint string) bool {
+	// Trim whitespace so callers do not accidentally pass a malformed endpoint.
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return false
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+		return false
+	}
+
+	host := u.Hostname()
+	if strings.EqualFold(host, "localhost") || strings.HasSuffix(host, ".local") {
+		return false
+	}
+
+	if ip := net.ParseIP(host); ip != nil {
+		// Reject loopback, link-local, unspecified, multicast, and private IPs to
+		// avoid turning the proxy into an internal network scanner or SSRF hop.
+		if ip.IsLoopback() ||
+			ip.IsLinkLocalUnicast() ||
+			ip.IsLinkLocalMulticast() ||
+			ip.IsUnspecified() ||
+			ip.IsMulticast() ||
+			ip.IsPrivate() {
+			return false
+		}
+	}
+
+	return true
+}
+
 // GetVapidPublicKey returns the server-side VAPID public key.
 func (m *Manager) GetVapidPublicKey() string {
 	return m.vapidPub
@@ -65,13 +104,17 @@ func (m *Manager) GetSubscriptions() []storage.Subscription {
 }
 
 // AddSubscription adds or updates a subscription. Returns false if at capacity.
-func (m *Manager) AddSubscription(endpoint, p256dh, auth string, prefs storage.Prefs) bool {
+func (m *Manager) AddSubscription(endpoint, p256dh, auth string, prefs storage.Prefs) (bool, error) {
+	if !isValidPushEndpoint(endpoint) {
+		return false, ErrInvalidSubscriptionEndpoint
+	}
+
 	return m.store.Add(storage.Subscription{
 		Endpoint: endpoint,
 		P256DH:   p256dh,
 		Auth:     auth,
 		Prefs:    prefs,
-	})
+	}), nil
 }
 
 // RemoveSubscription removes a subscription by endpoint URL.
@@ -138,6 +181,12 @@ func (m *Manager) sendPayload(payload []byte, subs []storage.Subscription, shoul
 			continue
 		}
 
+		if !isValidPushEndpoint(sub.Endpoint) {
+			log.Printf("push: rejecting subscription with invalid endpoint %q", sub.Endpoint)
+			expired = append(expired, sub.Endpoint)
+			continue
+		}
+
 		m.notifySem <- struct{}{}
 		resp, err := m.sendNotification(payload, m.subscriptionFor(sub), m.sendOptions())
 		<-m.notifySem
@@ -174,6 +223,9 @@ func normalizePriority(priority string) string {
 
 // SendTestToSubscriber sends a test push notification to the selected subscriber.
 func (m *Manager) SendTestToSubscriber(endpoint, priority string) error {
+	if !isValidPushEndpoint(endpoint) {
+		return ErrInvalidSubscriptionEndpoint
+	}
 	if sub, ok := m.store.GetByEndpoint(endpoint); ok {
 		payload, err := m.buildPayload(testNotificationTitle, testNotificationBody, "test", normalizePriority(priority))
 		if err != nil {

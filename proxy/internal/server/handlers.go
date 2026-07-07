@@ -121,6 +121,10 @@ func (h *Handlers) HandleSendTestPush(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subscriber not found"})
 			return
 		}
+		if errors.Is(err, push.ErrInvalidSubscriptionEndpoint) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid subscription endpoint"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to send test push"})
 		return
 	}
@@ -159,7 +163,15 @@ func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok := h.pushMgr.AddSubscription(body.Endpoint, body.P256DH, body.Auth, body.Prefs)
+	ok, err := h.pushMgr.AddSubscription(body.Endpoint, body.P256DH, body.Auth, body.Prefs)
+	if err != nil {
+		if errors.Is(err, push.ErrInvalidSubscriptionEndpoint) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid subscription endpoint"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to add subscription"})
+		return
+	}
 	status := "ok"
 	if !ok {
 		status = "full"

@@ -94,6 +94,22 @@ func TestSubscribe_Valid(t *testing.T) {
 	}
 }
 
+func TestSubscribe_RejectsInvalidEndpoint(t *testing.T) {
+	h := newTestHandlers(t)
+	resp := postJSON(t, h.HandleSubscribe, map[string]any{
+		"endpoint": "http://127.0.0.1/push/test",
+		"p256dh":   "p256dhkey",
+		"auth":     "authkey",
+	}, nil)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+	m := decodeJSON(t, resp)
+	if m["error"] != "invalid subscription endpoint" {
+		t.Errorf("expected invalid subscription endpoint error, got %v", m["error"])
+	}
+}
+
 func TestSendTestPush_RejectsMissingEndpoint(t *testing.T) {
 	h := newTestHandlers(t)
 	resp := postJSON(t, h.HandleSendTestPush, map[string]any{"priority": "high"}, nil)
