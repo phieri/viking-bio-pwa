@@ -114,19 +114,40 @@ Proxy (Go)
 
 ### Proxy
 
-Use these commands from `proxy/`:
+The proxy is a Go module in `proxy/` (`module github.com/phieri/viking-bio-pwa/proxy`) and
+currently targets Go 1.25.0. The CI workflow in `.github/workflows/build-proxy.yml` is the
+source of truth for proxy validation.
+
+On Linux, install the Fyne GUI dependencies before building the configurator path:
 
 ```bash
+sudo apt-get update -q
+sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
+```
+
+From `proxy/`, use these validation commands:
+
+```bash
+golangci-lint run ./...
 go vet ./...
-go test ./...
+go test -race ./...
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-proxy ./cmd/proxy
 ```
 
-The existing CI smoke test is:
+Useful shortcuts:
+
+```bash
+make build
+make run
+make test        # runs go test ./...
+make configure
+```
+
+The current CI smoke test starts the proxy, provisions a device record, sends an HMAC-signed
+framed TCP payload to `::1:9000`, and verifies the ingest path and API behavior:
 
 ```bash
 mkdir -p /tmp/proxy-data
-# Write a provisioned device record so the ingest listener accepts frames
 cat > /tmp/proxy-data/devices.json <<'JSON'
 {
   "ci-device": { "key": "ci-secret", "last_seq": 0, "updated_at": 0 }
@@ -136,18 +157,45 @@ DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-proxy &
 SERVER_PID=$!
 sleep 2
 curl -sf http://localhost:3000/api/data
-# Send a signed TCP frame to INGEST_TCP_PORT (9000) via Python
-# POST /api/machine-data returns 404 (webhook removed)
+python - <<'PY'
+import base64
+import hmac
+import json
+import socket
+import struct
+
+device = "ci-device"
+secret = b"ci-secret"
+seq = 1
+ts = 1
+data = {"flame": False, "fan": 0, "temp": 0, "err": 0, "valid": True}
+data_json = json.dumps(data, separators=(",", ":"))
+canonical = f"{device}\n{seq}\n{ts}\n{data_json}".encode()
+sig = base64.b64encode(hmac.new(secret, canonical, "sha256").digest()).decode()
+payload = json.dumps({
+    "device": device,
+    "seq": seq,
+    "ts": ts,
+    "data": data,
+    "sig": sig,
+}, separators=(",", ":")).encode()
+
+sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+sock.connect(("::1", 9000))
+sock.sendall(struct.pack(">I", len(payload)) + payload)
+sock.close()
+PY
+sleep 1
+python - <<'PY'
+import json
+
+with open("/tmp/proxy-data/devices.json", "r", encoding="utf-8") as f:
+    devices = json.load(f)
+assert devices["ci-device"]["last_seq"] == 1, devices
+PY
 test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/machine-data)" = "404"
-```
-
-Useful shortcuts:
-
-```bash
-make build
-make run
-make test
-make configure
+curl -sf http://localhost:3000/api/data | grep -q '"valid":true'
+kill "$SERVER_PID" || true
 ```
 
 ### Firmware
