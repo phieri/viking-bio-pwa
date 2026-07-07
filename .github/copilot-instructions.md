@@ -115,7 +115,7 @@ Proxy (Go)
 ### Proxy
 
 The proxy is a Go module in `proxy/` (`module github.com/phieri/viking-bio-pwa/proxy`) and
-currently targets Go 1.25.0. The CI workflow in `.github/workflows/build-proxy.yml` is the
+currently targets Go 1.26. The CI workflow in `.github/workflows/build-proxy.yml` is the
 source of truth for proxy validation.
 
 On Linux, install the Fyne GUI dependencies before building the configurator path:
