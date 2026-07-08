@@ -25,6 +25,7 @@ type State struct {
 	lastCleanReminderDay     int64
 	lastCleanReminderSeconds int64
 	reminderSchedule         reminderSchedule
+	telemetryHistory         []telemetryHistoryEntry
 }
 
 type reminderSchedule struct {
@@ -41,6 +42,23 @@ type machineDataSnapshot struct {
 	Valid     bool    `json:"valid"`
 	FlameSecs int64   `json:"flame_secs"`
 }
+
+type telemetryHistoryEntry struct {
+	Timestamp int64
+	Snapshot  machineDataSnapshot
+}
+
+type telemetryHistorySample struct {
+	Timestamp int64   `json:"timestamp"`
+	Flame     bool    `json:"flame"`
+	Fan       float64 `json:"fan"`
+	Temp      float64 `json:"temp"`
+	Err       float64 `json:"err"`
+	Valid     bool    `json:"valid"`
+	FlameSecs int64   `json:"flame_secs"`
+}
+
+const telemetryHistoryWindow = 60 * time.Minute
 
 // machineDataBody is the shared telemetry payload shape used by ingest and state updates.
 type machineDataBody struct {
@@ -73,6 +91,46 @@ func (s *State) snapshot() machineDataSnapshot {
 		Valid:     s.Valid,
 		FlameSecs: s.FlameSecs,
 	}
+}
+
+func (s *State) appendTelemetrySample(now time.Time, snapshot machineDataSnapshot) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cutoff := now.Add(-telemetryHistoryWindow).UnixMilli()
+	entry := telemetryHistoryEntry{Timestamp: now.UTC().UnixMilli(), Snapshot: snapshot}
+	s.telemetryHistory = append(s.telemetryHistory, entry)
+
+	trim := 0
+	for trim < len(s.telemetryHistory) && s.telemetryHistory[trim].Timestamp < cutoff {
+		trim++
+	}
+	if trim > 0 {
+		s.telemetryHistory = s.telemetryHistory[trim:]
+	}
+}
+
+func (s *State) telemetryHistoryWindow(now time.Time) []telemetryHistorySample {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cutoff := now.Add(-telemetryHistoryWindow).UnixMilli()
+	out := make([]telemetryHistorySample, 0, len(s.telemetryHistory))
+	for _, entry := range s.telemetryHistory {
+		if entry.Timestamp < cutoff {
+			continue
+		}
+		out = append(out, telemetryHistorySample{
+			Timestamp: entry.Timestamp,
+			Flame:     entry.Snapshot.Flame,
+			Fan:       entry.Snapshot.Fan,
+			Temp:      entry.Snapshot.Temp,
+			Err:       entry.Snapshot.Err,
+			Valid:     entry.Snapshot.Valid,
+			FlameSecs: entry.Snapshot.FlameSecs,
+		})
+	}
+	return out
 }
 
 func decodeMachineData(r io.Reader) (machineDataBody, error) {

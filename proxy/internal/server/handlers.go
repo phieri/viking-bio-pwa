@@ -20,6 +20,7 @@ type Handlers struct {
 	pushMgr      *push.Manager
 	notifyByType func(string, string, string)
 	energyCfg    *config.Config
+	telemetryCfg *config.Config
 }
 
 // NewHandlers creates a new Handlers instance. cfg may be nil to disable the
@@ -32,6 +33,7 @@ func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
 		pushMgr:      pushMgr,
 		notifyByType: pushMgr.NotifyByType,
 		energyCfg:    cfg,
+		telemetryCfg: cfg,
 	}
 }
 
@@ -79,6 +81,15 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 // HandleGetData serves GET /api/data.
 func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.snapshot())
+}
+
+// HandleGetTelemetry serves GET /api/telemetry.
+func (h *Handlers) HandleGetTelemetry(w http.ResponseWriter, r *http.Request) {
+	if h.telemetryCfg == nil || !h.telemetryCfg.TelemetryHistoryEnabled {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "telemetry history disabled"})
+		return
+	}
+	writeJSON(w, http.StatusOK, h.state.telemetryHistoryWindow(time.Now()))
 }
 
 // HandleGetVapidKey serves GET /api/vapid-public-key.
@@ -143,6 +154,9 @@ func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
 
 func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {
 	result := h.updateBurnerState(body, now)
+	if h.telemetryCfg != nil && h.telemetryCfg.TelemetryHistoryEnabled {
+		h.state.appendTelemetrySample(now, h.state.snapshot())
+	}
 	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
 	h.triggerNotifications(result)
 }

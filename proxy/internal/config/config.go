@@ -39,6 +39,9 @@ type Config struct {
 	BurnerFixedCostSEKYear float64 // annual fixed costs for burner (service, amortization)
 	BurnerCostSEKPerKWh    float64 // direct pellet energy cost per kWh of heat
 	AnnualHeatingKWh       float64 // estimated annual heating kWh (to amortize fixed costs)
+
+	// Telemetry history endpoint
+	TelemetryHistoryEnabled bool
 }
 
 const (
@@ -256,5 +259,6 @@ func Load() (*Config, error) {
 		BurnerFixedCostSEKYear: burnerFixed,
 		BurnerCostSEKPerKWh:    burnerKWh,
 		AnnualHeatingKWh:       annualKWh,
+		TelemetryHistoryEnabled: parseBool(os.Getenv("TELEMETRY_HISTORY_ENABLED")),
 	}, nil
 }
