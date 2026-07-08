@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ type State struct {
 	lastCleanReminderSeconds int64
 	reminderSchedule         reminderSchedule
 	telemetryHistory         []telemetryHistoryEntry
+	telemetryHistoryStart    int
 }
 
 type reminderSchedule struct {
@@ -58,7 +60,14 @@ type telemetryHistorySample struct {
 	FlameSecs int64   `json:"flame_secs"`
 }
 
-const telemetryHistoryWindow = 60 * time.Minute
+const (
+	telemetryHistoryWindow              = 60 * time.Minute
+	telemetryHistoryCompactionThreshold = 100
+	telemetryHistoryCompactionRatio     = 10
+)
+
+// Compact the backing slice when the dead-space ratio grows too large so the
+// in-memory history stays efficient without frequent allocations.
 
 // machineDataBody is the shared telemetry payload shape used by ingest and state updates.
 type machineDataBody struct {
@@ -77,6 +86,7 @@ type machineDataUpdateResult struct {
 	temp         float64
 	err          float64
 	cleanBody    string
+	snapshot     machineDataSnapshot
 }
 
 func (s *State) snapshot() machineDataSnapshot {
@@ -97,29 +107,42 @@ func (s *State) appendTelemetrySample(now time.Time, snapshot machineDataSnapsho
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cutoff := now.Add(-telemetryHistoryWindow).UnixMilli()
-	entry := telemetryHistoryEntry{Timestamp: now.UTC().UnixMilli(), Snapshot: snapshot}
-	s.telemetryHistory = append(s.telemetryHistory, entry)
+	nowUTC := now.UTC()
+	cutoff := nowUTC.Add(-telemetryHistoryWindow).UnixMilli()
+	if s.telemetryHistoryStart > len(s.telemetryHistory) {
+		s.telemetryHistory = nil
+		s.telemetryHistoryStart = 0
+	}
+	if len(s.telemetryHistory) > s.telemetryHistoryStart {
+		activeLen := len(s.telemetryHistory) - s.telemetryHistoryStart
+		start := sort.Search(activeLen, func(i int) bool {
+			return s.telemetryHistory[s.telemetryHistoryStart+i].Timestamp >= cutoff
+		})
+		s.telemetryHistoryStart += start
+	}
+	if s.shouldCompact() {
+		s.telemetryHistory = s.telemetryHistory[s.telemetryHistoryStart:]
+		s.telemetryHistoryStart = 0
+	}
 
-	trim := 0
-	for trim < len(s.telemetryHistory) && s.telemetryHistory[trim].Timestamp < cutoff {
-		trim++
-	}
-	if trim > 0 {
-		s.telemetryHistory = s.telemetryHistory[trim:]
-	}
+	entry := telemetryHistoryEntry{Timestamp: nowUTC.UnixMilli(), Snapshot: snapshot}
+	s.telemetryHistory = append(s.telemetryHistory, entry)
 }
 
-func (s *State) telemetryHistoryWindow(now time.Time) []telemetryHistorySample {
+func (s *State) shouldCompact() bool {
+	if s.telemetryHistoryStart <= telemetryHistoryCompactionThreshold {
+		return false
+	}
+	return s.telemetryHistoryStart*telemetryHistoryCompactionRatio > len(s.telemetryHistory)
+}
+
+func (s *State) telemetryHistoryWindow() []telemetryHistorySample {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	cutoff := now.Add(-telemetryHistoryWindow).UnixMilli()
-	out := make([]telemetryHistorySample, 0, len(s.telemetryHistory))
-	for _, entry := range s.telemetryHistory {
-		if entry.Timestamp < cutoff {
-			continue
-		}
+	start := s.telemetryHistoryStart
+	out := make([]telemetryHistorySample, 0, len(s.telemetryHistory)-start)
+	for _, entry := range s.telemetryHistory[start:] {
 		out = append(out, telemetryHistorySample{
 			Timestamp: entry.Timestamp,
 			Flame:     entry.Snapshot.Flame,
@@ -230,6 +253,14 @@ func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDat
 		flame:        s.Flame,
 		temp:         s.Temp,
 		err:          s.Err,
+		snapshot: machineDataSnapshot{
+			Flame:     s.Flame,
+			Fan:       s.Fan,
+			Temp:      s.Temp,
+			Err:       s.Err,
+			Valid:     s.Valid,
+			FlameSecs: s.FlameSecs,
+		},
 	}
 	if result.newErr {
 		s.errorNotified = true

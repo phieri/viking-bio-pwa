@@ -19,8 +19,7 @@ type Handlers struct {
 	state        *State
 	pushMgr      *push.Manager
 	notifyByType func(string, string, string)
-	energyCfg    *config.Config
-	telemetryCfg *config.Config
+	config       *config.Config
 }
 
 // NewHandlers creates a new Handlers instance. cfg may be nil to disable the
@@ -32,8 +31,7 @@ func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
 		state:        state,
 		pushMgr:      pushMgr,
 		notifyByType: pushMgr.NotifyByType,
-		energyCfg:    cfg,
-		telemetryCfg: cfg,
+		config:       cfg,
 	}
 }
 
@@ -84,12 +82,20 @@ func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleGetMetrics serves GET /api/metrics.
+func (h *Handlers) metricsEnabled() bool {
+	return h.config != nil && h.config.TelemetryHistoryEnabled
+}
+
+func (h *Handlers) energyCardEnabled() bool {
+	return h.config != nil && h.config.EnergyCardEnabled
+}
+
 func (h *Handlers) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
-	if h.telemetryCfg == nil || !h.telemetryCfg.TelemetryHistoryEnabled {
+	if !h.metricsEnabled() {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "metrics history disabled"})
 		return
 	}
-	writeJSON(w, http.StatusOK, h.state.telemetryHistoryWindow(time.Now()))
+	writeJSON(w, http.StatusOK, h.state.telemetryHistoryWindow())
 }
 
 // HandleGetVapidKey serves GET /api/vapid-public-key.
@@ -154,8 +160,8 @@ func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
 
 func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {
 	result := h.updateBurnerState(body, now)
-	if h.telemetryCfg != nil && h.telemetryCfg.TelemetryHistoryEnabled {
-		h.state.appendTelemetrySample(now, h.state.snapshot())
+	if h.metricsEnabled() {
+		h.state.appendTelemetrySample(now, result.snapshot)
 	}
 	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
 	h.triggerNotifications(result)
@@ -233,12 +239,12 @@ func burnerPricePerKWh(cfg *config.Config) (variableCost, fixedCost, totalCost f
 // HandleGetEnergyPrice serves GET /api/energy-price.
 // It returns the burner's current configured cost per kWh.
 func (h *Handlers) HandleGetEnergyPrice(w http.ResponseWriter, r *http.Request) {
-	if h.energyCfg == nil || !h.energyCfg.EnergyCardEnabled {
+	if !h.energyCardEnabled() {
 		writeJSON(w, http.StatusOK, energyPriceResponse{Enabled: false})
 		return
 	}
 
-	variableCost, fixedCost, totalCost := burnerPricePerKWh(h.energyCfg)
+	variableCost, fixedCost, totalCost := burnerPricePerKWh(h.config)
 
 	writeJSON(w, http.StatusOK, energyPriceResponse{
 		Enabled:           true,
