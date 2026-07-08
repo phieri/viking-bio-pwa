@@ -30,9 +30,11 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 .btn-unsub{background:#3d0000;color:#ff6b6b;border:1px solid #ff6b6b}
 .btn-unsub:hover{background:#5a0000}
 .actions{text-align:center;margin:16px auto;max-width:800px}
-.flame-value{display:flex;align-items:center;justify-content:center;height:2.5rem;line-height:1}
+.flame-value{display:flex;align-items:center;justify-content:center;height:2.5rem;line-height:1;transform-origin:center bottom;will-change:transform}
 .flame-on .flame-value{font-size:2.5em}
 .flame-off .flame-value{color:#555}
+.card .value.flame-value.flame-grow{animation:flameGrow 0.35s cubic-bezier(0.2,0.8,0.2,1)}
+.card .value.flame-value.flame-shrink{animation:flameShrink 0.35s cubic-bezier(0.2,0.8,0.2,1)}
 .subscription{display:inline-flex;flex-wrap:wrap;align-items:center;gap:12px;background:#252b33;padding:10px;border-radius:10px;border:1px solid #3a4048}
 .subs-checkboxes{display:flex;flex-direction:column;align-items:flex-start;color:#fff;font-size:0.95em}
 .subs-checkboxes label{margin:2px 0}
@@ -64,6 +66,14 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
   40% { transform: translateY(6px); color: #ff8c42; }
   100% { transform: translateY(0); color: #e94560; }
 }
+@keyframes flameGrow {
+  0% { transform: scale(0.55) translateY(0.35em); }
+  100% { transform: scale(1.08) translateY(-0.08em); }
+}
+@keyframes flameShrink {
+  0% { transform: scale(1.08) translateY(-0.08em); }
+  100% { transform: scale(0.55) translateY(0.35em); }
+}
 @keyframes blinkRed {
   0%    { background-color: var(--page-bg); }
   12.5% { background-color: var(--error-red); }
@@ -78,6 +88,10 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
   animation: blinkRed 1.2s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
+  .card .value.flame-value.flame-grow,
+  .card .value.flame-value.flame-shrink {
+    animation: none;
+  }
   .card .value.value-increase,
   .card .value.value-decrease {
     animation: none;
