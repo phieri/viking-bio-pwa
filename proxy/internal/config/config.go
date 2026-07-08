@@ -255,10 +255,10 @@ func Load() (*Config, error) {
 		CleaningReminderHour:    cleaningReminderHour,
 		CleaningReminderMinute:  cleaningReminderMinute,
 
-		EnergyCardEnabled:      parseBool(os.Getenv("ENERGY_CARD_ENABLED")),
-		BurnerFixedCostSEKYear: burnerFixed,
-		BurnerCostSEKPerKWh:    burnerKWh,
-		AnnualHeatingKWh:       annualKWh,
+		EnergyCardEnabled:       parseBool(os.Getenv("ENERGY_CARD_ENABLED")),
+		BurnerFixedCostSEKYear:  burnerFixed,
+		BurnerCostSEKPerKWh:     burnerKWh,
+		AnnualHeatingKWh:        annualKWh,
 		TelemetryHistoryEnabled: parseBool(os.Getenv("TELEMETRY_HISTORY_ENABLED")),
 	}, nil
 }

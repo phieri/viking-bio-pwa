@@ -83,10 +83,10 @@ func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.snapshot())
 }
 
-// HandleGetTelemetry serves GET /api/telemetry.
-func (h *Handlers) HandleGetTelemetry(w http.ResponseWriter, r *http.Request) {
+// HandleGetMetrics serves GET /api/metrics.
+func (h *Handlers) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	if h.telemetryCfg == nil || !h.telemetryCfg.TelemetryHistoryEnabled {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "telemetry history disabled"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "metrics history disabled"})
 		return
 	}
 	writeJSON(w, http.StatusOK, h.state.telemetryHistoryWindow(time.Now()))

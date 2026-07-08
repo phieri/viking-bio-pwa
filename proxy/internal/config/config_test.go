@@ -26,6 +26,7 @@ var configEnvKeys = []string{
 	"PICO_SERIAL_PORT",
 	"DATA_DIR",
 	"ENERGY_CARD_ENABLED",
+	"TELEMETRY_HISTORY_ENABLED",
 	"CLEANING_REMINDER_WEEKDAY",
 	"CLEANING_REMINDER_TIME",
 	"BURNER_FIXED_COST_SEK_YEAR",
@@ -129,6 +130,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.EnergyCardEnabled {
 		t.Fatal("expected energy card to default to disabled")
 	}
+	if cfg.TelemetryHistoryEnabled {
+		t.Fatal("expected telemetry history to default to disabled")
+	}
 	if cfg.CleaningReminderWeekday != time.Saturday {
 		t.Fatalf("expected default reminder weekday Saturday, got %v", cfg.CleaningReminderWeekday)
 	}
@@ -160,6 +164,7 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("PICO_SERIAL_PORT", "/dev/ttyACM0")
 	t.Setenv("DATA_DIR", "/data")
 	t.Setenv("ENERGY_CARD_ENABLED", "true")
+	t.Setenv("TELEMETRY_HISTORY_ENABLED", "true")
 	t.Setenv("CLEANING_REMINDER_WEEKDAY", "Monday")
 	t.Setenv("CLEANING_REMINDER_TIME", "08:30")
 	t.Setenv("BURNER_FIXED_COST_SEK_YEAR", "1200")
@@ -185,6 +190,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if !cfg.EnergyCardEnabled || cfg.BurnerFixedCostSEKYear != 1200 || cfg.BurnerCostSEKPerKWh != 0.42 || cfg.AnnualHeatingKWh != 15000 {
 		t.Fatalf("unexpected energy card overrides: %+v", cfg)
+	}
+	if !cfg.TelemetryHistoryEnabled {
+		t.Fatalf("expected telemetry history overrides to be true: %+v", cfg)
 	}
 	if cfg.CleaningReminderWeekday != time.Monday || cfg.CleaningReminderHour != 8 || cfg.CleaningReminderMinute != 30 {
 		t.Fatalf("unexpected reminder schedule overrides: %+v", cfg)

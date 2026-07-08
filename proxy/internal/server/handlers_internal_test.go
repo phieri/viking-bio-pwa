@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -259,6 +260,67 @@ func TestHandleGetDataReturnsStateSnapshot(t *testing.T) {
 		if !strings.Contains(body, needle) {
 			t.Fatalf("expected response body %q to contain %q", body, needle)
 		}
+	}
+}
+
+func TestHandleGetMetrics_Disabled(t *testing.T) {
+	t.Parallel()
+
+	h := newInternalTestHandlers(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/metrics", nil)
+	rr := httptest.NewRecorder()
+	h.HandleGetMetrics(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), `"error":"metrics history disabled"`) {
+		t.Fatalf("expected disabled error, got %s", rr.Body.String())
+	}
+}
+
+func TestHandleGetMetrics_Enabled(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.Config{TelemetryHistoryEnabled: true}
+	h := newInternalTestHandlersWithConfig(t, cfg)
+	start := time.Now().Add(-5 * time.Minute)
+
+	h.processMachineData(machineDataBody{
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(15),
+		Temp:  testFloat64Ptr(70),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
+	}, "test", start)
+	h.processMachineData(machineDataBody{
+		Flame: testBoolPtr(false),
+		Fan:   testFloat64Ptr(0),
+		Temp:  testFloat64Ptr(65),
+		Err:   testFloat64Ptr(3),
+		Valid: testBoolPtr(true),
+	}, "test", start.Add(30*time.Second))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/metrics", nil)
+	rr := httptest.NewRecorder()
+	h.HandleGetMetrics(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var samples []map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &samples); err != nil {
+		t.Fatalf("decode metrics response: %v", err)
+	}
+	if len(samples) != 2 {
+		t.Fatalf("expected 2 samples, got %d", len(samples))
+	}
+	if samples[0]["flame"] != true {
+		t.Fatalf("expected first sample flame=true, got %v", samples[0]["flame"])
+	}
+	if samples[1]["err"] != float64(3) {
+		t.Fatalf("expected second sample err=3, got %v", samples[1]["err"])
 	}
 }
 
