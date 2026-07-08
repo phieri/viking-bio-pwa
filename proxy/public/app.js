@@ -199,10 +199,11 @@ function fmtSEK(val) {
 function updateAnimatedValue(element, value, formatter = (v) => String(v)) {
 	if (!element) return;
 
-	const previousValue = element.dataset.previousValue;
 	const numericValue = typeof value === 'number' ? value : Number(value);
-	const previousNumericValue = previousValue === undefined ? null : Number(previousValue);
-	const shouldAnimate = Number.isFinite(numericValue) && Number.isFinite(previousNumericValue) && previousValue !== '' && numericValue !== previousNumericValue;
+	const displayValue = formatter(value);
+	const previousDisplayValue = element.dataset.previousValue;
+	const previousNumericValue = element.dataset.previousNumericValue === undefined ? null : Number(element.dataset.previousNumericValue);
+	const shouldAnimate = Number.isFinite(numericValue) && Number.isFinite(previousNumericValue) && previousDisplayValue !== undefined && previousDisplayValue !== '' && displayValue !== previousDisplayValue;
 
 	if (shouldAnimate) {
 		element.classList.remove('value-increase', 'value-decrease');
@@ -214,8 +215,30 @@ function updateAnimatedValue(element, value, formatter = (v) => String(v)) {
 		}, 750);
 	}
 
-	element.textContent = formatter(value);
-	element.dataset.previousValue = String(value);
+	element.textContent = displayValue;
+	element.dataset.previousValue = displayValue;
+	element.dataset.previousNumericValue = String(numericValue);
+}
+
+function updateFlameValue(element, flameOn) {
+	if (!element) return;
+
+	const previousState = element.dataset.previousState;
+	const shouldAnimate = previousState !== undefined && previousState !== String(flameOn);
+
+	if (shouldAnimate) {
+		element.classList.remove('flame-grow', 'flame-shrink');
+		void element.offsetWidth;
+		element.classList.add(flameOn ? 'flame-grow' : 'flame-shrink');
+		clearTimeout(element.animationResetTimer);
+		element.animationResetTimer = setTimeout(() => {
+			element.classList.remove('flame-grow', 'flame-shrink');
+		}, 350);
+	}
+
+	element.textContent = flameOn ? '🔥' : 'AV';
+	element.setAttribute('aria-label', flameOn ? 'Låga på' : 'Låga av');
+	element.dataset.previousState = String(flameOn);
 }
 
 function updateBurnerPriceCard(data) {
@@ -245,8 +268,7 @@ function poll() {
 		.then((r) => r.json())
 		.then((d) => {
 			const flameEl = document.getElementById('flame');
-			flameEl.textContent = d.flame ? '🔥' : 'AV';
-			flameEl.setAttribute('aria-label', d.flame ? 'Låga på' : 'Låga av');
+			updateFlameValue(flameEl, d.flame);
 			document.getElementById('flame-card').className = `card ${d.flame ? 'flame-on' : 'flame-off'}`;
 			updateAnimatedValue(document.getElementById('fan'), d.fan);
 			updateAnimatedValue(document.getElementById('temp'), d.temp);
