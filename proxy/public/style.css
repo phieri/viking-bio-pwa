@@ -13,7 +13,9 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;max-width:800px;margin:0 auto}
 .card{background:#252b33;border-radius:12px;padding:24px;text-align:center;border:1px solid #3a4048}
 .card .label{font-size:0.8em;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-.card .value{font-size:2em;font-weight:bold;color:#e94560}
+.card .value{font-size:2em;font-weight:bold;color:#e94560;transition:color 0.2s ease}
+.card .value.value-increase{animation:valueIncrease 0.6s ease}
+.card .value.value-decrease{animation:valueDecrease 0.6s ease}
 .card .unit{font-size:0.9em;margin-top:4px}
 .status{text-align:center;margin:16px auto;max-width:800px;padding:12px;border-radius:8px;font-size:.9em}
 .status.ok{background:#0f3460;color:#4ecdc4}
@@ -52,6 +54,16 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
 .test-push-controls .btn{margin:0}
 .push-source{font-size:.8em;color:#aaa;margin-top:6px;text-align:center;width:100%}
 .energy-price-detail{font-size:0.72em;color:#aaa;margin-top:6px}
+@keyframes valueIncrease {
+  0% { transform: translateY(0); color: #e94560; }
+  40% { transform: translateY(-6px); color: #4ecdc4; }
+  100% { transform: translateY(0); color: #e94560; }
+}
+@keyframes valueDecrease {
+  0% { transform: translateY(0); color: #e94560; }
+  40% { transform: translateY(6px); color: #ff8c42; }
+  100% { transform: translateY(0); color: #e94560; }
+}
 @keyframes blinkRed {
   0%    { background-color: var(--page-bg); }
   12.5% { background-color: var(--error-red); }
@@ -66,6 +78,11 @@ body{font-family:'Segoe UI',sans-serif;background:#1e242a;color:#fff;min-height:
   animation: blinkRed 1.2s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
+  .card .value.value-increase,
+  .card .value.value-decrease {
+    animation: none;
+    color: #e94560;
+  }
   .blink-error {
     animation: none;
     background-color: #3d0000;

@@ -131,7 +131,7 @@ function updateSeasonCountdown(timestamp = Date.now()) {
 
 	days = Math.floor((target - todayStart) / MS_PER_DAY);
 
-	countdownEl.textContent = days;
+	updateAnimatedValue(countdownEl, days);
 	targetEl.textContent = label;
 }
 
@@ -185,7 +185,7 @@ function pollSubscribers() {
 		.then((r) => r.json())
 		.then((s) => {
 			if (typeof s.count !== 'undefined') {
-				document.getElementById('subscribers').textContent = s.count;
+				updateAnimatedValue(document.getElementById('subscribers'), s.count);
 			}
 			updateSubscriberSelect(s);
 		})
@@ -194,6 +194,28 @@ function pollSubscribers() {
 
 function fmtSEK(val) {
 	return val.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function updateAnimatedValue(element, value, formatter = (v) => String(v)) {
+	if (!element) return;
+
+	const previousValue = element.dataset.previousValue;
+	const numericValue = typeof value === 'number' ? value : Number(value);
+	const previousNumericValue = previousValue === undefined ? null : Number(previousValue);
+	const shouldAnimate = Number.isFinite(numericValue) && Number.isFinite(previousNumericValue) && previousValue !== '' && numericValue !== previousNumericValue;
+
+	if (shouldAnimate) {
+		element.classList.remove('value-increase', 'value-decrease');
+		void element.offsetWidth;
+		element.classList.add(numericValue > previousNumericValue ? 'value-increase' : 'value-decrease');
+		clearTimeout(element.animationResetTimer);
+		element.animationResetTimer = setTimeout(() => {
+			element.classList.remove('value-increase', 'value-decrease');
+		}, 750);
+	}
+
+	element.textContent = formatter(value);
+	element.dataset.previousValue = String(value);
 }
 
 function updateBurnerPriceCard(data) {
@@ -205,7 +227,7 @@ function updateBurnerPriceCard(data) {
 	}
 
 	card.style.display = '';
-	document.getElementById('energy-price-value').textContent = fmtSEK(data.burner_sek_kwh);
+	updateAnimatedValue(document.getElementById('energy-price-value'), data.burner_sek_kwh, fmtSEK);
 	document.getElementById('energy-price-unit').textContent = 'kr/kWh';
 	document.getElementById('energy-price-detail').textContent =
 		`Pellets: ${fmtSEK(data.variable_sek_kwh)} | Fasta kostnader: ${fmtSEK(data.fixed_sek_kwh)} kr/kWh`;
@@ -226,10 +248,10 @@ function poll() {
 			flameEl.textContent = d.flame ? '🔥' : 'AV';
 			flameEl.setAttribute('aria-label', d.flame ? 'Låga på' : 'Låga av');
 			document.getElementById('flame-card').className = `card ${d.flame ? 'flame-on' : 'flame-off'}`;
-			document.getElementById('fan').textContent = d.fan;
-			document.getElementById('temp').textContent = d.temp;
-			document.getElementById('err').textContent = d.err;
-			document.getElementById('flame-hours').textContent = (d.flame_secs / 3600).toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+			updateAnimatedValue(document.getElementById('fan'), d.fan);
+			updateAnimatedValue(document.getElementById('temp'), d.temp);
+			updateAnimatedValue(document.getElementById('err'), d.err);
+			updateAnimatedValue(document.getElementById('flame-hours'), d.flame_secs / 3600, (value) => value.toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 			document.body.classList.toggle('error-active', d.err > 0);
 			document.body.classList.toggle('blink-error', d.err > 0);
 
