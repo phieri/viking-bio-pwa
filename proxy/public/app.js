@@ -225,6 +225,11 @@ function updateFlameValue(element, flameOn) {
 
 	const previousState = element.dataset.previousState;
 	const shouldAnimate = previousState !== undefined && previousState !== String(flameOn);
+	const nextText = flameOn ? '🔥' : 'AV';
+	const nextAriaLabel = flameOn ? 'Låga på' : 'Låga av';
+
+	element.textContent = nextText;
+	element.setAttribute('aria-label', nextAriaLabel);
 
 	if (shouldAnimate) {
 		element.classList.remove('flame-grow', 'flame-shrink');
@@ -236,8 +241,6 @@ function updateFlameValue(element, flameOn) {
 		}, 350);
 	}
 
-	element.textContent = flameOn ? '🔥' : 'AV';
-	element.setAttribute('aria-label', flameOn ? 'Låga på' : 'Låga av');
 	element.dataset.previousState = String(flameOn);
 }
 
