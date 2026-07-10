@@ -223,21 +223,22 @@ function updateAnimatedValue(element, value, formatter = (v) => String(v)) {
 function updateFlameValue(element, flameOn) {
 	if (!element) return;
 
+	const contentEl = element.querySelector('.flame-value__content') || element;
 	const previousState = element.dataset.previousState;
 	const shouldAnimate = previousState !== undefined && previousState !== String(flameOn);
 	const nextText = flameOn ? '🔥' : 'AV';
 	const nextAriaLabel = flameOn ? 'Låga på' : 'Låga av';
 
-	element.textContent = nextText;
+	contentEl.textContent = nextText;
 	element.setAttribute('aria-label', nextAriaLabel);
 
 	if (shouldAnimate) {
-		element.classList.remove('flame-grow', 'flame-shrink');
-		void element.offsetWidth;
-		element.classList.add(flameOn ? 'flame-grow' : 'flame-shrink');
+		contentEl.classList.remove('flame-grow', 'flame-shrink');
+		void contentEl.offsetWidth;
+		contentEl.classList.add(flameOn ? 'flame-grow' : 'flame-shrink');
 		clearTimeout(element.animationResetTimer);
 		element.animationResetTimer = setTimeout(() => {
-			element.classList.remove('flame-grow', 'flame-shrink');
+			contentEl.classList.remove('flame-grow', 'flame-shrink');
 		}, 350);
 	}
 
