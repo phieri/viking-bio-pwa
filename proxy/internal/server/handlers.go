@@ -81,6 +81,47 @@ func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.snapshot())
 }
 
+// HandleGetHomeAssistantState serves GET /api/home-assistant/state.
+func (h *Handlers) HandleGetHomeAssistantState(w http.ResponseWriter, r *http.Request) {
+	h.state.mu.RLock()
+	snapshot := h.state.snapshot()
+	updatedAt := h.state.UpdatedAt
+	h.state.mu.RUnlock()
+
+	status := "unavailable"
+	switch {
+	case !snapshot.Valid:
+		status = "unavailable"
+	case snapshot.Err != 0:
+		status = "error"
+	case snapshot.Flame:
+		status = "heating"
+	default:
+		status = "idle"
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version": 1,
+		"device": map[string]any{
+			"name":         "Viking Bio Burner",
+			"manufacturer": "Viking Bio",
+			"model":        "Viking Bio 20",
+			"identifiers":  []string{"viking-bio-burner"},
+		},
+		"state": map[string]any{
+			"available":     snapshot.Valid,
+			"status":        status,
+			"flame":         snapshot.Flame,
+			"temperature_c": snapshot.Temp,
+			"fan_speed":     snapshot.Fan,
+			"error_code":    snapshot.Err,
+			"valid":         snapshot.Valid,
+			"flame_seconds": snapshot.FlameSecs,
+			"updated_at":    updatedAt,
+		},
+	})
+}
+
 // HandleGetMetrics serves GET /api/metrics.
 func (h *Handlers) metricsEnabled() bool {
 	return h.config != nil && h.config.TelemetryHistoryEnabled

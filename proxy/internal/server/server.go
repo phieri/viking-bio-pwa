@@ -176,6 +176,7 @@ func staticFS() http.FileSystem {
 
 func (s *Server) registerAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/data", methodGuard(http.MethodGet, s.handler.HandleGetData))
+	mux.HandleFunc("/api/home-assistant/state", methodGuard(http.MethodGet, s.handler.HandleGetHomeAssistantState))
 	mux.HandleFunc("/api/metrics", methodGuard(http.MethodGet, s.handler.HandleGetMetrics))
 	mux.HandleFunc("/api/vapid-public-key", methodGuard(http.MethodGet, s.handler.HandleGetVapidKey))
 	mux.HandleFunc("/api/subscribers", methodGuard(http.MethodGet, s.handler.HandleGetSubscribers))

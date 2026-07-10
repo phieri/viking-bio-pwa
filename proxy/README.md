@@ -209,6 +209,7 @@ normal state/update/notification pipeline, and writes overflow traffic to
 The proxy exposes a small JSON API for the dashboard and browser push integration:
 
 - `GET /api/data` returns the current burner state snapshot.
+- `GET /api/home-assistant/state` returns a read-only, Home Assistant-friendly snapshot of the burner intended for custom integrations. The response uses a stable `version`, `device`, and `state` schema with fields such as `available`, `status`, `flame`, `temperature_c`, `fan_speed`, `error_code`, `valid`, `flame_seconds`, and `updated_at`.
 - `GET /api/metrics` returns the last 60 minutes of burner history as JSON samples in memory only when `TELEMETRY_HISTORY_ENABLED=1`.
 - `GET /api/vapid-public-key` returns the proxy-managed VAPID public key.
 - `GET /api/subscribers` returns the current subscription count.

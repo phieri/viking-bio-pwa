@@ -263,6 +263,67 @@ func TestHandleGetDataReturnsStateSnapshot(t *testing.T) {
 	}
 }
 
+func TestHandleGetHomeAssistantState(t *testing.T) {
+	t.Parallel()
+
+	h := newInternalTestHandlers(t)
+	h.state.Flame = true
+	h.state.Fan = 55
+	h.state.Temp = 74
+	h.state.Err = 3
+	h.state.Valid = true
+	h.state.FlameSecs = 456
+	h.state.UpdatedAt = 9876543210
+
+	req := httptest.NewRequest(http.MethodGet, "/api/home-assistant/state", nil)
+	rr := httptest.NewRecorder()
+	h.HandleGetHomeAssistantState(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	var got struct {
+		Version int `json:"version"`
+		Device  struct {
+			Name         string   `json:"name"`
+			Manufacturer string   `json:"manufacturer"`
+			Model        string   `json:"model"`
+			Identifiers  []string `json:"identifiers"`
+		} `json:"device"`
+		State struct {
+			Available    bool    `json:"available"`
+			Status       string  `json:"status"`
+			Flame        bool    `json:"flame"`
+			TemperatureC float64 `json:"temperature_c"`
+			FanSpeed     float64 `json:"fan_speed"`
+			ErrorCode    float64 `json:"error_code"`
+			Valid        bool    `json:"valid"`
+			FlameSeconds int64   `json:"flame_seconds"`
+			UpdatedAt    int64   `json:"updated_at"`
+		} `json:"state"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode JSON: %v", err)
+	}
+
+	if got.Version != 1 {
+		t.Fatalf("expected version 1, got %d", got.Version)
+	}
+	if got.Device.Name != "Viking Bio Burner" {
+		t.Fatalf("unexpected device name %q", got.Device.Name)
+	}
+	if got.State.Status != "error" {
+		t.Fatalf("expected status=error, got %q", got.State.Status)
+	}
+	if !got.State.Available {
+		t.Fatal("expected available=true")
+	}
+	if got.State.Flame != true || got.State.TemperatureC != 74 || got.State.FanSpeed != 55 || got.State.ErrorCode != 3 || got.State.FlameSeconds != 456 || got.State.UpdatedAt != 9876543210 {
+		t.Fatalf("unexpected state payload: %+v", got.State)
+	}
+}
+
 func TestHandleGetMetrics_Disabled(t *testing.T) {
 	t.Parallel()
 

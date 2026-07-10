@@ -119,6 +119,29 @@ func TestBuildMux_DoesNotExposeLegacyMachineDataRoute(t *testing.T) {
 	}
 }
 
+func TestBuildMux_ExposesHomeAssistantStateRoute(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	store, err := storage.NewStore(dir)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	mgr, err := push.New(dir, "admin@test.local", store)
+	if err != nil {
+		t.Fatalf("push: %v", err)
+	}
+
+	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, mgr, store, false)
+	req := httptest.NewRequest(http.MethodGet, "/api/home-assistant/state", nil)
+	rr := httptest.NewRecorder()
+	srv.buildMux().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+}
+
 func TestIsLocalNetwork(t *testing.T) {
 	// Inject a fake local interface address so that the ULA /64 check is
 	// deterministic regardless of the test machine's network configuration.
