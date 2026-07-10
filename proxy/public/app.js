@@ -203,7 +203,7 @@ function updateAnimatedValue(element, value, formatter = (v) => String(v)) {
 	const displayValue = formatter(value);
 	const previousDisplayValue = element.dataset.previousValue;
 	const previousNumericValue = element.dataset.previousNumericValue === undefined ? null : Number(element.dataset.previousNumericValue);
-	const shouldAnimate = element.dataset.animate !== 'false' && Number.isFinite(numericValue) && Number.isFinite(previousNumericValue) && previousDisplayValue !== undefined && previousDisplayValue !== '' && displayValue !== previousDisplayValue;
+	const shouldAnimate = element.dataset.animate === 'true' && Number.isFinite(numericValue) && Number.isFinite(previousNumericValue) && previousDisplayValue !== undefined && previousDisplayValue !== '' && displayValue !== previousDisplayValue;
 
 	if (shouldAnimate) {
 		element.classList.remove('value-increase', 'value-decrease');
