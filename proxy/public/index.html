@@ -25,7 +25,7 @@
 <div class="card" id="flame-card">
 <div class="label">Låga</div>
 <div class="value flame-value" id="flame" aria-live="polite" data-animate="false">
-	<span class="flame-value__content" id="flame-content">-</span>
+	<span class="flame-value__content">-</span>
 </div>
 </div>
 <div class="card">
@@ -58,7 +58,7 @@
 <div class="value" id="season-countdown">-</div>
 <div class="unit" id="season-target">dagar</div>
 </div>
-<div class="card" id="energy-price-card" style="display:none">
+<div class="card" id="energy-price-card" hidden>
 <div class="label">Pannpris</div>
 <div class="value" id="energy-price-value">-</div>
 <div class="unit" id="energy-price-unit">kr/kWh</div>
@@ -74,7 +74,7 @@
 		</div>
 		<div id="pushAvailability" class="push-availability" aria-live="polite"></div>
 		<button class="btn btn-push" id="pushBtn" onclick="updateSubscription()">Aktivera aviseringar</button>
-		<button class="btn btn-unsub" id="unsubBtn" onclick="unsubscribePush()" style="display:none">Avregistrera</button>
+		<button class="btn btn-unsub" id="unsubBtn" onclick="unsubscribePush()" hidden>Avregistrera</button>
 		<div class="test-push-controls">
 			<label class="test-push-control">
 				<span>Prenumerant</span>

@@ -236,11 +236,11 @@ function updateBurnerPriceCard(data) {
 	const card = document.getElementById('energy-price-card');
 	if (!card) return;
 	if (!data.enabled) {
-		card.style.display = 'none';
+		card.hidden = true;
 		return;
 	}
 
-	card.style.display = '';
+	card.hidden = false;
 	updateAnimatedValue(document.getElementById('energy-price-value'), data.burner_sek_kwh, fmtSEK);
 	document.getElementById('energy-price-unit').textContent = 'kr/kWh';
 	document.getElementById('energy-price-detail').textContent =
@@ -475,11 +475,11 @@ function updatePushUI(subscribed) {
 	if (subscribed) {
 		btn.textContent = 'Uppdatera inställningar';
 		btn.className = 'btn btn-push subscribed';
-		unsub.style.display = 'inline-block';
+		unsub.hidden = false;
 	} else {
 		btn.textContent = 'Aktivera aviseringar';
 		btn.className = 'btn btn-push';
-		unsub.style.display = 'none';
+		unsub.hidden = true;
 	}
 	updatePushAvailability();
 }
