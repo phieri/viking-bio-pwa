@@ -203,7 +203,7 @@ function updateAnimatedValue(element, value, formatter = (v) => String(v)) {
 	const displayValue = formatter(value);
 	const previousDisplayValue = element.dataset.previousValue;
 	const previousNumericValue = element.dataset.previousNumericValue === undefined ? null : Number(element.dataset.previousNumericValue);
-	const shouldAnimate = Number.isFinite(numericValue) && Number.isFinite(previousNumericValue) && previousDisplayValue !== undefined && previousDisplayValue !== '' && displayValue !== previousDisplayValue;
+	const shouldAnimate = element.dataset.animate !== 'false' && Number.isFinite(numericValue) && Number.isFinite(previousNumericValue) && previousDisplayValue !== undefined && previousDisplayValue !== '' && displayValue !== previousDisplayValue;
 
 	if (shouldAnimate) {
 		element.classList.remove('value-increase', 'value-decrease');
@@ -224,24 +224,11 @@ function updateFlameValue(element, flameOn) {
 	if (!element) return;
 
 	const contentEl = element.querySelector('.flame-value__content') || element;
-	const previousState = element.dataset.previousState;
-	const shouldAnimate = previousState !== undefined && previousState !== String(flameOn);
 	const nextText = flameOn ? '🔥' : 'AV';
 	const nextAriaLabel = flameOn ? 'Låga på' : 'Låga av';
 
 	contentEl.textContent = nextText;
 	element.setAttribute('aria-label', nextAriaLabel);
-
-	if (shouldAnimate) {
-		contentEl.classList.remove('flame-grow', 'flame-shrink');
-		void contentEl.offsetWidth;
-		contentEl.classList.add(flameOn ? 'flame-grow' : 'flame-shrink');
-		clearTimeout(element.animationResetTimer);
-		element.animationResetTimer = setTimeout(() => {
-			contentEl.classList.remove('flame-grow', 'flame-shrink');
-		}, 350);
-	}
-
 	element.dataset.previousState = String(flameOn);
 }
 
