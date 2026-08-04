@@ -39,7 +39,7 @@ jobs:
 
     - name: golangci-lint
       working-directory: proxy
-      run: golangci-lint run ./...
+      run: CGO_ENABLED=0 golangci-lint run ./...
 
     - name: go vet
       working-directory: proxy
