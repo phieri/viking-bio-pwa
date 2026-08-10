@@ -17,7 +17,8 @@ extern volatile size_t buffer_count;
 
 /**
  * Initialize the serial handler with interrupt-driven RX
- * Configures UART0 at 9600 baud, 8N1 format
+ * Probes the Viking Bio serial link at 4800, 9600 and 19200 baud and keeps
+ * the first rate that yields valid data.
  */
 void serial_handler_init(void);
 

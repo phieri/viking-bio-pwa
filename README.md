@@ -27,7 +27,7 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
 ## pico-bridge
 
 The Pico firmware:
-- Reads Viking Bio 20 serial data (UART0, GPIO1, 9600 baud, 8N1)
+- Reads Viking Bio 20 serial data (UART0, GPIO1, auto-detecting 4800/9600/19200 baud, 8N1)
 - Parses binary (`[0xAA] [FLAGS] [SPEED] [TEMP_H] [TEMP_L] [0x55]`) and text (`F:1,S:50,T:75`) protocols
 - Streams parsed data to the proxy via signed persistent TCP ingest
 - WiFi credentials, proxy server address, and telemetry device key stored in LittleFS (credentials encrypted with AES-128-GCM)

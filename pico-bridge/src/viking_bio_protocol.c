@@ -22,7 +22,6 @@ static uint32_t last_data_timestamp = 0;
 // Protocol constants for Viking Bio 20 burner
 #define VIKING_BIO_START_BYTE 0xAA
 #define VIKING_BIO_END_BYTE 0x55
-#define VIKING_BIO_MIN_PACKET_SIZE 6  // START + FLAGS + SPEED + TEMP_H + TEMP_L + END
 #define VIKING_BIO_MAX_TEMPERATURE 500  // Maximum valid temperature in Celsius (burner operational limit)
 #define VIKING_BIO_MAX_TEXT_LENGTH 256   // Maximum text protocol message length
 

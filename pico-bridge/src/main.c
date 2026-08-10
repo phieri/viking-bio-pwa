@@ -548,6 +548,8 @@ int main(void) {
 		// lwIP callbacks (tcp_recv_fn, tcp_err_fn, etc.) are invoked on core 1
 		// inside the arch lock and do not need additional wrapping.
 
+		serial_handler_task();
+
 		if (process_usb_commands()) {
 			reboot_via_watchdog();
 		}

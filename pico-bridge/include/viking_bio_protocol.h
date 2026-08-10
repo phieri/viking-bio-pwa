@@ -10,6 +10,7 @@
 #define VIKING_BIO_DATA_BITS 8
 #define VIKING_BIO_STOP_BITS 1
 #define VIKING_BIO_PARITY UART_PARITY_NONE
+#define VIKING_BIO_MIN_PACKET_SIZE 6  // START + FLAGS + SPEED + TEMP_H + TEMP_L + END
 #define VIKING_BIO_TIMEOUT_MS 30000  // 30 second timeout for stale data detection
 
 // Data packet structure representing Viking Bio 20 burner state
