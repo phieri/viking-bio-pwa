@@ -91,12 +91,12 @@ func decodeJSONBodyWithEndpoint(w http.ResponseWriter, r *http.Request, dst endp
 	return true
 }
 
-type testPushRequest struct {
+type sendTestPushRequest struct {
 	Endpoint string `json:"endpoint"`
 	Priority string `json:"priority"`
 }
 
-func (r *testPushRequest) endpoint() string { return r.Endpoint }
+func (r *sendTestPushRequest) endpoint() string { return r.Endpoint }
 
 type subscribeRequest struct {
 	Endpoint string        `json:"endpoint"`
@@ -155,7 +155,7 @@ func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) 
 
 // HandleSendTestPush serves POST /api/test-push.
 func (h *Handlers) HandleSendTestPush(w http.ResponseWriter, r *http.Request) {
-	var body testPushRequest
+	var body sendTestPushRequest
 	if !decodeJSONBodyWithEndpoint(w, r, &body) {
 		return
 	}

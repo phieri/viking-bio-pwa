@@ -60,7 +60,7 @@ func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	var body testPushRequest
+	var body sendTestPushRequest
 	if decodeJSONBodyWithEndpoint(rr, req, &body) {
 		t.Fatal("expected empty endpoint to be rejected")
 	}
