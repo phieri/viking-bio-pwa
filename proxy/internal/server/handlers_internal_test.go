@@ -53,6 +53,25 @@ func TestDecodeMachineData(t *testing.T) {
 	}
 }
 
+func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"endpoint":""}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	var body testPushRequest
+	if decodeJSONBodyWithEndpoint(rr, req, &body) {
+		t.Fatal("expected empty endpoint to be rejected")
+	}
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), `"error":"bad request"`) {
+		t.Fatalf("expected bad request error, got %s", rr.Body.String())
+	}
+}
+
 func TestUpdateBurnerStateTracksFlameSecondsAndErrors(t *testing.T) {
 	t.Parallel()
 

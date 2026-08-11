@@ -76,6 +76,43 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 	return true
 }
 
+type endpointJSONBody interface {
+	endpoint() string
+}
+
+func decodeJSONBodyWithEndpoint(w http.ResponseWriter, r *http.Request, dst endpointJSONBody) bool {
+	if !decodeJSONBody(w, r, dst) {
+		return false
+	}
+	if dst.endpoint() == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+		return false
+	}
+	return true
+}
+
+type testPushRequest struct {
+	Endpoint string `json:"endpoint"`
+	Priority string `json:"priority"`
+}
+
+func (r *testPushRequest) endpoint() string { return r.Endpoint }
+
+type subscribeRequest struct {
+	Endpoint string        `json:"endpoint"`
+	P256DH   string        `json:"p256dh"`
+	Auth     string        `json:"auth"`
+	Prefs    storage.Prefs `json:"prefs"`
+}
+
+func (r *subscribeRequest) endpoint() string { return r.Endpoint }
+
+type unsubscribeRequest struct {
+	Endpoint string `json:"endpoint"`
+}
+
+func (r *unsubscribeRequest) endpoint() string { return r.Endpoint }
+
 // HandleGetData serves GET /api/data.
 func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.snapshot())
@@ -118,15 +155,8 @@ func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) 
 
 // HandleSendTestPush serves POST /api/test-push.
 func (h *Handlers) HandleSendTestPush(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Endpoint string `json:"endpoint"`
-		Priority string `json:"priority"`
-	}
-	if !decodeJSONBody(w, r, &body) {
-		return
-	}
-	if body.Endpoint == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+	var body testPushRequest
+	if !decodeJSONBodyWithEndpoint(w, r, &body) {
 		return
 	}
 	priority := body.Priority
@@ -169,17 +199,8 @@ func (h *Handlers) processMachineData(body machineDataBody, source string, now t
 
 // HandleSubscribe serves POST /api/subscribe.
 func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Endpoint string        `json:"endpoint"`
-		P256DH   string        `json:"p256dh"`
-		Auth     string        `json:"auth"`
-		Prefs    storage.Prefs `json:"prefs"`
-	}
-	if !decodeJSONBody(w, r, &body) {
-		return
-	}
-	if body.Endpoint == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+	var body subscribeRequest
+	if !decodeJSONBodyWithEndpoint(w, r, &body) {
 		return
 	}
 
@@ -201,14 +222,8 @@ func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
 
 // HandleUnsubscribe serves POST /api/unsubscribe.
 func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Endpoint string `json:"endpoint"`
-	}
-	if !decodeJSONBody(w, r, &body) {
-		return
-	}
-	if body.Endpoint == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+	var body unsubscribeRequest
+	if !decodeJSONBodyWithEndpoint(w, r, &body) {
 		return
 	}
 	h.pushMgr.RemoveSubscription(body.Endpoint)
