@@ -27,12 +27,27 @@ type Handlers struct {
 func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
 	state := &State{}
 	state.setReminderSchedule(cfg)
-	return &Handlers{
-		state:        state,
-		pushMgr:      pushMgr,
-		notifyByType: pushMgr.NotifyByType,
-		config:       cfg,
+	h := &Handlers{
+		state:  state,
+		config: cfg,
 	}
+	if pushMgr != nil {
+		h.pushMgr = pushMgr
+		h.notifyByType = pushMgr.NotifyByType
+	} else {
+		h.notifyByType = func(typ, title, body string) {
+			log.Printf("server: push manager unavailable; skipping %s notification %q", typ, title)
+		}
+	}
+	return h
+}
+
+func (h *Handlers) requirePushManager(w http.ResponseWriter) *push.Manager {
+	if h.pushMgr == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "push service unavailable"})
+		return nil
+	}
+	return h.pushMgr
 }
 
 const maxJSONBodySize = 64 << 10
@@ -137,15 +152,23 @@ func (h *Handlers) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetVapidKey serves GET /api/vapid-public-key.
 func (h *Handlers) HandleGetVapidKey(w http.ResponseWriter, r *http.Request) {
+	mgr := h.requirePushManager(w)
+	if mgr == nil {
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{
-		"key":    h.pushMgr.GetVapidPublicKey(),
+		"key":    mgr.GetVapidPublicKey(),
 		"source": "proxy",
 	})
 }
 
 // HandleGetSubscribers serves GET /api/subscribers.
 func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) {
-	subs := h.pushMgr.GetSubscriptions()
+	mgr := h.requirePushManager(w)
+	if mgr == nil {
+		return
+	}
+	subs := mgr.GetSubscriptions()
 	items := make([]map[string]string, 0, len(subs))
 	for _, sub := range subs {
 		items = append(items, map[string]string{"endpoint": sub.Endpoint})
@@ -159,11 +182,15 @@ func (h *Handlers) HandleSendTestPush(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSONBodyWithEndpoint(w, r, &body) {
 		return
 	}
+	mgr := h.requirePushManager(w)
+	if mgr == nil {
+		return
+	}
 	priority := body.Priority
 	if priority == "" {
 		priority = "normal"
 	}
-	if err := h.pushMgr.SendTestToSubscriber(body.Endpoint, priority); err != nil {
+	if err := mgr.SendTestToSubscriber(body.Endpoint, priority); err != nil {
 		if errors.Is(err, push.ErrSubscriptionNotFound) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subscriber not found"})
 			return
@@ -203,8 +230,12 @@ func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSONBodyWithEndpoint(w, r, &body) {
 		return
 	}
+	mgr := h.requirePushManager(w)
+	if mgr == nil {
+		return
+	}
 
-	ok, err := h.pushMgr.AddSubscription(body.Endpoint, body.P256DH, body.Auth, body.Prefs)
+	ok, err := mgr.AddSubscription(body.Endpoint, body.P256DH, body.Auth, body.Prefs)
 	if err != nil {
 		if errors.Is(err, push.ErrInvalidSubscriptionEndpoint) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid subscription endpoint"})
@@ -226,7 +257,11 @@ func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSONBodyWithEndpoint(w, r, &body) {
 		return
 	}
-	h.pushMgr.RemoveSubscription(body.Endpoint)
+	mgr := h.requirePushManager(w)
+	if mgr == nil {
+		return
+	}
+	mgr.RemoveSubscription(body.Endpoint)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

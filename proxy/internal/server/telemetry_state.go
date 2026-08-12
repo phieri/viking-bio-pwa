@@ -183,11 +183,13 @@ func formatFlameSeconds(secs int64) string {
 func (s *State) setReminderSchedule(cfg *config.Config) {
 	weekday, hour, minute := config.DefaultReminderSchedule()
 	schedule := reminderSchedule{weekday: weekday, hour: hour, minute: minute}
-	if cfg != nil {
-		schedule.weekday = cfg.CleaningReminderWeekday
-		schedule.hour = cfg.CleaningReminderHour
-		schedule.minute = cfg.CleaningReminderMinute
+	if cfg == nil {
+		s.reminderSchedule = schedule
+		return
 	}
+	schedule.weekday = cfg.CleaningReminderWeekday
+	schedule.hour = cfg.CleaningReminderHour
+	schedule.minute = cfg.CleaningReminderMinute
 	s.reminderSchedule = schedule
 }
 
