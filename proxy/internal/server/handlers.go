@@ -35,13 +35,15 @@ func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
 		h.pushMgr = pushMgr
 		h.notifyByType = pushMgr.NotifyByType
 	} else {
-		h.notifyByType = func(string, string, string) {}
+		h.notifyByType = func(typ, title, body string) {
+			log.Printf("server: push manager unavailable; skipping %s notification %q", typ, title)
+		}
 	}
 	return h
 }
 
 func (h *Handlers) requirePushManager(w http.ResponseWriter) *push.Manager {
-	if h == nil || h.pushMgr == nil {
+	if h.pushMgr == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "push service unavailable"})
 		return nil
 	}
@@ -208,9 +210,6 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 }
 
 func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
-	if h == nil || h.notifyByType == nil {
-		return
-	}
 	for _, notification := range notificationsForMachineData(result) {
 		go h.notifyByType(notification.typ, notification.title, notification.body)
 	}

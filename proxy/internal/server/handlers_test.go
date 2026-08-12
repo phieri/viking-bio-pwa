@@ -76,10 +76,29 @@ func TestGetVapidKey_ProxySource(t *testing.T) {
 	}
 }
 
-func TestHandlers_NilPushManager_GreacefulFailure(t *testing.T) {
+func TestHandlers_NilPushManager_GracefulFailure(t *testing.T) {
 	h := server.NewHandlers(nil, nil)
 
 	resp := getReq(t, h.HandleGetVapidKey)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", resp.StatusCode)
+	}
+	if m := decodeJSON(t, resp); m["error"] != "push service unavailable" {
+		t.Fatalf("expected push service unavailable error, got %v", m["error"])
+	}
+
+	resp = getReq(t, h.HandleGetSubscribers)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", resp.StatusCode)
+	}
+	if m := decodeJSON(t, resp); m["error"] != "push service unavailable" {
+		t.Fatalf("expected push service unavailable error, got %v", m["error"])
+	}
+
+	resp = postJSON(t, h.HandleSendTestPush, map[string]any{
+		"endpoint": "https://example.com/push/test",
+		"priority": "high",
+	}, nil)
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503, got %d", resp.StatusCode)
 	}
@@ -91,6 +110,16 @@ func TestHandlers_NilPushManager_GreacefulFailure(t *testing.T) {
 		"endpoint": "https://example.com/push/test",
 		"p256dh":   "p256dhkey",
 		"auth":     "authkey",
+	}, nil)
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", resp.StatusCode)
+	}
+	if m := decodeJSON(t, resp); m["error"] != "push service unavailable" {
+		t.Fatalf("expected push service unavailable error, got %v", m["error"])
+	}
+
+	resp = postJSON(t, h.HandleUnsubscribe, map[string]any{
+		"endpoint": "https://example.com/push/test",
 	}, nil)
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503, got %d", resp.StatusCode)
