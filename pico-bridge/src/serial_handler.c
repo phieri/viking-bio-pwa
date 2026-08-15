@@ -5,7 +5,7 @@
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
 #include "serial_handler.h"
-#include "vikingbio.h"
+#include "viking_bio_protocol.h"
 
 // Circular buffer for serial data
 static uint8_t serial_buffer[SERIAL_BUFFER_SIZE];
