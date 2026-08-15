@@ -5,7 +5,7 @@
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
 #include "serial_handler.h"
-#include "viking_bio_protocol.h"
+#include "vikingbio.h"
 
 // Circular buffer for serial data
 static uint8_t serial_buffer[SERIAL_BUFFER_SIZE];
@@ -113,7 +113,7 @@ void serial_handler_task(void) {
         uint8_t probe_buffer[SERIAL_BUFFER_SIZE];
         size_t bytes = serial_handler_copy_buffer(probe_buffer, sizeof(probe_buffer), false);
 
-        viking_bio_data_t parsed_data;
+        vikingbio_data_t parsed_data;
         if (bytes >= VIKING_BIO_MIN_PACKET_SIZE &&
             vikingbio_detect_and_parse(NULL, probe_buffer, bytes, &parsed_data) && parsed_data.valid) {
             printf("serial: detected Viking Bio data at %lu baud\n",

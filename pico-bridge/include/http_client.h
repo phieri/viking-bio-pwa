@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "viking_bio_protocol.h"
+#include "vikingbio.h"
 
 // Retry delay after a connection failure (ms)
 #define HTTP_CLIENT_RETRY_MS 5000
@@ -23,7 +23,7 @@ void http_client_init(const char *host, uint16_t port, const char *device_key);
  * Queue burner data for delivery over the persistent telemetry connection.
  * @param data  Pointer to current burner data
  */
-void http_client_send_data(const viking_bio_data_t *data);
+void http_client_send_data(const vikingbio_data_t *data);
 
 /**
  * Poll the HTTP client state machine.
