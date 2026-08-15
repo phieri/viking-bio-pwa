@@ -115,7 +115,7 @@ void serial_handler_task(void) {
 
         viking_bio_data_t parsed_data;
         if (bytes >= VIKING_BIO_MIN_PACKET_SIZE &&
-            viking_bio_parse_data(probe_buffer, bytes, &parsed_data) && parsed_data.valid) {
+            vikingbio_detect_and_parse(NULL, probe_buffer, bytes, &parsed_data) && parsed_data.valid) {
             printf("serial: detected Viking Bio data at %lu baud\n",
                    (unsigned long)serial_current_baud);
             serial_baud_probe_active = false;
