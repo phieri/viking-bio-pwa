@@ -8,7 +8,7 @@
 #include "lwip/netif.h"
 #include "lwip/ip6_addr.h"
 #include "serial_handler.h"
-#include "viking_bio_protocol.h"
+#include "vikingbio.h"
 #include "http_client.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
@@ -376,7 +376,7 @@ static void init_bridge_components(void) {
 	}
 
 	printf("Initializing protocol parser...\n");
-	viking_bio_init();
+	vikingbio_init();
 
 	printf("Initializing serial handler...\n");
 	serial_handler_init();
@@ -471,8 +471,8 @@ static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up
 	s_serial_blink_end = make_timeout_time_ms(SERIAL_LED_BLINK_MS);
 	bridge_status_led_set_state(true);
 
-	viking_bio_data_t new_data;
-	if (!viking_bio_parse_data(buffer, bytes, &new_data)) {
+	vikingbio_data_t new_data;
+	if (!vikingbio_parse_data(buffer, bytes, &new_data)) {
 		return;
 	}
 
@@ -489,12 +489,12 @@ static void handle_timeout_event(bool wifi_up, bool *timeout_triggered, bool *fl
 	}
 	event_flags &= ~EVENT_TIMEOUT_CHECK;
 
-	if (!*timeout_triggered && viking_bio_is_data_stale(VIKING_BIO_TIMEOUT_MS)) {
+	if (!*timeout_triggered && vikingbio_is_data_stale(VIKING_BIO_TIMEOUT_MS)) {
 		*timeout_triggered = true;
 		*flame_on = false;
 		printf("Viking Bio: no data for 30s – burner may be off\n");
 		if (wifi_up) {
-			viking_bio_data_t stale = {.valid = false};
+			vikingbio_data_t stale = {.valid = false};
 			http_client_send_data(&stale);
 		}
 	}

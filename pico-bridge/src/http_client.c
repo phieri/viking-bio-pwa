@@ -89,7 +89,7 @@ static void queue_pop(void) {
 	s_queue_count--;
 }
 
-static bool build_data_json(const viking_bio_data_t *data, char *out, size_t out_len) {
+static bool build_data_json(const vikingbio_data_t *data, char *out, size_t out_len) {
 	int written = snprintf(out, out_len,
 						   "{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
 						   data->flame_detected ? "true" : "false", data->fan_speed,
@@ -125,7 +125,7 @@ static bool build_signature(const char *device_key, const char *canonical,
 	return true;
 }
 
-static bool build_frame(const viking_bio_data_t *data, uint8_t *frame, size_t *frame_len) {
+static bool build_frame(const vikingbio_data_t *data, uint8_t *frame, size_t *frame_len) {
 	char data_json[TELEMETRY_DATA_JSON_MAX];
 	char canonical[TELEMETRY_CANONICAL_MAX];
 	char signature[TELEMETRY_SIGNATURE_MAX];
@@ -329,7 +329,7 @@ void http_client_init(const char *host, uint16_t port, const char *device_key) {
 	}
 }
 
-void http_client_send_data(const viking_bio_data_t *data) {
+void http_client_send_data(const vikingbio_data_t *data) {
 	uint8_t frame[TELEMETRY_FRAME_MAX];
 	size_t frame_len = 0;
 

@@ -106,6 +106,8 @@ if(NOT littlefs_POPULATED)
     FetchContent_Populate(littlefs)
 endif()
 
+add_subdirectory(libvikingbio)
+
 # Define source files
 set(SOURCES
     src/main.c
@@ -138,6 +140,7 @@ target_include_directories(viking_bio_bridge PRIVATE
 
 # Pull in dependencies
 target_link_libraries(viking_bio_bridge
+    vikingbio
     pico_stdlib
     hardware_uart
     hardware_gpio
