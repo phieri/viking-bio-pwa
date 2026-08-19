@@ -93,5 +93,132 @@
 		<div id="pushSource" class="push-source"></div>
 	</div>
 </div>
+
+<main class="doc-shell" aria-label="End user documentation">
+	<section class="doc-hero">
+		<p class="eyebrow">Installation &amp; support</p>
+		<h2>Run your Viking Bio burner with a clean, connected dashboard</h2>
+		<p>Use this guide to wire the Pico bridge, connect it to your home Wi‑Fi, and start monitoring the burner from the browser or your phone.</p>
+	</section>
+
+	<div class="feature-grid">
+		<article class="feature-card">
+			<div class="feature-icon" aria-hidden="true">🔥</div>
+			<h3>Live burner status</h3>
+			<p>Check flame, fan speed, temperature, and error codes without leaving the dashboard.</p>
+		</article>
+		<article class="feature-card">
+			<div class="feature-icon" aria-hidden="true">📶</div>
+			<h3>Wi‑Fi &amp; proxy</h3>
+			<p>Pico W stays connected to your network and streams signed telemetry to the proxy.</p>
+		</article>
+		<article class="feature-card">
+			<div class="feature-icon" aria-hidden="true">🔔</div>
+			<h3>Smart alerts</h3>
+			<p>Subscribe in the browser to receive flame, error, and seasonal cleaning reminders.</p>
+		</article>
+	</div>
+
+	<section class="guide">
+		<article class="guide-step">
+			<div class="guide-copy">
+				<span class="step-number">01</span>
+				<h3>Connect the burner to the Pico bridge</h3>
+				<p>Run the burner serial output through a 5 V to 3.3 V level shifter and connect the Pico W RX pin to the burner TX line. Keep the ground common.</p>
+				<ul>
+					<li>Use the burner cable labeled TX / data</li>
+					<li>Place the level shifter between the burner and GPIO1</li>
+					<li>Verify the wiring before powering the Pico</li>
+				</ul>
+			</div>
+			<div class="guide-figure" aria-hidden="true">
+				<svg viewBox="0 0 360 220" role="img" aria-label="Diagram showing the burner linked to a Pico bridge through a level shifter">
+					<defs>
+						<linearGradient id="wireGlow" x1="0%" x2="100%" y1="0%" y2="0%">
+							<stop offset="0%" stop-color="#f59e0b"/>
+							<stop offset="100%" stop-color="#38bdf8"/>
+						</linearGradient>
+					</defs>
+					<rect x="20" y="30" width="90" height="120" rx="18" fill="#161d24" stroke="#4b5563"/>
+					<rect x="118" y="74" width="62" height="32" rx="8" fill="#1e293b" stroke="#7dd3fc"/>
+					<rect x="200" y="40" width="120" height="140" rx="16" fill="#0f172a" stroke="#34d399"/>
+					<path d="M110 90 L118 90 M180 90 L200 90" stroke="url(#wireGlow)" stroke-width="5" fill="none"/>
+					<path d="M112 123 L120 123 M180 123 L200 123" stroke="#94a3b8" stroke-width="4" fill="none"/>
+					<path d="M50 150 L88 150" stroke="#fbbf24" stroke-width="6" stroke-linecap="round"/>
+					<path d="M95 38 L73 72 L88 72 L66 108 L95 80 L80 80 L95 38 Z" fill="#f97316" opacity="0.9"/>
+					<circle cx="260" cy="85" r="16" fill="#38bdf8" opacity="0.9"/>
+					<circle cx="285" cy="120" r="16" fill="#22c55e" opacity="0.9"/>
+					<text x="240" y="175" font-size="15" fill="#e2e8f0" font-family="Segoe UI, sans-serif">Pico W</text>
+				</svg>
+			</div>
+		</article>
+
+		<article class="guide-step">
+			<div class="guide-copy">
+				<span class="step-number">02</span>
+				<h3>Configure the Wi‑Fi and proxy settings</h3>
+				<p>Use the serial configuration command set or the built-in setup tool to store the Wi‑Fi SSID, password, and the address of the proxy machine.</p>
+				<ul>
+					<li>Set your home SSID and password using the bridge command interface</li>
+					<li>Enter the proxy server address without brackets when using the USB serial command</li>
+					<li>Leave the default port at 9000 unless the service runs elsewhere</li>
+				</ul>
+			</div>
+			<div class="guide-figure" aria-hidden="true">
+				<svg viewBox="0 0 360 220" role="img" aria-label="Diagram showing a wi-fi router, the Pico, and a dashboard server connection">
+					<rect x="38" y="98" width="116" height="74" rx="16" fill="#0f172a" stroke="#60a5fa"/>
+					<path d="M60 118 L100 80 L140 118" fill="none" stroke="#7dd3fc" stroke-width="6" stroke-linecap="round"/>
+					<path d="M52 138 L98 94 L144 138" fill="none" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
+					<circle cx="104" cy="93" r="10" fill="#facc15"/>
+					<rect x="205" y="50" width="110" height="120" rx="18" fill="#111827" stroke="#34d399"/>
+					<path d="M170 118 H205 M256 142 H170" stroke="#a7f3d0" stroke-width="6" stroke-linecap="round"/>
+					<circle cx="232" cy="90" r="16" fill="#22c55e"/>
+					<circle cx="275" cy="90" r="16" fill="#38bdf8"/>
+					<rect x="44" y="48" width="90" height="28" rx="8" fill="#1f2937" stroke="#94a3b8"/>
+					<text x="62" y="66" font-size="13" fill="#e2e8f0" font-family="Segoe UI, sans-serif">Wi‑Fi</text>
+					<rect x="205" y="168" width="110" height="20" rx="10" fill="#1f2937" stroke="#94a3b8"/>
+					<text x="224" y="181" font-size="12" fill="#e2e8f0" font-family="Segoe UI, sans-serif">Proxy</text>
+				</svg>
+			</div>
+		</article>
+
+		<article class="guide-step">
+			<div class="guide-copy">
+				<span class="step-number">03</span>
+				<h3>Open the dashboard and enable push notifications</h3>
+				<p>Visit the site in your browser, install it as a PWA on desktop or mobile, and subscribe to flame, error, or seasonal cleaning alerts.</p>
+				<ul>
+					<li>Open the served dashboard and confirm that telemetry is updating</li>
+					<li>Allow browser notifications when prompted</li>
+					<li>Use the notification checkboxes to choose which alerts matter most</li>
+				</ul>
+			</div>
+			<div class="guide-figure" aria-hidden="true">
+				<svg viewBox="0 0 360 220" role="img" aria-label="Diagram showing a browser window with a burner dashboard and notification bell">
+					<rect x="22" y="30" width="220" height="150" rx="18" fill="#111827" stroke="#7dd3fc"/>
+					<rect x="42" y="52" width="180" height="18" rx="8" fill="#1f2937"/>
+					<rect x="40" y="82" width="58" height="52" rx="10" fill="#1d4ed8"/>
+					<rect x="110" y="82" width="50" height="52" rx="10" fill="#14532d"/>
+					<rect x="170" y="82" width="42" height="52" rx="10" fill="#7c2d12"/>
+					<rect x="134" y="148" width="100" height="14" rx="7" fill="#374151"/>
+					<path d="M277 50 L318 90 L298 90 L298 152 L256 152 L256 90 L236 90 Z" fill="#fbbf24" opacity="0.92"/>
+					<circle cx="291" cy="80" r="8" fill="#f97316"/>
+					<path d="M286 103 L296 103" stroke="#f97316" stroke-width="3" stroke-linecap="round"/>
+					<path d="M304 153 C304 142 312 134 320 134 C328 134 336 142 336 153" fill="none" stroke="#f8fafc" stroke-width="4"/>
+				</svg>
+			</div>
+		</article>
+	</section>
+
+	<aside class="checklist-card" aria-label="Quick checklist">
+		<h3>Quick checklist</h3>
+		<ul>
+			<li> Burner and Pico are connected correctly</li>
+			<li> Wi‑Fi and proxy address are saved on the device</li>
+			<li> Dashboard shows live temperature and flame values</li>
+			<li> Browser notifications are enabled for the alerts you want</li>
+		</ul>
+	</aside>
+</main>
 </body>
 </html>
