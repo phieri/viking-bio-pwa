@@ -283,6 +283,116 @@ function poll() {
 		});
 }
 
+let driverLoaderPromise = null;
+
+function getDriverFactory() {
+	if (typeof window.driver === 'function') {
+		return window.driver;
+	}
+	if (window.driver && window.driver.js && typeof window.driver.js.driver === 'function') {
+		return window.driver.js.driver;
+	}
+	return null;
+}
+
+function ensureDriverLoaded() {
+	if (getDriverFactory()) return Promise.resolve();
+	if (driverLoaderPromise) return driverLoaderPromise;
+
+	driverLoaderPromise = new Promise((resolve, reject) => {
+		const css = document.createElement('link');
+		css.rel = 'stylesheet';
+		css.href = 'https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css';
+		css.integrity = 'sha512-jRsM62XMRl33ewZ0Si7yX6ANq+ZiWwUcvPk4H2DKr417W80rPMXzbD/towhs2YEoux/dfOuVRkLB+5Tfzmfolg==';
+		css.crossOrigin = 'anonymous';
+		document.head.appendChild(css);
+
+		const script = document.createElement('script');
+		script.src = 'https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js';
+		script.async = true;
+		script.integrity = 'sha512-8EdV4D5VlQLX0dJFcdx6h/oJ/NanAIMlaViz57NDkhzwbQsxabgpFua0gzM4f5vdk60CfRAydhlbfbDThMfh3w==';
+		script.crossOrigin = 'anonymous';
+		script.onload = () => resolve();
+		script.onerror = () => reject(new Error('Kunde inte ladda driver.js'));
+		document.head.appendChild(script);
+	});
+
+	return driverLoaderPromise;
+}
+
+async function startDashboardTour() {
+	try {
+		await ensureDriverLoaded();
+	} catch (error) {
+		console.error('Unable to load driver.js', error);
+		alert('Kunde inte ladda guidningen för dashboarden.');
+		return;
+	}
+
+	const DriverFactory = getDriverFactory();
+	if (!DriverFactory) {
+		alert('Kunde inte initiera guidningen för dashboarden.');
+		return;
+	}
+
+	const driverInstance = DriverFactory({
+		showProgress: true,
+		allowClose: true,
+		nextBtnText: 'Nästa',
+		prevBtnText: 'Föregående',
+		doneBtnText: 'Klar',
+		popoverClass: 'driverjs-theme',
+		steps: [
+			{
+				element: '#dashboard-header',
+				popover: {
+					title: 'Översikt',
+					description: 'Här ser du pannans grundstatus i ett ögonblick: låga, fläkt, temperatur och felkod.',
+					side: 'bottom',
+					align: 'center'
+				}
+			},
+			{
+				element: '#flame-card',
+				popover: {
+					title: 'Låga',
+					description: 'Det här kortet visar om pannan har låga och uppdateras i realtid när sensorn ändras.',
+					side: 'right',
+					align: 'center'
+				}
+			},
+			{
+				element: '#fan',
+				popover: {
+					title: 'Fläkthastighet',
+					description: 'Fläkthastigheten visas i procent och uppdateras automatiskt när pannan kör.',
+					side: 'bottom',
+					align: 'center'
+				}
+			},
+			{
+				element: '#subscription-panel',
+				popover: {
+					title: 'Aviseringar',
+					description: 'Här kan du aktivera eller justera vilka aviseringar du vill få om låga, fel eller städning.',
+					side: 'left',
+					align: 'center'
+				}
+			},
+			{
+				element: '#pushBtn',
+				popover: {
+					title: 'Push-prenumeration',
+					description: 'När upplägget är klart kan du aktivera push-aviseringar för den här enheten.',
+					side: 'top',
+					align: 'center'
+				}
+			}
+		]
+	});
+	driverInstance.drive();
+}
+
 function startPolling() {
 	updateSeasonCountdown();
 	poll();
@@ -293,6 +403,23 @@ function startPolling() {
 	pollTimer = setInterval(poll, POLL_INTERVAL_MS);
 	seasonTimer = setInterval(updateSeasonCountdown, SEASON_CHECK_INTERVAL_MS);
 	burnerPriceTimer = setInterval(pollBurnerPrice, ENERGY_POLL_INTERVAL_MS);
+}
+
+const tourBtn = document.getElementById('tourBtn');
+if (tourBtn) {
+	tourBtn.addEventListener('click', () => {
+		void startDashboardTour();
+	});
+}
+if (new URLSearchParams(window.location.search).get('tour') === '1') {
+	const maybeStartTour = () => setTimeout(() => {
+		void startDashboardTour();
+	}, 300);
+	if (document.readyState === 'complete') {
+		maybeStartTour();
+	} else {
+		window.addEventListener('load', maybeStartTour);
+	}
 }
 
 function setStatus(msg, cls) {
