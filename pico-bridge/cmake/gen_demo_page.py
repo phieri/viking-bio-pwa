@@ -25,6 +25,7 @@ _MOCK_SCRIPT = """\
     {flame: false, fan: 0,  temp: 65, err: 0, valid: true, subscribers: 2, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 0.72, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.26}}
   ];
   var idx = 0;
+  document.documentElement.dataset.demo = 'true';
   var _fetch = window.fetch.bind(window);
   window.fetch = function (url, opts) {
     if (url === '/api/data') {

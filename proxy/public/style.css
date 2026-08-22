@@ -62,6 +62,34 @@ body {
  background-color: var(--surface-strong);
 }
 
+.page-footer {
+ display: flex;
+ justify-content: center;
+ margin-top: 20px;
+ padding-bottom: 8px;
+}
+
+.footer-tour-link {
+ display: inline-flex;
+ align-items: center;
+ justify-content: center;
+ min-height: 32px;
+ padding: 6px 10px;
+ border: 1px solid var(--border);
+ border-radius: var(--radius-pill);
+ background: transparent;
+ color: var(--text-muted);
+ cursor: pointer;
+ font-size: 0.78rem;
+ letter-spacing: 0.04em;
+ text-transform: uppercase;
+}
+
+.footer-tour-link:hover {
+ background-color: var(--surface-strong);
+ color: var(--text-primary);
+}
+
 .fullscreen-btn {
  position: fixed;
  top: 16px;
