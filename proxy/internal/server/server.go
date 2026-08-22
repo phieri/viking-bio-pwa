@@ -174,15 +174,29 @@ func staticFS() http.FileSystem {
 	return http.FS(sub)
 }
 
+type apiRoute struct {
+	path    string
+	method  string
+	handler http.HandlerFunc
+}
+
+func (s *Server) apiRoutes() []apiRoute {
+	return []apiRoute{
+		{path: "/api/data", method: http.MethodGet, handler: s.handler.HandleGetData},
+		{path: "/api/metrics", method: http.MethodGet, handler: s.handler.HandleGetMetrics},
+		{path: "/api/vapid-public-key", method: http.MethodGet, handler: s.handler.HandleGetVapidKey},
+		{path: "/api/subscribers", method: http.MethodGet, handler: s.handler.HandleGetSubscribers},
+		{path: "/api/test-push", method: http.MethodPost, handler: s.handler.HandleSendTestPush},
+		{path: "/api/energy-price", method: http.MethodGet, handler: s.handler.HandleGetEnergyPrice},
+		{path: "/api/subscribe", method: http.MethodPost, handler: s.handler.HandleSubscribe},
+		{path: "/api/unsubscribe", method: http.MethodPost, handler: s.handler.HandleUnsubscribe},
+	}
+}
+
 func (s *Server) registerAPIRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/api/data", methodGuard(http.MethodGet, s.handler.HandleGetData))
-	mux.HandleFunc("/api/metrics", methodGuard(http.MethodGet, s.handler.HandleGetMetrics))
-	mux.HandleFunc("/api/vapid-public-key", methodGuard(http.MethodGet, s.handler.HandleGetVapidKey))
-	mux.HandleFunc("/api/subscribers", methodGuard(http.MethodGet, s.handler.HandleGetSubscribers))
-	mux.HandleFunc("/api/test-push", methodGuard(http.MethodPost, s.handler.HandleSendTestPush))
-	mux.HandleFunc("/api/energy-price", methodGuard(http.MethodGet, s.handler.HandleGetEnergyPrice))
-	mux.HandleFunc("/api/subscribe", methodGuard(http.MethodPost, s.handler.HandleSubscribe))
-	mux.HandleFunc("/api/unsubscribe", methodGuard(http.MethodPost, s.handler.HandleUnsubscribe))
+	for _, route := range s.apiRoutes() {
+		mux.HandleFunc(route.path, methodGuard(route.method, route.handler))
+	}
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
