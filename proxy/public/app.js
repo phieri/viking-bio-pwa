@@ -411,7 +411,12 @@ if (tourBtn) {
 		void startDashboardTour();
 	});
 }
-if (new URLSearchParams(window.location.search).get('tour') === '1') {
+
+function shouldAutostartTour() {
+	return document.documentElement.dataset.demo === 'true' || new URLSearchParams(window.location.search).get('tour') === '1';
+}
+
+if (shouldAutostartTour()) {
 	const maybeStartTour = () => setTimeout(() => {
 		void startDashboardTour();
 	}, 300);
