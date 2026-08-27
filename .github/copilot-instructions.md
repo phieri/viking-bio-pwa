@@ -15,6 +15,22 @@ There are two active components:
 The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
 Node.js implementation; verify against the current Go code before acting.
 
+## How to work efficiently in this repo
+
+When a cloud agent sees this repository for the first time, use the smallest targeted
+workflow that proves the relevant behavior:
+
+- Start with one targeted search or symbol lookup to identify the files most likely to
+  contain the change.
+- Read only the relevant files and tests for the component you are touching (proxy server,
+  firmware, or dashboard assets), then patch the smallest possible surface area.
+- Prefer Go validation commands for proxy work (`go test`, `go vet`, `go build`) and keep
+  the CI smoke-test constraints in mind (`MDNS_DISABLE=1` for mDNS-disabled local runs).
+- For firmware work, verify the toolchain prerequisites before attempting a local build;
+  the workflow requires Pico SDK and ARM cross-compilation tools.
+- Treat stale documentation as a risk: confirm behavior against the current code and the
+  CI workflow rather than older Node.js-era assumptions.
+
 ## Repository Structure
 
 ```text
