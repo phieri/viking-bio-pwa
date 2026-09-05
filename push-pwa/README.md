@@ -1,12 +1,12 @@
 # Viking Bio Push PWA
 
-This small installable PWA is the fourth part of the Viking Bio monorepo. It lets a user opt in to browser push notifications, persists the Web Push subscription on the PHP backend, and uses the `minishlink/web-push` library to send test and real alert payloads.
+This small installable PWA is the fourth part of the Viking Bio monorepo. It generates a browser push subscription JSON block for a client, lets the operator copy it manually into a JSON file, and then uses `minishlink/web-push` to send matching alert payloads.
 
 ## Purpose
 
-- Register a browser subscription with a VAPID keypair
-- Persist subscriptions on the server side
-- Send push notifications to all registered devices
+- Build a browser subscription payload with a VAPID keypair
+- Add subscribers manually to a JSON file rather than through a server-side save endpoint
+- Include a `priority` field for low, normal, and high notifications
 - Offer an install CTA on iOS Safari via the native Add to Home Screen flow
 
 ## Quick start
@@ -17,13 +17,32 @@ composer install
 php -S 0.0.0.0:8000 -t public
 ```
 
-Then open `http://localhost:8000/` in a browser.
+Then open `http://localhost:8000/` in a browser and click “Generate client JSON”.
+
+## Manual subscription file
+
+The generated JSON is meant to be pasted into `storage/subscriptions.json` as an array of objects, for example:
+
+```json
+[
+  {
+    "endpoint": "https://fcm.googleapis.com/...",
+    "keys": {
+      "p256dh": "...",
+      "auth": "..."
+    },
+    "priority": "normal",
+    "uiUrl": "http://localhost:8000"
+  }
+]
+```
 
 ## Notes
 
-- The app exposes `public-key.php`, `subscribe.php`, and `send.php` for the VAPID registration flow.
+- The app exposes `public-key.php`, `config.php`, and `send.php` for the VAPID registration flow and test send path.
 - `send.php` validates a per-session bearer token issued by `/config.php` so the browser can trigger test messages without embedding a secret in the frontend source.
+- `subscribe.php` is intentionally not used; operators add client entries directly to `storage/subscriptions.json`.
 - Set `PUSH_UI_URL` to the interface that should open when a notification is tapped; it defaults to the app URL and is linked to the web-push webhook flow.
-- Subscriptions are stored in a flat YAML file (`storage/subscriptions.yml`) so each browser endpoint remains easy to inspect and manage.
+- Subscribers are stored in a JSON file (`storage/subscriptions.json`) so each browser endpoint remains easy to inspect and manage.
 - The browser service worker listens for `push` events and displays the notification.
 - On iPhone and iPad, the UI shows a CTA telling the user to tap the Share button and choose “Add to Home Screen”.

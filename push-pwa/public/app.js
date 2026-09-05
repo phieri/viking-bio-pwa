@@ -5,6 +5,9 @@ const installBanner = document.getElementById('install-banner');
 const installButton = document.getElementById('install-button');
 const enablePushButton = document.getElementById('enable-push');
 const sendTestButton = document.getElementById('send-test');
+const copyButton = document.getElementById('copy-json');
+const prioritySelect = document.getElementById('subscription-priority');
+const subscriptionJson = document.getElementById('subscription-json');
 const statusBox = document.getElementById('status');
 let installPromptEvent = null;
 
@@ -60,6 +63,19 @@ function urlBase64ToUint8Array(base64String) {
   return output;
 }
 
+function buildSubscriptionJson(subscription) {
+  const keys = subscription.toJSON ? subscription.toJSON().keys : subscription.keys || {};
+  return {
+    endpoint: subscription.endpoint,
+    keys: {
+      p256dh: keys.p256dh || '',
+      auth: keys.auth || '',
+    },
+    priority: prioritySelect.value,
+    uiUrl,
+  };
+}
+
 async function enableNotifications() {
   try {
     setStatus('Loading app configuration...');
@@ -92,17 +108,9 @@ async function enableNotifications() {
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     });
 
-    const response = await fetch('/subscribe.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: subscription.toJSON() }),
-    });
-
-    if (!response.ok) {
-      throw new Error('The subscription could not be saved on the server.');
-    }
-
-    setStatus('Notifications enabled.', 'success');
+    const payload = buildSubscriptionJson(subscription);
+    subscriptionJson.value = JSON.stringify(payload, null, 2);
+    setStatus('Client JSON generated. Paste it into subscriptions.json.', 'success');
   } catch (error) {
     setStatus(error.message, 'error');
   }
@@ -128,6 +136,7 @@ async function sendTestAlert() {
       body: JSON.stringify({
         title: 'Test notification',
         body: 'This is a Viking Bio test alert from the push PWA.',
+        priority: prioritySelect.value,
         url: uiUrl,
       }),
     });
@@ -142,6 +151,16 @@ async function sendTestAlert() {
     setStatus(error.message, 'error');
   }
 }
+
+copyButton.addEventListener('click', async () => {
+  if (!subscriptionJson.value.trim()) {
+    setStatus('Generate a client JSON snippet before copying it.', 'error');
+    return;
+  }
+
+  await navigator.clipboard.writeText(subscriptionJson.value);
+  setStatus('Subscription JSON copied to clipboard.', 'success');
+});
 
 if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) {
   installBanner.classList.remove('hidden');

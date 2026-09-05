@@ -64,8 +64,16 @@ $title = is_string($data['title'] ?? null) ? $data['title'] : 'Viking Bio alert'
 $bodyText = is_string($data['body'] ?? null) ? $data['body'] : 'New status update';
 $icon = is_string($data['icon'] ?? null) ? $data['icon'] : '/icon.svg';
 $url = is_string($data['url'] ?? null) ? $data['url'] : (getenv('PUSH_UI_URL') ?: getenv('APP_URL') ?: '/');
+$rawPriority = is_string($data['priority'] ?? null) ? strtolower($data['priority']) : 'normal';
+$allowedPriorities = ['low', 'normal', 'high'];
+if (!in_array($rawPriority, $allowedPriorities, true)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Priority must be one of low, normal, or high']);
+    exit;
+}
+$priority = $rawPriority;
 
-$sender = new PushSender(__DIR__ . '/../storage/subscriptions.yml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
-$result = $sender->send($title, $bodyText, $icon, ['tag' => 'viking-bio-alert', 'url' => $url]);
+$sender = new PushSender(__DIR__ . '/../storage/subscriptions.json', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
+$result = $sender->send($title, $bodyText, $icon, ['tag' => 'viking-bio-alert', 'url' => $url], $priority);
 
-echo json_encode(['ok' => true, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+echo json_encode(['ok' => true, 'priority' => $priority, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);

@@ -14,7 +14,7 @@ final class PushStorage
         }
 
         if (!file_exists($this->path)) {
-            file_put_contents($this->path, "");
+            file_put_contents($this->path, "[]");
             chmod($this->path, 0600);
         }
     }
@@ -29,41 +29,12 @@ final class PushStorage
             return [];
         }
 
-        $subscriptions = [];
-        $currentEndpoint = null;
-        $currentKeys = [];
-
-        foreach (preg_split('/\R/', $contents) ?: [] as $line) {
-            $trimmed = trim($line);
-            if ($trimmed === '' || str_starts_with($trimmed, '#')) {
-                continue;
-            }
-
-            if (str_ends_with($trimmed, ':')) {
-                if ($currentEndpoint !== null) {
-                    $subscriptions[] = ['endpoint' => $currentEndpoint, 'keys' => $currentKeys];
-                }
-
-                $currentEndpoint = $this->unescapeYamlScalar(substr($trimmed, 0, -1));
-                $currentKeys = [];
-                continue;
-            }
-
-            if ($currentEndpoint === null || !str_contains($trimmed, ':')) {
-                continue;
-            }
-
-            [$key, $value] = array_map('trim', explode(':', $trimmed, 2));
-            if ($key === 'auth' || $key === 'p256dh') {
-                $currentKeys[$key] = $this->unescapeYamlScalar($value);
-            }
+        $data = json_decode($contents, true);
+        if (!is_array($data)) {
+            return [];
         }
 
-        if ($currentEndpoint !== null) {
-            $subscriptions[] = ['endpoint' => $currentEndpoint, 'keys' => $currentKeys];
-        }
-
-        return $subscriptions;
+        return array_values(array_filter($data, static fn ($row) => is_array($row)));
     }
 
     public function upsert(array $subscription): void
@@ -74,15 +45,15 @@ final class PushStorage
         }
 
         $subscriptions = $this->all();
-        $filtered = [];
+        $updated = [];
         foreach ($subscriptions as $item) {
             if (($item['endpoint'] ?? null) !== $endpoint) {
-                $filtered[] = $item;
+                $updated[] = $item;
             }
         }
 
-        $filtered[] = $subscription;
-        $this->write($filtered);
+        $updated[] = $subscription;
+        $this->write($updated);
     }
 
     /**
@@ -90,43 +61,12 @@ final class PushStorage
      */
     public function write(array $subscriptions): void
     {
-        $lines = [];
-        foreach ($subscriptions as $subscription) {
-            $endpoint = $subscription['endpoint'] ?? null;
-            $keys = $subscription['keys'] ?? [];
-            if (!is_string($endpoint) || $endpoint === '') {
-                continue;
-            }
-
-            $lines[] = $this->yamlString($endpoint) . ':';
-            $lines[] = '  auth: ' . $this->yamlString((string) ($keys['auth'] ?? ''));
-            $lines[] = '  p256dh: ' . $this->yamlString((string) ($keys['p256dh'] ?? ''));
+        $json = json_encode($subscriptions, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            throw new \RuntimeException('Unable to encode subscriptions');
         }
 
-        file_put_contents($this->path, implode("\n", $lines) . (count($lines) > 0 ? "\n" : ""));
+        file_put_contents($this->path, $json . "\n");
         chmod($this->path, 0600);
-    }
-
-    private function yamlString(string $value): string
-    {
-        if ($value === '') {
-            return '""';
-        }
-
-        if (preg_match('/^[A-Za-z0-9_\-./:]+$/', $value) === 1) {
-            return $value;
-        }
-
-        return '"' . str_replace(['\\', '"', "\n"], ['\\\\', '\\"', '\\n'], $value) . '"';
-    }
-
-    private function unescapeYamlScalar(string $value): string
-    {
-        $trimmed = trim($value);
-        if (($trimmed[0] ?? '') === '"' && substr($trimmed, -1) === '"') {
-            $trimmed = substr($trimmed, 1, -1);
-        }
-
-        return str_replace(['\\\\', '\\"', '\\n'], ['\\', '"', "\n"], $trimmed);
     }
 }

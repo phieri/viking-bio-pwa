@@ -17,8 +17,13 @@ final class PushSender
     /**
      * @return array{sent:int, failed:int}
      */
-    public function send(string $title, string $body, ?string $icon = null, array $extra = []): array
+    public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null): array
     {
+        $normalizedPriority = $priority !== null ? strtolower($priority) : null;
+        if ($normalizedPriority !== null && !in_array($normalizedPriority, ['low', 'normal', 'high'], true)) {
+            throw new \InvalidArgumentException('Priority must be one of low, normal, or high');
+        }
+
         $storage = new PushStorage($this->storagePath);
         $subscriptions = $storage->all();
 
@@ -45,6 +50,11 @@ final class PushSender
         $failed = 0;
 
         foreach ($subscriptions as $subscription) {
+            $priorityValue = is_string($subscription['priority'] ?? null) ? strtolower($subscription['priority']) : 'normal';
+            if ($normalizedPriority !== null && $normalizedPriority !== 'all' && $priorityValue !== $normalizedPriority) {
+                continue;
+            }
+
             $endpoint = $subscription['endpoint'] ?? null;
             $keys = $subscription['keys'] ?? [];
             $userPublicKey = $keys['p256dh'] ?? null;
