@@ -18,7 +18,7 @@ Node.js implementation; verify against the current Go code before acting.
 ## How to work efficiently in this repo
 
 When a cloud agent sees this repository for the first time, use the smallest targeted
-workflow that proves the relevant behavior:
+workflow that proves the relevant behaviour:
 
 - Start with one targeted search or symbol lookup to identify the files most likely to
   contain the change.
@@ -28,7 +28,7 @@ workflow that proves the relevant behavior:
   the CI smoke-test constraints in mind (`MDNS_DISABLE=1` for mDNS-disabled local runs).
 - For firmware work, verify the toolchain prerequisites before attempting a local build;
   the workflow requires Pico SDK and ARM cross-compilation tools.
-- Treat stale documentation as a risk: confirm behavior against the current code and the
+- Treat stale documentation as a risk: confirm behaviour against the current code and the
   CI workflow rather than older Node.js-era assumptions.
 
 ## Repository Structure
@@ -152,7 +152,7 @@ make configure
 ```
 
 The current CI smoke test starts the proxy, provisions a device record, sends an HMAC-signed
-framed TCP payload to `::1:9000`, and verifies the ingest path and API behavior:
+framed TCP payload to `::1:9000`, and verifies the ingest path and API behaviour:
 
 ```bash
 mkdir -p /tmp/proxy-data
@@ -233,7 +233,7 @@ The workflow builds both `pico_w` and `pico2_w`.
 
 - Update parsing/validation in `proxy/internal/config/config.go`.
 - Keep `proxy/.env.example` and `proxy/README.md` aligned with any new env vars or runtime
-  behavior.
+  behaviour.
 
 ### Dashboard / PWA changes
 
@@ -259,7 +259,7 @@ The workflow builds both `pico_w` and `pico2_w`.
 - Wi-Fi/server/token persistence lives in `pico-bridge/src/wifi_config.c`.
 - Signed TCP ingest client logic lives in `pico-bridge/src/http_client.c`.
 - mDNS discovery logic lives in `pico-bridge/src/dns_sd_browser.c`.
-- USB command behavior lives in `pico-bridge/src/main.c`.
+- USB command behaviour lives in `pico-bridge/src/main.c`.
 
 ## Important Runtime Behavior
 

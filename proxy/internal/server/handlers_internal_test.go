@@ -159,7 +159,7 @@ func TestUpdateBurnerStateUsesConfiguredCleaningReminderSchedule(t *testing.T) {
 		Valid: testBoolPtr(true),
 	}, reminderTime)
 	if !result.cleanDue {
-		t.Fatal("expected cleaning reminder to honor the configured weekday and time")
+		t.Fatal("expected cleaning reminder to honour the configured weekday and time")
 	}
 
 	second := h.updateBurnerState(machineDataBody{
