@@ -13,14 +13,7 @@ var configEnvKeys = []string{
 	"INGEST_TCP_TLS",
 	"TLS_CERT_PATH",
 	"TLS_KEY_PATH",
-	"ACME_DOMAIN",
-	"ACME_CHALLENGE",
-	"ACME_DNS_PROVIDER",
-	"ACME_EMAIL",
-	"ACME_STAGING",
-	"ACME_CERT_DIR",
-	"ACME_HTTP_PORT",
-	"VAPID_CONTACT_EMAIL",
+	"WEBHOOK_URL",
 	"MDNS_NAME",
 	"MDNS_DISABLE",
 	"PICO_SERIAL_PORT",
@@ -109,20 +102,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.IngestTCPTLS {
 		t.Fatal("expected ingest TCP TLS to default to false")
 	}
-	if cfg.ACMEHTTPPort != 80 {
-		t.Fatalf("expected default ACME HTTP port 80, got %d", cfg.ACMEHTTPPort)
-	}
-	if cfg.ACMEChallenge != ACMEChallengeHTTP01 {
-		t.Fatalf("expected default ACME challenge %q, got %q", ACMEChallengeHTTP01, cfg.ACMEChallenge)
-	}
 	if cfg.DataDir != expectedDataDir {
 		t.Fatalf("unexpected default data dir: %q", cfg.DataDir)
-	}
-	if cfg.ACMECertDir != cfg.DataDir {
-		t.Fatalf("expected ACME cert dir to default to data dir, got %q vs %q", cfg.ACMECertDir, cfg.DataDir)
-	}
-	if cfg.VAPIDContactEmail != "admin@viking-bio.local" {
-		t.Fatalf("unexpected default VAPID email: %q", cfg.VAPIDContactEmail)
 	}
 	if cfg.MDNSName != "Viking Bio" {
 		t.Fatalf("unexpected default MDNS name: %q", cfg.MDNSName)
@@ -151,14 +132,7 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("INGEST_TCP_TLS", "true")
 	t.Setenv("TLS_CERT_PATH", "/cert.pem")
 	t.Setenv("TLS_KEY_PATH", "/key.pem")
-	t.Setenv("ACME_DOMAIN", "burner.example.com")
-	t.Setenv("ACME_CHALLENGE", "dns-01")
-	t.Setenv("ACME_DNS_PROVIDER", "cloudflare")
-	t.Setenv("ACME_EMAIL", "acme@example.com")
-	t.Setenv("ACME_STAGING", "true")
-	t.Setenv("ACME_CERT_DIR", "/certs")
-	t.Setenv("ACME_HTTP_PORT", "8080")
-	t.Setenv("VAPID_CONTACT_EMAIL", "push@example.com")
+	t.Setenv("WEBHOOK_URL", "https://example.com/webhook")
 	t.Setenv("MDNS_NAME", "Custom Name")
 	t.Setenv("MDNS_DISABLE", "1")
 	t.Setenv("PICO_SERIAL_PORT", "/dev/ttyACM0")
@@ -176,16 +150,16 @@ func TestLoadOverrides(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.HTTPPort != 3001 || cfg.IngestTCPPort != 9443 || cfg.ACMEHTTPPort != 8080 {
+	if cfg.HTTPPort != 3001 || cfg.IngestTCPPort != 9443 {
 		t.Fatalf("unexpected numeric overrides: %+v", cfg)
 	}
-	if cfg.DataDir != "/data" || cfg.ACMECertDir != "/certs" {
+	if cfg.DataDir != "/data" || cfg.TLSCertPath != "/cert.pem" || cfg.TLSKeyPath != "/key.pem" {
 		t.Fatalf("unexpected string overrides: %+v", cfg)
 	}
-	if cfg.ACMEDomain != "burner.example.com" || cfg.ACMEChallenge != ACMEChallengeDNS01 || cfg.ACMEDNSProvider != ACMEDNSProviderCloudflare {
-		t.Fatalf("unexpected ACME overrides: %+v", cfg)
+	if cfg.WebhookURL != "https://example.com/webhook" || cfg.MDNSName != "Custom Name" {
+		t.Fatalf("unexpected webhook/mdns overrides: %+v", cfg)
 	}
-	if !cfg.IngestTCPTLS || !cfg.ACMEStaging || !cfg.MDNSDisable {
+	if !cfg.IngestTCPTLS || !cfg.MDNSDisable {
 		t.Fatalf("expected boolean overrides to be true: %+v", cfg)
 	}
 	if !cfg.EnergyCardEnabled || cfg.BurnerFixedCostSEKYear != 1200 || cfg.BurnerCostSEKPerKWh != 0.42 || cfg.AnnualHeatingKWh != 15000 {
@@ -212,35 +186,5 @@ func TestLoadRejectsInvalidCleaningReminderConfig(t *testing.T) {
 	t.Setenv("CLEANING_REMINDER_WEEKDAY", "not-a-day")
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid CLEANING_REMINDER_WEEKDAY to fail")
-	}
-}
-
-func TestLoadRejectsACMEChallengeWithoutDomain(t *testing.T) {
-	clearConfigEnv(t)
-	t.Setenv("ACME_CHALLENGE", "dns-01")
-	t.Setenv("ACME_DNS_PROVIDER", "cloudflare")
-
-	if _, err := Load(); err == nil {
-		t.Fatal("expected ACME_CHALLENGE without ACME_DOMAIN to fail")
-	}
-}
-
-func TestLoadRejectsInvalidACMEChallenge(t *testing.T) {
-	clearConfigEnv(t)
-	t.Setenv("ACME_DOMAIN", "burner.example.com")
-	t.Setenv("ACME_CHALLENGE", "tls-alpn-01")
-
-	if _, err := Load(); err == nil {
-		t.Fatal("expected invalid ACME_CHALLENGE to fail")
-	}
-}
-
-func TestLoadRejectsDNSChallengeWithoutProvider(t *testing.T) {
-	clearConfigEnv(t)
-	t.Setenv("ACME_DOMAIN", "burner.example.com")
-	t.Setenv("ACME_CHALLENGE", "dns-01")
-
-	if _, err := Load(); err == nil {
-		t.Fatal("expected dns-01 without ACME_DNS_PROVIDER to fail")
 	}
 }

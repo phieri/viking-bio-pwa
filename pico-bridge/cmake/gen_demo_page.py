@@ -17,12 +17,12 @@ _MOCK_SCRIPT = """\
 /* Demo mode: intercept API calls and return simulated burner data */
 (function () {
   var samples = [
-    {flame: true,  fan: 65, temp: 72, err: 0, valid: true, subscribers: 2, flame_secs: 7320, energy: {enabled: true, elec_total_sek_kwh: 1.42, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.96}},
-    {flame: true,  fan: 70, temp: 74, err: 0, valid: true, subscribers: 2, flame_secs: 7322, energy: {enabled: true, elec_total_sek_kwh: 1.37, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.91}},
-    {flame: true,  fan: 60, temp: 71, err: 0, valid: true, subscribers: 2, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 1.28, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.82}},
-    {flame: false, fan: 0,  temp: 68, err: 0, valid: true, subscribers: 2, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 0.83, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.37}},
-    {flame: false, fan: 0,  temp: 15, err: 1, valid: true, subscribers: 2, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 0.39, burner_total_sek_kwh: 0.46, diff_sek_kwh: -0.07}},
-    {flame: false, fan: 0,  temp: 65, err: 0, valid: true, subscribers: 2, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 0.72, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.26}}
+    {flame: true,  fan: 65, temp: 72, err: 0, valid: true, flame_secs: 7320, energy: {enabled: true, elec_total_sek_kwh: 1.42, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.96}},
+    {flame: true,  fan: 70, temp: 74, err: 0, valid: true, flame_secs: 7322, energy: {enabled: true, elec_total_sek_kwh: 1.37, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.91}},
+    {flame: true,  fan: 60, temp: 71, err: 0, valid: true, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 1.28, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.82}},
+    {flame: false, fan: 0,  temp: 68, err: 0, valid: true, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 0.83, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.37}},
+    {flame: false, fan: 0,  temp: 15, err: 1, valid: true, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 0.39, burner_total_sek_kwh: 0.46, diff_sek_kwh: -0.07}},
+    {flame: false, fan: 0,  temp: 65, err: 0, valid: true, flame_secs: 7324, energy: {enabled: true, elec_total_sek_kwh: 0.72, burner_total_sek_kwh: 0.46, diff_sek_kwh: 0.26}}
   ];
   var idx = 0;
   document.documentElement.dataset.demo = 'true';
@@ -35,16 +35,9 @@ _MOCK_SCRIPT = """\
     if (url === '/api/country') {
       return Promise.resolve({ok: true, json: function () { return Promise.resolve({country: 'SE'}); }});
     }
-    if (url === '/api/subscribers') {
-      var s = samples[(idx - 1 + samples.length) % samples.length];
-      return Promise.resolve({ok: true, json: function () { return Promise.resolve({count: s.subscribers}); }});
-    }
     if (url === '/api/energy-price') {
       var e = samples[(idx - 1 + samples.length) % samples.length].energy;
       return Promise.resolve({ok: true, json: function () { return Promise.resolve(e); }});
-    }
-    if (url === '/api/vapid-public-key') {
-      return Promise.resolve({ok: true, json: function () { return Promise.resolve({key: '', source: 'demo'}); }});
     }
     if (opts && opts.method === 'POST') {
       return Promise.resolve({ok: true, json: function () { return Promise.resolve({status: 'ok'}); }});
@@ -52,17 +45,6 @@ _MOCK_SCRIPT = """\
     return _fetch(url, opts);
   };
 }());
-</script>
-"""
-
-# Appended after the last </script> tag to override the push-notification
-# function with a demo-mode message (must run after the original definition).
-_PUSH_OVERRIDE_SCRIPT = """\
-<script>
-/* Demo mode: replace push-notification toggle with an informational message */
-window.togglePush = function () {
-  alert('Push notifications require the actual Pico W device.\\nThis is a demo running simulated data.');
-};
 </script>
 """
 
@@ -92,14 +74,6 @@ def main():
 
     # 2. Inject mock fetch interceptor before the first <script> tag (match tags with attributes)
     html = re.sub(r'(<script\b[^>]*>)', _MOCK_SCRIPT + r'\1', html, count=1, flags=re.IGNORECASE)
-
-    # 3. Append push-notification override after the last </script>
-    m = None
-    for m in re.finditer(r'</script>', html, flags=re.IGNORECASE):
-        pass
-    if m is not None:
-        insert_pos = m.end()
-        html = html[:insert_pos] + '\n' + _PUSH_OVERRIDE_SCRIPT + html[insert_pos:]
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(html)

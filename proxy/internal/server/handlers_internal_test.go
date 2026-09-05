@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 func newInternalTestHandlers(t *testing.T) *Handlers {
@@ -21,21 +19,18 @@ func newInternalTestHandlers(t *testing.T) *Handlers {
 
 func newInternalTestHandlersWithConfig(t *testing.T, cfg *config.Config) *Handlers {
 	t.Helper()
-	dir := t.TempDir()
-	store, err := storage.NewStore(dir)
-	if err != nil {
-		t.Fatalf("storage: %v", err)
-	}
-	mgr, err := push.New(dir, "admin@test.local", store)
-	if err != nil {
-		t.Fatalf("push: %v", err)
-	}
-	return NewHandlers(mgr, cfg)
+	return NewHandlers(cfg)
 }
 
 func testBoolPtr(v bool) *bool { return &v }
 
 func testFloat64Ptr(v float64) *float64 { return &v }
+
+type fakeEndpointBody struct {
+	Endpoint string `json:"endpoint"`
+}
+
+func (b *fakeEndpointBody) endpoint() string { return b.Endpoint }
 
 func TestDecodeMachineData(t *testing.T) {
 	t.Parallel()
@@ -53,6 +48,49 @@ func TestDecodeMachineData(t *testing.T) {
 	}
 }
 
+func TestSendWebhookNotification(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got := r.Header.Get("Content-Type"); got != "application/json" {
+				t.Fatalf("expected JSON content type, got %q", got)
+			}
+			defer r.Body.Close()
+			var payload webhookPayload
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode webhook payload: %v", err)
+			}
+			if payload.Type != "error" || payload.Title == "" || payload.Body == "" {
+				t.Fatalf("unexpected payload: %+v", payload)
+			}
+			w.WriteHeader(http.StatusAccepted)
+		}))
+		defer srv.Close()
+
+		if err := SendWebhookNotification(srv.URL, "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now()); err != nil {
+			t.Fatalf("SendWebhookNotification: %v", err)
+		}
+	})
+
+	t.Run("non-2xx", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte("bad receiver"))
+		}))
+		defer srv.Close()
+
+		err := SendWebhookNotification(srv.URL, "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now())
+		if err == nil || !strings.Contains(err.Error(), "webhook returned 500") {
+			t.Fatalf("expected non-2xx webhook error, got %v", err)
+		}
+	})
+
+	t.Run("empty-url", func(t *testing.T) {
+		if err := SendWebhookNotification("", "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now()); err != nil {
+			t.Fatalf("empty webhook URL should be a no-op, got %v", err)
+		}
+	})
+}
+
 func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
 	t.Parallel()
 
@@ -60,7 +98,7 @@ func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	var body sendTestPushRequest
+	var body fakeEndpointBody
 	if decodeJSONBodyWithEndpoint(rr, req, &body) {
 		t.Fatal("expected empty endpoint to be rejected")
 	}
@@ -362,16 +400,6 @@ func TestHandleGetEnergyPrice_Disabled(t *testing.T) {
 func TestHandleGetEnergyPrice_Enabled(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	store, err := storage.NewStore(dir)
-	if err != nil {
-		t.Fatalf("storage: %v", err)
-	}
-	mgr, err := push.New(dir, "admin@test.local", store)
-	if err != nil {
-		t.Fatalf("push: %v", err)
-	}
-
 	cfg := &config.Config{
 		EnergyCardEnabled:      true,
 		BurnerFixedCostSEKYear: 2000,
@@ -379,7 +407,7 @@ func TestHandleGetEnergyPrice_Enabled(t *testing.T) {
 		AnnualHeatingKWh:       10000,
 	}
 
-	h := NewHandlers(mgr, cfg)
+	h := NewHandlers(cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/energy-price", nil)
 	rr := httptest.NewRecorder()

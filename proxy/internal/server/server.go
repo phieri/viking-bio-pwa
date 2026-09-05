@@ -13,9 +13,7 @@ import (
 	"time"
 
 	proxy "github.com/phieri/viking-bio-pwa/proxy"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/cert"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
@@ -138,17 +136,16 @@ type Server struct {
 	cfg        *config.Config
 	handler    *Handlers
 	httpSrv    *http.Server
-	acmeSrv    *http.Server
 	ingestSrv  *tcpIngestServer
 	notifyOnly bool
 	// OnReady is called with the dashboard URL once the server is accepting connections.
 	OnReady func(url string)
 }
 
-// New creates a Server. When notifyOnly is true the server skips the dashboard,
-// Let's Encrypt/ACME, and restricts connections to the local network.
-func New(cfg *config.Config, pushMgr *push.Manager, store *storage.Store, notifyOnly bool) *Server {
-	h := NewHandlers(pushMgr, cfg)
+// New creates a Server. When notifyOnly is true the server skips the dashboard and
+// restricts connections to the local network.
+func New(cfg *config.Config, store *storage.Store, notifyOnly bool) *Server {
+	h := NewHandlers(cfg)
 	return &Server{
 		cfg:        cfg,
 		handler:    h,
@@ -184,12 +181,7 @@ func (s *Server) apiRoutes() []apiRoute {
 	return []apiRoute{
 		{path: "/api/data", method: http.MethodGet, handler: s.handler.HandleGetData},
 		{path: "/api/metrics", method: http.MethodGet, handler: s.handler.HandleGetMetrics},
-		{path: "/api/vapid-public-key", method: http.MethodGet, handler: s.handler.HandleGetVapidKey},
-		{path: "/api/subscribers", method: http.MethodGet, handler: s.handler.HandleGetSubscribers},
-		{path: "/api/test-push", method: http.MethodPost, handler: s.handler.HandleSendTestPush},
 		{path: "/api/energy-price", method: http.MethodGet, handler: s.handler.HandleGetEnergyPrice},
-		{path: "/api/subscribe", method: http.MethodPost, handler: s.handler.HandleSubscribe},
-		{path: "/api/unsubscribe", method: http.MethodPost, handler: s.handler.HandleUnsubscribe},
 	}
 }
 
@@ -236,9 +228,6 @@ func (s *Server) Start(ctx context.Context) error {
 	mux := s.buildMux()
 	addr := fmt.Sprintf("[::]:%d", s.cfg.HTTPPort)
 	if !s.notifyOnly {
-		if s.cfg.ACMEDomain != "" {
-			return s.startACME(ctx, mux, addr, s.cfg.ACMEDomain)
-		}
 		if s.cfg.TLSCertPath != "" && s.cfg.TLSKeyPath != "" {
 			return s.startManualTLS(ctx, mux, addr)
 		}
@@ -316,37 +305,4 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 	shutdownOnContext(ctx, srv)
 	s.notifyReady(fmt.Sprintf("https://localhost:%d", s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
-}
-
-func (s *Server) startACME(ctx context.Context, mux http.Handler, addr, domain string) error {
-	mgr, err := cert.NewManager(domain, s.cfg.ACMEEmail, s.cfg.ACMECertDir, s.cfg.ACMEStaging, s.cfg.ACMEChallenge, s.cfg.ACMEDNSProvider)
-	if err != nil {
-		return fmt.Errorf("cert manager: %w", err)
-	}
-	if mgr.UsesHTTPChallenge() {
-		challengeSrv := &http.Server{
-			Addr:    fmt.Sprintf("[::]:%d", s.cfg.ACMEHTTPPort),
-			Handler: mgr.HTTPHandler(),
-		}
-		s.acmeSrv = challengeSrv
-		go func() {
-			log.Printf("cert: ACME HTTP-01 challenge server on :%d", s.cfg.ACMEHTTPPort)
-			if err := challengeSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Printf("cert: challenge server error: %v", err)
-			}
-		}()
-	}
-	if err := mgr.Manage(ctx); err != nil {
-		return fmt.Errorf("manage %s certificate: %w", s.cfg.ACMEChallenge, err)
-	}
-	srv := &http.Server{Addr: addr, Handler: mux, TLSConfig: mgr.TLSConfig()}
-	s.httpSrv = srv
-	ln, err := listen(addr)
-	if err != nil {
-		return err
-	}
-	log.Printf("Viking Bio Proxy listening on https://%s:%d (Let's Encrypt %s)", domain, s.cfg.HTTPPort, s.cfg.ACMEChallenge)
-	shutdownOnContext(ctx, srv, s.acmeSrv)
-	s.notifyReady(fmt.Sprintf("https://%s:%d", domain, s.cfg.HTTPPort))
-	return srv.ServeTLS(ln, "", "")
 }
