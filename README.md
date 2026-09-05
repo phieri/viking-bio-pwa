@@ -14,7 +14,7 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                               │
                      Signed TCP ingest on INGEST_TCP_PORT
                               │
-                          Go Configurator (proxy)
+                          Go Configurator
                           ├── HTTP/HTTPS server (IPv6 [::]:3000)
                           │   ├── GET /                     local operational dashboard
                           │   ├── GET /api/data             Burner state (JSON)
@@ -27,7 +27,7 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
 The Pico firmware:
 - Reads Viking Bio 20 serial data (UART0, GPIO1, auto-detecting 4800/9600/19200 baud, 8N1)
 - Parses binary (`[0xAA] [FLAGS] [SPEED] [TEMP_H] [TEMP_L] [0x55]`) and text (`F:1,S:50,T:75`) protocols
-- Streams parsed data to the proxy via signed persistent TCP ingest
+- Streams parsed data to the configurator via signed persistent TCP ingest
 - WiFi credentials, configurator server address, and telemetry device key stored in LittleFS (credentials encrypted with AES-128-GCM)
 - Configurable via USB serial (115200 baud)
 
@@ -68,7 +68,7 @@ Connect via USB serial (115200 baud) to configure:
 | `STATUS` | Show WiFi, server, telemetry, and webhook status |
 | `CLEAR` | Erase stored credentials (reboots) |
 
-## proxy
+## Configurator
 
 The Go configurator/runtime:
 - Signed TCP ingest on `INGEST_TCP_PORT` receives framed telemetry from the Pico bridge
@@ -79,7 +79,7 @@ The Go configurator/runtime:
 
 ### Device Configurator
 
-The proxy includes an interactive utility for configuring the Pico W bridge over
+The configurator includes an interactive utility for configuring the Pico W bridge over
 USB serial – no separate serial terminal application required.
 
 ```bash
@@ -147,7 +147,7 @@ Defensive validation notes:
 
 ### IPv6-only environments
 
-The proxy binds to `::` (all IPv6 addresses) by default. On Linux this also accepts IPv4 connections via IPv4-mapped addresses unless `IPV6_V6ONLY` is forced. Use a bracketed IPv6 literal when composing the Pico's `SERVER=` address:
+The configurator binds to `::` (all IPv6 addresses) by default. On Linux this also accepts IPv4 connections via IPv4-mapped addresses unless `IPV6_V6ONLY` is forced. Use a bracketed IPv6 literal when composing the Pico's `SERVER=` address:
 
 ```
 SERVER=2001:db8::1   ← enter bare (no brackets) via USB serial
