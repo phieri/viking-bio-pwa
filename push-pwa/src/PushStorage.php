@@ -30,6 +30,7 @@ final class PushStorage
                         'p256dh' => 'replace-with-browser-public-key',
                         'auth' => 'replace-with-browser-auth',
                     ],
+                    'sender' => 'viking-bio-01',
                     'priority' => 'normal',
                     'uiUrl' => 'https://example.com/replace-me',
                 ],

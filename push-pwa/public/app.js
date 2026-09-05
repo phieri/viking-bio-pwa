@@ -7,6 +7,7 @@ const enablePushButton = document.getElementById('enable-push');
 const sendTestButton = document.getElementById('send-test');
 const copyButton = document.getElementById('copy-json');
 const prioritySelect = document.getElementById('subscription-priority');
+const senderInput = document.getElementById('subscription-sender');
 const subscriptionJson = document.getElementById('subscription-json');
 const statusBox = document.getElementById('status');
 let installPromptEvent = null;
@@ -65,12 +66,14 @@ function urlBase64ToUint8Array(base64String) {
 
 function buildSubscriptionJson(subscription) {
   const keys = subscription.toJSON ? subscription.toJSON().keys : subscription.keys || {};
+  const sender = (senderInput.value || '').trim();
   return {
     endpoint: subscription.endpoint,
     keys: {
       p256dh: keys.p256dh || '',
       auth: keys.auth || '',
     },
+    sender,
     priority: prioritySelect.value,
     uiUrl,
   };
@@ -127,6 +130,7 @@ async function sendTestAlert() {
       throw new Error('Grant notification permission before sending a test message.');
     }
 
+    const sender = (senderInput.value || '').trim();
     const response = await fetch('/send.php', {
       method: 'POST',
       headers: {
@@ -136,6 +140,7 @@ async function sendTestAlert() {
       body: JSON.stringify({
         title: 'Test notification',
         body: 'This is a Viking Bio test alert from the push PWA.',
+        sender,
         priority: prioritySelect.value,
         url: uiUrl,
       }),
