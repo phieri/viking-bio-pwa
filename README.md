@@ -138,7 +138,7 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 | `--version` | Print version and exit |
 
 Defensive validation notes:
-- `HTTP_PORT` and `ACME_HTTP_PORT` must be integers in the range `1..65535`
+- `HTTP_PORT` and `INGEST_TCP_PORT` must be integers in the range `1..65535`
 - `WEBHOOK_URL` must be a valid HTTP(S) URL when notification delivery is enabled
 - Existing devices must be reprovisioned to use `INGEST_TCP_PORT` (`9000`) and
   a per-device telemetry key because the legacy webhook API has been removed

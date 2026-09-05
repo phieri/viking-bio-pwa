@@ -19,7 +19,7 @@ make build
 |------|-------------|
 | `--configure` | Run the interactive device configurator (GUI when a display is available, TUI otherwise) |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
-| `--notify-only` | Notification-only mode: no dashboard, no automatic Let's Encrypt, local network only |
+| `--notify-only` | Notification-only mode: no dashboard, local network only |
 | `--notify-test` | Send a test notification to the configured `WEBHOOK_URL` and exit |
 | `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
@@ -205,7 +205,6 @@ Restart=on-failure
 User=viking-bio
 WorkingDirectory=/opt/viking-bio
 EnvironmentFile=/opt/viking-bio/.env
-# Allow binding port 80 for ACME
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
@@ -228,25 +227,10 @@ nssm set VikingBioProxy AppEnvironmentExtra HTTP_PORT=3000
 nssm start VikingBioProxy
 ```
 
-## Migration from Node.js Proxy
-
-**Subscriptions:** `<DATA_DIR>/subscriptions.json` format is identical — no migration needed.
-
-**VAPID keys:** The Node.js proxy stored keys in `data/vapid.json` as
-`{"publicKey":"...","privateKey":"..."}`. The Go proxy uses two separate files:
-`<DATA_DIR>/server-vapid.pub` and `<DATA_DIR>/server-vapid.priv` (raw base64url
-strings, no JSON wrapper). Existing browser subscriptions tied to the Node.js
-VAPID key **will not receive push notifications** from the new Go server —
-users need to re-subscribe once after migration. The subscription records
-themselves are forward-compatible.
-
 ## Data Files
 
 | File | Description |
 |---|---|
 | `<DATA_DIR>/viking-bio.conf` | Proxy configuration template (created on first run) |
-| `<DATA_DIR>/subscriptions.json` | Web Push subscriptions (max 32) |
 | `<DATA_DIR>/devices.json` | Provisioned device secrets and last accepted sequence numbers |
 | `<DATA_DIR>/ingest-fallback.log` | JSONL fallback log when the ingest queue overflows |
-| `<DATA_DIR>/server-vapid.pub` | Server VAPID public key (base64url) |
-| `<DATA_DIR>/server-vapid.priv` | Server VAPID private key (base64url, mode 0600) |

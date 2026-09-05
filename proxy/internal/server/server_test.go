@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
@@ -54,7 +53,7 @@ func TestDecodeJSONBody_AcceptsApplicationJSONWithCharset(t *testing.T) {
 	var payload struct {
 		Endpoint string `json:"endpoint"`
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/subscribe", strings.NewReader(`{"endpoint":"https://example.com"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/notify", strings.NewReader(`{"endpoint":"https://example.com"}`))
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	rr := httptest.NewRecorder()
 
@@ -73,7 +72,7 @@ func TestDecodeJSONBody_RejectsNonJSONContentType(t *testing.T) {
 	var payload struct {
 		Endpoint string `json:"endpoint"`
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/subscribe", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/notify", nil)
 	req.Header.Set("Content-Type", "text/plain")
 	rr := httptest.NewRecorder()
 
@@ -93,12 +92,8 @@ func TestBuildMux_DoesNotExposeLegacyMachineDataRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	mgr, err := push.New(dir, "admin@test.local", store)
-	if err != nil {
-		t.Fatalf("push: %v", err)
-	}
 
-	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, mgr, store, false)
+	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, store, false)
 	req := httptest.NewRequest(http.MethodPost, "/api/machine-data", nil)
 	rr := httptest.NewRecorder()
 	srv.buildMux().ServeHTTP(rr, req)

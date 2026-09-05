@@ -52,9 +52,8 @@ state/update/notification pipeline.
 - The ingest listener decodes frames into Go structs before updating shared state.
 - Subscription persistence is file-backed JSON storage guarded by mutexes.
 
-## Push delivery ownership
+## Notification delivery ownership
 
-- The proxy owns VAPID key generation and persistence.
-- The proxy stores browser subscriptions and evaluates notification preferences.
 - The proxy derives flame, error, and cleaning reminder events from telemetry ingest frames.
-- Web Push delivery is performed by the proxy.
+- The proxy formats those events into a JSON webhook payload and sends them to `WEBHOOK_URL`.
+- The external endpoint owns the final notification delivery and any platform-specific UX.

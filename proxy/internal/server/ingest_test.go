@@ -9,7 +9,6 @@ import (
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	ingestcodec "github.com/phieri/viking-bio-pwa/proxy/internal/ingest"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
@@ -20,11 +19,7 @@ func newIngestTestServer(t *testing.T) (*tcpIngestServer, *storage.Store) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	mgr, err := push.New(dir, "admin@test.local", store)
-	if err != nil {
-		t.Fatalf("push: %v", err)
-	}
-	handler := NewHandlers(mgr, nil)
+	handler := NewHandlers(&config.Config{IngestTCPPort: 9000})
 	return newTCPIngestServer(&config.Config{IngestTCPPort: 9000}, store, handler), store
 }
 

@@ -269,32 +269,6 @@ body {
  cursor: not-allowed;
 }
 
-.btn-push {
- background-color: var(--surface);
- color: var(--accent);
- border-color: var(--accent);
-}
-
-.btn-push:hover {
- background-color: var(--surface-strong);
-}
-
-.btn-push.subscribed {
- background-color: color-mix(in srgb, var(--surface) 70%, var(--page-bg) 30%);
- color: var(--accent-strong);
- border-color: var(--accent-strong);
-}
-
-.btn-unsub {
- background-color: #3d0000;
- color: var(--danger);
- border-color: var(--danger);
-}
-
-.btn-unsub:hover {
- background-color: #5a0000;
-}
-
 .actions {
  text-align: center;
  margin: 16px auto;
@@ -327,52 +301,6 @@ body {
  color: #555;
 }
 
-.subscription {
- display: inline-flex;
- flex-wrap: wrap;
- align-items: center;
- gap: 12px;
- background-color: var(--surface);
- padding: 10px;
- border-radius: 10px;
- border: 1px solid var(--border);
-}
-
-.subs-checkboxes {
- display: flex;
- flex-direction: column;
- align-items: flex-start;
- color: inherit;
- font-size: 0.95em;
-}
-
-.subs-checkboxes label {
- margin: 2px 0;
-}
-
-.push-availability {
- font-size: 0.85em;
- text-align: left;
- width: 100%;
- padding: 8px 10px;
- border-radius: var(--radius-sm);
- border: 1px solid var(--border);
- background-color: var(--surface-muted);
- color: var(--text-muted);
-}
-
-.push-availability.available {
- border-color: #0f3460;
- color: var(--accent-strong);
-}
-
-.push-availability.install,
-.push-availability.blocked,
-.push-availability.unsupported {
- border-color: #6b5d1f;
- color: var(--warning);
-}
-
 :fullscreen .actions {
  display: none;
 }
@@ -383,65 +311,6 @@ body {
 
 :-moz-full-screen .actions {
  display: none;
-}
-
-@media (max-width: 520px) {
- .subscription {
-   flex-direction: column;
-   align-items: stretch;
- }
-
- .subs-checkboxes {
-   align-items: flex-start;
- }
-
- .subscription .btn {
-   width: 100%;
- }
-}
-
-.test-push-controls {
- display: flex;
- flex-wrap: wrap;
- align-items: end;
- justify-content: center;
- gap: 8px;
- width: 100%;
- margin-top: 10px;
-}
-
-.test-push-control {
- display: flex;
- flex-direction: column;
- align-items: flex-start;
- gap: 4px;
- font-size: 0.85em;
- color: #ddd;
-}
-
-.test-push-control select {
- background-color: var(--surface-muted);
- border: 1px solid var(--border);
- border-radius: 6px;
- color: var(--text-primary);
- padding: 6px 8px;
- min-width: 180px;
-}
-
-.test-push-control select:disabled {
- opacity: 0.6;
-}
-
-.test-push-controls .btn {
- margin: 0;
-}
-
-.push-source {
- font-size: 0.8em;
- color: var(--text-secondary);
- margin-top: 6px;
- text-align: center;
- width: 100%;
 }
 
 .energy-price-detail {

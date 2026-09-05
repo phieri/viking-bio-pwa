@@ -30,13 +30,8 @@ proxy/viking-bio-proxy
 proxy/viking-bio-proxy.exe
 
 # Go proxy runtime data (generated at runtime)
-proxy/data/subscriptions.json
-proxy/data/server-vapid.pub
-proxy/data/server-vapid.priv
 proxy/data/server.crt
 proxy/data/server.key
-proxy/data/acme-account.key
-proxy/data/autocert/
 proxy/.env
 
 # IDE files

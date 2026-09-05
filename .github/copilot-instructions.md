@@ -9,8 +9,7 @@ There are two active components:
    over UART, stores config in LittleFS, discovers the proxy over mDNS, and streams telemetry
    to the proxy over a signed persistent TCP ingest connection.
 2. **`proxy/`** - Go proxy server and PWA dashboard. It receives burner telemetry, serves
-   the web UI, manages browser subscriptions, and sends Web Push notifications using
-   proxy-managed VAPID keys.
+   the web UI, and forwards burner alerts to a configurable `WEBHOOK_URL` endpoint.
 
 The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
 Node.js implementation; verify against the current Go code before acting.
@@ -53,12 +52,10 @@ workflow that proves the relevant behavior:
 │   ├── internal/
 │   │   ├── server/                 # HTTP routes, handlers, tests
 │   │   ├── config/                 # Environment parsing and validation
-│   │   ├── push/                   # VAPID keys and push delivery
-│   │   ├── storage/                # subscriptions.json persistence
+│   │   ├── storage/                # device registry and local runtime state
 │   │   ├── serial/                 # USB serial bridge for Pico configurator
 │   │   ├── configure/              # Fyne GUI (gui.go) and TUI fallback (tui.go) for device setup
-│   │   ├── mdns/                   # Proxy DNS-SD advertisement
-│   │   └── cert/                   # Let's Encrypt / TLS support
+│   │   └── mdns/                   # Proxy DNS-SD advertisement
 │   ├── public/                     # Static PWA files (served from disk or embedded)
 │   ├── assets.go                   # go:embed for proxy/public
 │   ├── Makefile                    # build/run/test/configure shortcuts
@@ -83,25 +80,21 @@ Proxy (Go)
 ├── TCP ingest listener (INGEST_TCP_PORT)  signed framed telemetry from Pico
 ├── GET /                     PWA dashboard
 ├── GET /api/data             current burner state
-├── GET /api/vapid-public-key proxy VAPID public key
-├── GET /api/subscribers      subscription count
-├── POST /api/subscribe       add/update browser subscription
-└── POST /api/unsubscribe     remove browser subscription
+├── POST /webhook             webhook alert payloads to configured endpoint
+└── Optional TLS / mDNS support for local deployment
 ```
 
 ### Proxy details
 
 - Main entry point is `proxy/cmd/proxy/main.go`.
 - HTTP routes are registered in `proxy/internal/server/server.go`.
-- Request handling, shared burner state, and push triggering live in
+- Request handling, shared burner state, and notification dispatch live in
   `proxy/internal/server/handlers.go`.
 - Static files are served from disk when `proxy/public/` exists locally; otherwise the
   binary serves embedded assets from `proxy/assets.go`.
 - The ServiceWorker's cache key (in `sw.js`) needs to be incremented whenever there
   are changes made to any file in `proxy/public/`.
-- Subscriptions are stored in `<DATA_DIR>/subscriptions.json`.
-- Proxy VAPID keys are stored in `<DATA_DIR>/server-vapid.pub` and
-  `<DATA_DIR>/server-vapid.priv`.
+- The proxy sends structured alert payloads to the configured `WEBHOOK_URL`.
 - The proxy advertises `_viking-bio._tcp` with TXT `path=/api/data` via
   `proxy/internal/mdns/advertiser.go`.
 - `MDNS_DISABLE=1` disables mDNS advertisement and is used by CI smoke tests.
@@ -120,9 +113,8 @@ Proxy (Go)
   `pico-bridge/include/wifi_config.h`, currently **9000**.
 - The Pico passively listens for unsolicited mDNS announcements from the proxy; it does
   not actively query for services.
-- All Web Push delivery is handled by the proxy. The firmware does not cache VAPID keys,
-  does not store subscriptions, and does not schedule reminders. Older docs may still
-  describe earlier partial implementations.
+- The firmware does not store webhook credentials or notification subscriptions; it only
+  streams signed telemetry to the proxy and schedules reminder logic on the proxy side.
 - The old Node.js-era `scheduler.js` no longer exists in the active proxy; scheduled
   cleaning reminders are driven by the Go proxy from telemetry updates.
 

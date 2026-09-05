@@ -357,16 +357,6 @@ func TestHandleGetEnergyPrice_Disabled(t *testing.T) {
 func TestHandleGetEnergyPrice_Enabled(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	store, err := storage.NewStore(dir)
-	if err != nil {
-		t.Fatalf("storage: %v", err)
-	}
-	mgr, err := push.New(dir, "admin@test.local", store)
-	if err != nil {
-		t.Fatalf("push: %v", err)
-	}
-
 	cfg := &config.Config{
 		EnergyCardEnabled:      true,
 		BurnerFixedCostSEKYear: 2000,
@@ -374,7 +364,7 @@ func TestHandleGetEnergyPrice_Enabled(t *testing.T) {
 		AnnualHeatingKWh:       10000,
 	}
 
-	h := NewHandlers(mgr, cfg)
+	h := NewHandlers(cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/energy-price", nil)
 	rr := httptest.NewRecorder()
