@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	ingestcodec "github.com/phieri/viking-bio-pwa/proxy/internal/ingest"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
+	ingestcodec "github.com/phieri/viking-bio-pwa/configurator/internal/ingest"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 func newIngestTestServer(t *testing.T) (*tcpIngestServer, *storage.Store) {

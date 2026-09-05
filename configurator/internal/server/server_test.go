@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 func TestMethodGuard_AllowsExpectedMethod(t *testing.T) {
@@ -93,7 +93,7 @@ func TestBuildMux_DoesNotExposeLegacyMachineDataRoute(t *testing.T) {
 		t.Fatalf("storage: %v", err)
 	}
 
-	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, store, false)
+	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, store)
 	req := httptest.NewRequest(http.MethodPost, "/api/machine-data", nil)
 	rr := httptest.NewRecorder()
 	srv.buildMux().ServeHTTP(rr, req)
@@ -123,7 +123,7 @@ func TestBuildMux_DoesNotServeDashboardAtRoot(t *testing.T) {
 		t.Fatalf("storage: %v", err)
 	}
 
-	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, store, false)
+	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, store)
 	for _, path := range []string{"/", "/index.html", "/app.js"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rr := httptest.NewRecorder()

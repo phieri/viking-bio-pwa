@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/serial"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 const (

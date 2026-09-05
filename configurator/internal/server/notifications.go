@@ -12,11 +12,11 @@ func notificationsForMachineData(result machineDataUpdateResult) []notificationM
 	notifications := make([]notificationMessage, 0, 3)
 
 	if result.flameChanged {
-		title := "Viking Bio: Låga släckt"
-		body := "Pannan har slocknat"
+		title := "Viking Bio: Flame off"
+		body := "The boiler has gone out"
 		if result.flame {
-			title = "Viking Bio: Låga tänd"
-			body = fmt.Sprintf("Pannan tänd – %.0f °C", result.temp)
+			title = "Viking Bio: Flame on"
+			body = fmt.Sprintf("The boiler is lit – %.0f°C", result.temp)
 		}
 		notifications = append(notifications, notificationMessage{
 			typ:   "flame",
@@ -27,14 +27,14 @@ func notificationsForMachineData(result machineDataUpdateResult) []notificationM
 	if result.newErr {
 		notifications = append(notifications, notificationMessage{
 			typ:   "error",
-			title: "Viking Bio: Fel",
-			body:  fmt.Sprintf("Felkod %.0f detekterad", result.err),
+			title: "Viking Bio: Error",
+			body:  fmt.Sprintf("Error code %.0f detected", result.err),
 		})
 	}
 	if result.cleanDue {
 		notifications = append(notifications, notificationMessage{
 			typ:   "clean",
-			title: "Viking Bio: Cleaning Reminder",
+			title: "Viking Bio: Cleaning reminder",
 			body:  result.cleanBody,
 		})
 	}

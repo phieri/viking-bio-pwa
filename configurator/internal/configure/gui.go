@@ -17,8 +17,8 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/serial"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 // RunGUI starts the Fyne-based device configurator GUI and blocks until the

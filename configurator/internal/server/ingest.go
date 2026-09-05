@@ -10,15 +10,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	ingestcodec "github.com/phieri/viking-bio-pwa/proxy/internal/ingest"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
+	ingestcodec "github.com/phieri/viking-bio-pwa/configurator/internal/ingest"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 const (
 	ingestQueueSize         = 64
 	ingestFailureWindow     = time.Minute
-	ingestBlacklistDuration = 5 * time.Minute
+	ingestBlocklistDuration = 5 * time.Minute
 	ingestFailureThreshold  = 5
 	ingestReadTimeout       = 2 * time.Minute
 )
@@ -116,7 +116,7 @@ func (t *failureTracker) recordFailure(remote string, now time.Time) bool {
 	state.count++
 	state.lastFailure = now
 	if state.count >= ingestFailureThreshold {
-		state.blockedUntil = now.Add(ingestBlacklistDuration)
+		state.blockedUntil = now.Add(ingestBlocklistDuration)
 	}
 	t.entries[host] = state
 	return !state.blockedUntil.IsZero()
@@ -199,7 +199,7 @@ func (s *tcpIngestServer) handleConn(conn net.Conn) {
 	remote := conn.RemoteAddr().String()
 	now := time.Now()
 	if s.failures.blocked(remote, now) {
-		log.Printf("ingest: dropping blacklisted client %s", remote)
+		log.Printf("ingest: dropping blocked client %s", remote)
 		return
 	}
 	log.Printf("ingest: accepted connection from %s", remote)

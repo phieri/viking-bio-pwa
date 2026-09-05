@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/server"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 )
 
 func newTestHandlers(t *testing.T) *server.Handlers {

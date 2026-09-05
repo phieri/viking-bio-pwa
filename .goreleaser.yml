@@ -9,8 +9,8 @@ before:
 
 builds:
   - id: viking-bio-configurator
-    dir: proxy
-    main: ./cmd/proxy
+    dir: configurator
+    main: ./cmd/configurator
     binary: viking-bio-configurator
     env:
       - CGO_ENABLED=0
@@ -38,8 +38,8 @@ archives:
       - goos: windows
         format: zip
     files:
-      - proxy/README.md
-      - proxy/.env.example
+      - configurator/README.md
+      - configurator/.env.example
       - LICENSE
 
 checksum:
@@ -70,9 +70,9 @@ nfpms:
       - rpm
     bindir: /usr/bin
     contents:
-      - src: proxy/README.md
+      - src: configurator/README.md
         dst: /usr/share/doc/viking-bio-configurator/README.md
-      - src: proxy/.env.example
+      - src: configurator/.env.example
         dst: /usr/share/doc/viking-bio-configurator/.env.example
       - type: ghost
         dst: /etc/viking-bio-configurator/.env

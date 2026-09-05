@@ -22,8 +22,8 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v7
       with:
-        go-version-file: proxy/go.mod
-        cache-dependency-path: proxy/go.sum
+        go-version-file: configurator/go.mod
+        cache-dependency-path: configurator/go.sum
 
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v7

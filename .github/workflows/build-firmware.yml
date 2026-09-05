@@ -6,13 +6,13 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - 'proxy/**'
+      - 'configurator/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - 'proxy/**'
+      - 'configurator/**'
   workflow_dispatch:
 
 env:

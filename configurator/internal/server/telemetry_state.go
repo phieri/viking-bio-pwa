@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
 )
 
 // State holds the shared burner telemetry state.

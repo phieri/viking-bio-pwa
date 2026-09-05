@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
 )
 
 // Handlers bundles all HTTP handler dependencies.

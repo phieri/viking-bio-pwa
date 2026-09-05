@@ -12,19 +12,16 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/mdns"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/server"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/mdns"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 const version = "1.0.0"
 
 func main() {
-	var (
-		showVersion = flag.Bool("version", false, "print version and exit")
-		notifyOnly  = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, local network connections only")
-	)
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Viking Bio Configurator v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
 		flag.PrintDefaults()
@@ -44,7 +41,7 @@ func main() {
 	// the environment) are not overridden.
 	loadDotEnv(filepath.Join(config.DefaultDataDir(), "viking-bio.conf"))
 
-	runServer(*notifyOnly)
+	runServer()
 }
 
 // loadDotEnv reads a simple KEY=VALUE file and sets environment variables.
@@ -77,7 +74,7 @@ func loadDotEnv(path string) {
 	}
 }
 
-func runServer(notifyOnly bool) {
+func runServer() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -98,7 +95,7 @@ func runServer(notifyOnly bool) {
 	}
 
 	// Create server
-	srv := server.New(cfg, store, notifyOnly)
+	srv := server.New(cfg, store)
 
 	// No dashboard is served anymore; keep the server headless and rely on the
 	// Fyne configurator for local operational status.

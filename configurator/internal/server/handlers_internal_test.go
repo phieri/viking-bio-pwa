@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
 )
 
 func newInternalTestHandlers(t *testing.T) *Handlers {
@@ -188,9 +188,9 @@ func TestNotificationsForMachineData(t *testing.T) {
 	})
 
 	want := []notificationMessage{
-		{typ: "flame", title: "Viking Bio: Låga tänd", body: "Pannan tänd – 73 °C"},
-		{typ: "error", title: "Viking Bio: Fel", body: "Felkod 12 detekterad"},
-		{typ: "clean", title: "Viking Bio: Cleaning Reminder", body: "clean now"},
+		{typ: "flame", title: "Viking Bio: Flame on", body: "The boiler is lit – 73°C"},
+		{typ: "error", title: "Viking Bio: Error", body: "Error code 12 detected"},
+		{typ: "clean", title: "Viking Bio: Cleaning reminder", body: "clean now"},
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("notificationsForMachineData() = %#v, want %#v", got, want)

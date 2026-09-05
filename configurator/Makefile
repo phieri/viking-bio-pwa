@@ -6,10 +6,10 @@ GO = go
 all: build
 
 build:
-	$(GO) build -o $(BINARY) ./cmd/proxy
+	$(GO) build -o $(BINARY) ./cmd/configurator
 
 run:
-	$(GO) run ./cmd/proxy
+	$(GO) run ./cmd/configurator
 
 test:
 	$(GO) test ./...
