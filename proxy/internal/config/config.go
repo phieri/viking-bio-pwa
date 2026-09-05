@@ -48,8 +48,22 @@ func parsePort(name, val string, def int) (int, error) {
 	return n, nil
 }
 
+func firstNonEmptyEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func parseBool(val string) bool {
-	return val == "1" || strings.ToLower(val) == "true"
+	switch strings.TrimSpace(strings.ToLower(val)) {
+	case "1", "true", "t", "yes", "y", "on", "enabled":
+		return true
+	default:
+		return false
+	}
 }
 
 func parseFloat(name, val string, def float64) (float64, error) {
@@ -154,14 +168,8 @@ func Load() (*Config, error) {
 	}
 	dataDir := DefaultDataDir()
 
-	webhookURL := strings.TrimSpace(os.Getenv("WEBHOOK_URL"))
-	if webhookURL == "" {
-		webhookURL = strings.TrimSpace(os.Getenv("NOTIFY_WEBHOOK_URL"))
-	}
-	if webhookURL == "" {
-		webhookURL = strings.TrimSpace(os.Getenv("NOTIFICATION_WEBHOOK_URL"))
-	}
-	mdnsName := os.Getenv("MDNS_NAME")
+	webhookURL := firstNonEmptyEnv("WEBHOOK_URL", "NOTIFY_WEBHOOK_URL", "NOTIFICATION_WEBHOOK_URL")
+	mdnsName := firstNonEmptyEnv("MDNS_NAME")
 	if mdnsName == "" {
 		mdnsName = "Viking Bio"
 	}
