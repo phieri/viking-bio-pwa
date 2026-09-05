@@ -73,7 +73,7 @@ if (!in_array($rawPriority, $allowedPriorities, true)) {
 }
 $priority = $rawPriority;
 
-$sender = new PushSender(__DIR__ . '/../storage/subscriptions.json', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
+$sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
 $result = $sender->send($title, $bodyText, $icon, ['tag' => 'viking-bio-alert', 'url' => $url], $priority);
 
 echo json_encode(['ok' => true, 'priority' => $priority, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
