@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Viking Bio icon">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="24" fill="#0f172a"/>
+  <path d="M25 80c12-28 25-42 39-42 16 0 29 14 39 42H25Z" fill="url(#g)"/>
+  <path d="M50 38h8v42h-8zm18 0h8v42h-8zM34 54h60v8H34z" fill="#e2e8f0"/>
+  <circle cx="64" cy="92" r="10" fill="#fbbf24"/>
+</svg>

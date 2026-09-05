@@ -1,0 +1,16 @@
+{
+  "name": "phieri/viking-bio-push-pwa",
+  "description": "Installable PWA for Viking Bio burner push notifications",
+  "type": "project",
+  "require": {
+    "minishlink/web-push": "^8.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "VikingBioPush\\": "src/"
+    }
+  },
+  "config": {
+    "sort-packages": true
+  }
+}

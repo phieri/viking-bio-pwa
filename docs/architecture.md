@@ -5,8 +5,10 @@
 The system has a strict process and language boundary:
 
 - `pico-bridge/` is firmware written in C for Raspberry Pi Pico W / Pico 2 W.
+- `pico-bridge/libvikingbio/` is the shared protocol parser library used by the bridge.
 - `proxy/` is a Go HTTP server and PWA host.
-- The two components communicate over a signed framed TCP ingest channel.
+- `push-pwa/` is the installable browser-PWA frontend used for VAPID subscription and push delivery.
+- The firmware and the proxy communicate over a signed framed TCP ingest channel.
 
 There is no cgo, no FFI, and no shared-memory boundary between the firmware and the proxy.
 
