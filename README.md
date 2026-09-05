@@ -16,7 +16,7 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                           ├── HTTP/HTTPS server (IPv6 [::]:3000)
                           │   ├── GET /                     Dashboard PWA
                           │   ├── GET /api/data             Burner state (JSON)
-                          │   └── POST /webhook             Notification payloads to configured endpoint
+                          │   └── → POST <WEBHOOK_URL>       Outbound alert payloads
                           └── Notification processor
 ```
 

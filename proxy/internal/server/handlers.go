@@ -108,6 +108,8 @@ type webhookPayload struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
+var webhookHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
 // SendWebhookNotification posts a notification payload to a configured webhook URL.
 func SendWebhookNotification(webhookURL, typ, title, body string, sentAt time.Time) error {
 	if webhookURL == "" {
@@ -127,7 +129,7 @@ func SendWebhookNotification(webhookURL, typ, title, body string, sentAt time.Ti
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	resp, err := webhookHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}

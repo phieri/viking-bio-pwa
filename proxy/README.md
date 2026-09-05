@@ -47,6 +47,8 @@ make run
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
 | `WEBHOOK_URL` | _(empty)_ | Webhook endpoint for burner alert notifications, receives JSON notification payloads |
+| `NOTIFY_WEBHOOK_URL` | _(empty)_ | Compatibility alias for `WEBHOOK_URL` |
+| `NOTIFICATION_WEBHOOK_URL` | _(empty)_ | Compatibility alias for `WEBHOOK_URL` |
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
 | `TELEMETRY_HISTORY_ENABLED` | `false` | Enable in-memory metrics history for `GET /api/metrics` (`1` or `true`) |

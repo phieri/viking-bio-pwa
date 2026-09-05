@@ -12,16 +12,16 @@ import (
 
 // Config holds all runtime configuration parsed from environment variables.
 type Config struct {
-	HTTPPort          int
-	IngestTCPPort     int
-	IngestTCPTLS      bool
-	TLSCertPath       string
-	TLSKeyPath        string
-	WebhookURL        string
-	MDNSName          string
-	MDNSDisable       bool
-	PicoSerialPort    string
-	DataDir           string
+	HTTPPort       int
+	IngestTCPPort  int
+	IngestTCPTLS   bool
+	TLSCertPath    string
+	TLSKeyPath     string
+	WebhookURL     string
+	MDNSName       string
+	MDNSDisable    bool
+	PicoSerialPort string
+	DataDir        string
 
 	CleaningReminderWeekday time.Weekday
 	CleaningReminderHour    int
@@ -190,16 +190,16 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		HTTPPort:          httpPort,
-		IngestTCPPort:     ingestTCPPort,
-		IngestTCPTLS:      parseBool(os.Getenv("INGEST_TCP_TLS")),
-		TLSCertPath:       os.Getenv("TLS_CERT_PATH"),
-		TLSKeyPath:        os.Getenv("TLS_KEY_PATH"),
-		WebhookURL:        webhookURL,
-		MDNSName:          mdnsName,
-		MDNSDisable:       parseBool(os.Getenv("MDNS_DISABLE")),
-		PicoSerialPort:    os.Getenv("PICO_SERIAL_PORT"),
-		DataDir:           dataDir,
+		HTTPPort:       httpPort,
+		IngestTCPPort:  ingestTCPPort,
+		IngestTCPTLS:   parseBool(os.Getenv("INGEST_TCP_TLS")),
+		TLSCertPath:    os.Getenv("TLS_CERT_PATH"),
+		TLSKeyPath:     os.Getenv("TLS_KEY_PATH"),
+		WebhookURL:     webhookURL,
+		MDNSName:       mdnsName,
+		MDNSDisable:    parseBool(os.Getenv("MDNS_DISABLE")),
+		PicoSerialPort: os.Getenv("PICO_SERIAL_PORT"),
+		DataDir:        dataDir,
 
 		CleaningReminderWeekday: cleaningReminderWeekday,
 		CleaningReminderHour:    cleaningReminderHour,

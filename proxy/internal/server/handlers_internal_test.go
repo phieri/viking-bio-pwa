@@ -48,6 +48,49 @@ func TestDecodeMachineData(t *testing.T) {
 	}
 }
 
+func TestSendWebhookNotification(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got := r.Header.Get("Content-Type"); got != "application/json" {
+				t.Fatalf("expected JSON content type, got %q", got)
+			}
+			defer r.Body.Close()
+			var payload webhookPayload
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode webhook payload: %v", err)
+			}
+			if payload.Type != "error" || payload.Title == "" || payload.Body == "" {
+				t.Fatalf("unexpected payload: %+v", payload)
+			}
+			w.WriteHeader(http.StatusAccepted)
+		}))
+		defer srv.Close()
+
+		if err := SendWebhookNotification(srv.URL, "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now()); err != nil {
+			t.Fatalf("SendWebhookNotification: %v", err)
+		}
+	})
+
+	t.Run("non-2xx", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte("bad receiver"))
+		}))
+		defer srv.Close()
+
+		err := SendWebhookNotification(srv.URL, "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now())
+		if err == nil || !strings.Contains(err.Error(), "webhook returned 500") {
+			t.Fatalf("expected non-2xx webhook error, got %v", err)
+		}
+	})
+
+	t.Run("empty-url", func(t *testing.T) {
+		if err := SendWebhookNotification("", "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now()); err != nil {
+			t.Fatalf("empty webhook URL should be a no-op, got %v", err)
+		}
+	})
+}
+
 func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
 	t.Parallel()
 

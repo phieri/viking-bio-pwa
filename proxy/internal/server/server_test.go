@@ -53,7 +53,7 @@ func TestDecodeJSONBody_AcceptsApplicationJSONWithCharset(t *testing.T) {
 	var payload struct {
 		Endpoint string `json:"endpoint"`
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/notify", strings.NewReader(`{"endpoint":"https://example.com"}`))
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"endpoint":"https://example.com"}`))
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	rr := httptest.NewRecorder()
 
@@ -72,7 +72,7 @@ func TestDecodeJSONBody_RejectsNonJSONContentType(t *testing.T) {
 	var payload struct {
 		Endpoint string `json:"endpoint"`
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/notify", nil)
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	req.Header.Set("Content-Type", "text/plain")
 	rr := httptest.NewRecorder()
 

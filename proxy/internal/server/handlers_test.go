@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -14,19 +13,6 @@ import (
 func newTestHandlers(t *testing.T) *server.Handlers {
 	t.Helper()
 	return server.NewHandlers(nil)
-}
-
-func postJSON(t *testing.T, h http.HandlerFunc, body any, headers map[string]string) *http.Response {
-	t.Helper()
-	b, _ := json.Marshal(body)
-	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(b))
-	req.Header.Set("Content-Type", "application/json")
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	rr := httptest.NewRecorder()
-	h(rr, req)
-	return rr.Result()
 }
 
 func getReq(t *testing.T, h http.HandlerFunc) *http.Response {
@@ -59,4 +45,3 @@ func TestGetDataReturnsStateSnapshot(t *testing.T) {
 		t.Fatalf("expected state snapshot JSON, got %#v", m)
 	}
 }
-

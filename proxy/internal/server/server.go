@@ -306,4 +306,3 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 	s.notifyReady(fmt.Sprintf("https://localhost:%d", s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
 }
-
