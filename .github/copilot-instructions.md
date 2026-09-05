@@ -13,7 +13,9 @@ There are two active components:
    payloads itself.
 
 The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
-Node.js implementation; verify against the current Go code before acting.
+Node.js implementation, browser-push/VAPID flows, or legacy webhook paths; verify against
+the current Go code and CI workflow before acting. The guidance in this file supersedes
+stale README-era assumptions and reflects the active runtime architecture.
 
 ## How to work efficiently in this repo
 
@@ -259,7 +261,7 @@ The workflow builds both `pico_w` and `pico2_w`.
 - mDNS discovery logic lives in `pico-bridge/src/dns_sd_browser.c`.
 - USB command behaviour lives in `pico-bridge/src/main.c`.
 
-## Important Runtime Behavior
+## Important Runtime Behaviour
 
 - The Pico bridge connects to `INGEST_TCP_PORT` (default `9000`) using a signed framed TCP
   connection; `POST /api/machine-data` has been removed and returns 404.
