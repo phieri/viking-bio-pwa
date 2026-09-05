@@ -135,63 +135,6 @@ function updateSeasonCountdown(timestamp = Date.now()) {
 	targetEl.textContent = label;
 }
 
-function formatSubscriberLabel(endpoint) {
-	if (!endpoint) return 'Ingen aktiv prenumerant';
-	try {
-		const url = new URL(endpoint);
-		const path = url.pathname === '/' ? '' : url.pathname;
-		const label = `${url.hostname}${path}`;
-		return label.length > MAX_SUBSCRIBER_LABEL_LENGTH ? `${label.slice(0, MAX_SUBSCRIBER_LABEL_LENGTH - ELLIPSIS_LENGTH)}…` : label;
-	} catch {
-		return endpoint.length > MAX_SUBSCRIBER_LABEL_LENGTH ? `${endpoint.slice(0, MAX_SUBSCRIBER_LABEL_LENGTH - ELLIPSIS_LENGTH)}…` : endpoint;
-	}
-}
-
-function updateSubscriberSelect(data) {
-	const select = document.getElementById('subscriberSelect');
-	const btn = document.getElementById('testPushBtn');
-	if (!select) return;
-
-	const subscribers = Array.isArray(data?.subscribers) ? data.subscribers : [];
-	const previousValue = select.value;
-	select.innerHTML = '';
-	if (!subscribers.length) {
-		const opt = document.createElement('option');
-		opt.value = '';
-		opt.textContent = 'Ingen aktiv prenumerant';
-		select.appendChild(opt);
-		select.disabled = true;
-		if (btn) btn.disabled = true;
-		return;
-	}
-
-	select.disabled = false;
-	const selected = subscribers.some((sub) => sub.endpoint === previousValue) ? previousValue : subscribers[0].endpoint;
-	subscribers.forEach((sub) => {
-		const opt = document.createElement('option');
-		opt.value = sub.endpoint;
-		opt.textContent = sub.label || formatSubscriberLabel(sub.endpoint);
-		if (sub.endpoint === selected) {
-			opt.selected = true;
-		}
-		select.appendChild(opt);
-	});
-	select.value = selected;
-	if (btn) btn.disabled = false;
-}
-
-function pollSubscribers() {
-	fetch('/api/subscribers')
-		.then((r) => r.json())
-		.then((s) => {
-			if (typeof s.count !== 'undefined') {
-				updateAnimatedValue(document.getElementById('subscribers'), s.count);
-			}
-			updateSubscriberSelect(s);
-		})
-		.catch(() => {});
-}
-
 function fmtSEK(val) {
 	return val.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -267,8 +210,6 @@ function poll() {
 			updateAnimatedValue(document.getElementById('flame-hours'), d.flame_secs / 3600, (value) => value.toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 			document.body.classList.toggle('error-active', d.err > 0);
 			document.body.classList.toggle('blink-error', d.err > 0);
-
-			pollSubscribers();
 
 			if (d.err > 0) {
 				setStatus(`Fel detekterat: kod ${d.err}`, 'error');

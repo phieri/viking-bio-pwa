@@ -1,8 +1,8 @@
 # Viking Bio Proxy (Go)
 
 Go rewrite of the Viking Bio pellet burner proxy server. Receives burner
-telemetry from the Pico W bridge and serves the PWA dashboard with fully
-proxy-managed Web Push notification support.
+telemetry from the Pico W bridge, serves the PWA dashboard, and forwards
+notification alerts to a configurable webhook endpoint.
 
 ## Build
 
@@ -20,7 +20,7 @@ make build
 | `--configure` | Run the interactive device configurator (GUI when a display is available, TUI otherwise) |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, no automatic Let's Encrypt, local network only |
-| `--notify-test` | Send a test push notification to all subscribers and exit |
+| `--notify-test` | Send a test notification to the configured `WEBHOOK_URL` and exit |
 | `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
 
@@ -48,19 +48,18 @@ make run
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
 | `ACME_DOMAIN` | _(empty)_ | Domain name to manage with Let's Encrypt |
 | `ACME_CHALLENGE` | `http-01` | Let's Encrypt challenge type (`http-01` or `dns-01`) |
-| `ACME_DNS_PROVIDER` | _(empty)_ | DNS provider for `dns-01` (`cloudflare`) |
 | `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt registration |
 | `ACME_STAGING` | `false` | Use Let's Encrypt staging (`1` or `true`) |
 | `ACME_CERT_DIR` | `<data_dir>` | Directory for ACME certificate cache |
 | `ACME_HTTP_PORT` | `80` | Port for HTTP-01 challenge server |
-| `VAPID_CONTACT_EMAIL` | `admin@viking-bio.local` | VAPID contact email |
+| `WEBHOOK_URL` | _(empty)_ | Webhook endpoint for burner alert notifications, receives JSON notification payloads |
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
 | `TELEMETRY_HISTORY_ENABLED` | `false` | Enable in-memory metrics history for `GET /api/metrics` (`1` or `true`) |
 | `CLEANING_REMINDER_WEEKDAY` | `Saturday` | Weekday for cleaning reminders (e.g. `Monday`, `Saturday`) |
 | `CLEANING_REMINDER_TIME` | `07:00` | Start time (UTC) for the cleaning reminder window (`HH:MM`) |
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for `--configure` |
-| `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for VAPID keys and subscriptions |
+| `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for device registry, logs, and local config |
 
 ## Configuration Files
 
@@ -83,8 +82,9 @@ CLEANING_REMINDER_WEEKDAY=Saturday
 CLEANING_REMINDER_TIME=07:00
 ```
 
-Webhook removed — reprovision devices to use `INGEST_TCP_PORT` (`9000`) and
-per-device telemetry keys.
+Set `WEBHOOK_URL` to receive notification payloads when the burner enters a
+new flame/error/cleaning state. If it is unset, the proxy logs notification
+messages instead of sending them upstream.
 
 ## Notification-Only Mode
 
@@ -122,21 +122,6 @@ Port 80 must be reachable from the internet for the selected domain.
 ACME_DOMAIN=burner.example.com
 ACME_CHALLENGE=http-01
 ACME_EMAIL=you@example.com
-```
-
-#### DNS-01 (Cloudflare)
-
-This mode does not require inbound port 80, but it does require Cloudflare API
-credentials with DNS write access for the zone.
-
-```env
-ACME_DOMAIN=burner.example.com
-ACME_CHALLENGE=dns-01
-ACME_DNS_PROVIDER=cloudflare
-ACME_EMAIL=you@example.com
-CLOUDFLARE_API_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-# Optional read-scoped token if your API token is zone-limited:
-# CLOUDFLARE_ZONE_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 Use `ACME_STAGING=1` while testing to avoid rate limits.
@@ -206,15 +191,11 @@ normal state/update/notification pipeline, and writes overflow traffic to
 
 ## HTTP API
 
-The proxy exposes a small JSON API for the dashboard and browser push integration:
+The proxy exposes a small JSON API for the dashboard and alert consumers:
 
 - `GET /api/data` returns the current burner state snapshot.
 - `GET /api/metrics` returns the last 60 minutes of burner history as JSON samples in memory only when `TELEMETRY_HISTORY_ENABLED=1`.
-- `GET /api/vapid-public-key` returns the proxy-managed VAPID public key.
-- `GET /api/subscribers` returns the current subscription count.
-- `POST /api/subscribe` and `POST /api/unsubscribe` accept JSON request bodies.
-  The server requires `Content-Type: application/json`, rejects unknown fields,
-  and limits request bodies to 64 KiB to avoid oversized payload abuse.
+- Notification events are sent as HTTP `POST` requests to `WEBHOOK_URL` with a JSON payload containing `type`, `title`, `body`, and `timestamp`.
 
 ## mDNS / DNS-SD
 

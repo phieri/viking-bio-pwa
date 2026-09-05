@@ -1,12 +1,15 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"mime"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
@@ -31,23 +34,18 @@ func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
 		state:  state,
 		config: cfg,
 	}
-	if pushMgr != nil {
-		h.pushMgr = pushMgr
-		h.notifyByType = pushMgr.NotifyByType
+	if cfg != nil && cfg.WebhookURL != "" {
+		h.notifyByType = func(typ, title, body string) {
+			if err := SendWebhookNotification(cfg.WebhookURL, typ, title, body, time.Now()); err != nil {
+				log.Printf("server: webhook notification failed for %s: %v", typ, err)
+			}
+		}
 	} else {
 		h.notifyByType = func(typ, title, body string) {
-			log.Printf("server: push manager unavailable; skipping %s notification %q", typ, title)
+			log.Printf("server: webhook URL not configured; skipping %s notification %q", typ, title)
 		}
 	}
 	return h
-}
-
-func (h *Handlers) requirePushManager(w http.ResponseWriter) *push.Manager {
-	if h.pushMgr == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "push service unavailable"})
-		return nil
-	}
-	return h.pushMgr
 }
 
 const maxJSONBodySize = 64 << 10
@@ -106,6 +104,44 @@ func decodeJSONBodyWithEndpoint(w http.ResponseWriter, r *http.Request, dst endp
 	return true
 }
 
+type webhookPayload struct {
+	Type      string `json:"type"`
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+// SendWebhookNotification posts a notification payload to a configured webhook URL.
+func SendWebhookNotification(webhookURL, typ, title, body string, sentAt time.Time) error {
+	if webhookURL == "" {
+		return nil
+	}
+	payload, err := json.Marshal(webhookPayload{
+		Type:      typ,
+		Title:     title,
+		Body:      body,
+		Timestamp: sentAt.UTC().UnixMilli(),
+	})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, webhookURL, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("webhook returned %s: %s", resp.Status, strings.TrimSpace(string(bodyBytes)))
+	}
+	return nil
+}
+
 type sendTestPushRequest struct {
 	Endpoint string `json:"endpoint"`
 	Priority string `json:"priority"`
@@ -150,59 +186,19 @@ func (h *Handlers) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.telemetryHistoryWindow())
 }
 
-// HandleGetVapidKey serves GET /api/vapid-public-key.
+// HandleGetVapidKey preserves a compatibility no-op for removed push APIs.
 func (h *Handlers) HandleGetVapidKey(w http.ResponseWriter, r *http.Request) {
-	mgr := h.requirePushManager(w)
-	if mgr == nil {
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{
-		"key":    mgr.GetVapidPublicKey(),
-		"source": "proxy",
-	})
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
 }
 
-// HandleGetSubscribers serves GET /api/subscribers.
+// HandleGetSubscribers preserves a compatibility no-op for removed push APIs.
 func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) {
-	mgr := h.requirePushManager(w)
-	if mgr == nil {
-		return
-	}
-	subs := mgr.GetSubscriptions()
-	items := make([]map[string]string, 0, len(subs))
-	for _, sub := range subs {
-		items = append(items, map[string]string{"endpoint": sub.Endpoint})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"count": len(items), "subscribers": items})
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
 }
 
-// HandleSendTestPush serves POST /api/test-push.
+// HandleSendTestPush preserves a compatibility no-op for removed push APIs.
 func (h *Handlers) HandleSendTestPush(w http.ResponseWriter, r *http.Request) {
-	var body sendTestPushRequest
-	if !decodeJSONBodyWithEndpoint(w, r, &body) {
-		return
-	}
-	mgr := h.requirePushManager(w)
-	if mgr == nil {
-		return
-	}
-	priority := body.Priority
-	if priority == "" {
-		priority = "normal"
-	}
-	if err := mgr.SendTestToSubscriber(body.Endpoint, priority); err != nil {
-		if errors.Is(err, push.ErrSubscriptionNotFound) {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "subscriber not found"})
-			return
-		}
-		if errors.Is(err, push.ErrInvalidSubscriptionEndpoint) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid subscription endpoint"})
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to send test push"})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
 }
 
 func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machineDataUpdateResult {
@@ -226,43 +222,12 @@ func (h *Handlers) processMachineData(body machineDataBody, source string, now t
 
 // HandleSubscribe serves POST /api/subscribe.
 func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
-	var body subscribeRequest
-	if !decodeJSONBodyWithEndpoint(w, r, &body) {
-		return
-	}
-	mgr := h.requirePushManager(w)
-	if mgr == nil {
-		return
-	}
-
-	ok, err := mgr.AddSubscription(body.Endpoint, body.P256DH, body.Auth, body.Prefs)
-	if err != nil {
-		if errors.Is(err, push.ErrInvalidSubscriptionEndpoint) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid subscription endpoint"})
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to add subscription"})
-		return
-	}
-	status := "ok"
-	if !ok {
-		status = "full"
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": status})
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
 }
 
 // HandleUnsubscribe serves POST /api/unsubscribe.
 func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
-	var body unsubscribeRequest
-	if !decodeJSONBodyWithEndpoint(w, r, &body) {
-		return
-	}
-	mgr := h.requirePushManager(w)
-	if mgr == nil {
-		return
-	}
-	mgr.RemoveSubscription(body.Endpoint)
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
 }
 
 // energyPriceResponse is the JSON payload for GET /api/energy-price.

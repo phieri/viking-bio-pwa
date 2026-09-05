@@ -25,6 +25,7 @@ type Config struct {
 	ACMECertDir       string
 	ACMEHTTPPort      int
 	VAPIDContactEmail string
+	WebhookURL        string
 	MDNSName          string
 	MDNSDisable       bool
 	PicoSerialPort    string
@@ -204,6 +205,13 @@ func Load() (*Config, error) {
 	if vapidContact == "" {
 		vapidContact = "admin@viking-bio.local"
 	}
+	webhookURL := strings.TrimSpace(os.Getenv("WEBHOOK_URL"))
+	if webhookURL == "" {
+		webhookURL = strings.TrimSpace(os.Getenv("NOTIFY_WEBHOOK_URL"))
+	}
+	if webhookURL == "" {
+		webhookURL = strings.TrimSpace(os.Getenv("NOTIFICATION_WEBHOOK_URL"))
+	}
 	mdnsName := os.Getenv("MDNS_NAME")
 	if mdnsName == "" {
 		mdnsName = "Viking Bio"
@@ -246,6 +254,7 @@ func Load() (*Config, error) {
 		ACMECertDir:       acmeCertDir,
 		ACMEHTTPPort:      acmeHTTPPort,
 		VAPIDContactEmail: vapidContact,
+		WebhookURL:        webhookURL,
 		MDNSName:          mdnsName,
 		MDNSDisable:       parseBool(os.Getenv("MDNS_DISABLE")),
 		PicoSerialPort:    os.Getenv("PICO_SERIAL_PORT"),

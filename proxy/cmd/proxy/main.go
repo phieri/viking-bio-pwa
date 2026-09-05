@@ -13,11 +13,11 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/configure"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/mdns"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/serial"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/server"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
@@ -31,7 +31,7 @@ func main() {
 		doConfig      = flag.Bool("configure", false, "run device configurator (GUI when display available, TUI otherwise)")
 		serialPort    = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
 		noOpenBrowser = flag.Bool("no-open-browser", false, "do not open the browser automatically on startup")
-		notifyTest    = flag.Bool("notify-test", false, "send a test push notification to all subscribers and exit")
+		notifyTest    = flag.Bool("notify-test", false, "send a test webhook notification and exit")
 		notifyOnly    = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, no automatic Let's Encrypt, local network connections only")
 	)
 	flag.Usage = func() {
@@ -107,11 +107,6 @@ func runServer(noOpenBrowser bool, notifyOnly bool) {
 		log.Fatalf("storage: %v", err)
 	}
 
-	pushMgr, err := push.New(cfg.DataDir, cfg.VAPIDContactEmail, store)
-	if err != nil {
-		log.Fatalf("push: %v", err)
-	}
-
 	// mDNS advertiser
 	var mdnsAdv mdns.Advertiser
 	if !cfg.MDNSDisable {
@@ -122,7 +117,7 @@ func runServer(noOpenBrowser bool, notifyOnly bool) {
 	}
 
 	// Create server
-	srv := server.New(cfg, pushMgr, store, notifyOnly)
+	srv := server.New(cfg, nil, store, notifyOnly)
 
 	// Open the browser automatically unless disabled by flag or CI environment.
 	if !noOpenBrowser && !notifyOnly && os.Getenv("CI") == "" {
@@ -155,24 +150,13 @@ func runNotifyTest() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
-
-	store, err := storage.NewStore(cfg.DataDir)
-	if err != nil {
-		log.Fatalf("storage: %v", err)
+	if cfg.WebhookURL == "" {
+		log.Fatal("WEBHOOK_URL must be configured before using --notify-test")
 	}
-
-	pushMgr, err := push.New(cfg.DataDir, cfg.VAPIDContactEmail, store)
-	if err != nil {
-		log.Fatalf("push: %v", err)
+	fmt.Printf("Sending test webhook notification to %s\n", cfg.WebhookURL)
+	if err := server.SendWebhookNotification(cfg.WebhookURL, "test", "Viking Bio: Test", "Proxy webhook test notification", time.Now()); err != nil {
+		log.Fatalf("webhook: %v", err)
 	}
-
-	count := pushMgr.GetSubscriptionCount()
-	if count == 0 {
-		fmt.Println("No subscribers to notify.")
-		return
-	}
-	fmt.Printf("Sending test notification to %d subscriber(s)...\n", count)
-	pushMgr.SendTest()
 	fmt.Println("Done.")
 }
 

@@ -184,12 +184,7 @@ func (s *Server) apiRoutes() []apiRoute {
 	return []apiRoute{
 		{path: "/api/data", method: http.MethodGet, handler: s.handler.HandleGetData},
 		{path: "/api/metrics", method: http.MethodGet, handler: s.handler.HandleGetMetrics},
-		{path: "/api/vapid-public-key", method: http.MethodGet, handler: s.handler.HandleGetVapidKey},
-		{path: "/api/subscribers", method: http.MethodGet, handler: s.handler.HandleGetSubscribers},
-		{path: "/api/test-push", method: http.MethodPost, handler: s.handler.HandleSendTestPush},
 		{path: "/api/energy-price", method: http.MethodGet, handler: s.handler.HandleGetEnergyPrice},
-		{path: "/api/subscribe", method: http.MethodPost, handler: s.handler.HandleSubscribe},
-		{path: "/api/unsubscribe", method: http.MethodPost, handler: s.handler.HandleUnsubscribe},
 	}
 }
 

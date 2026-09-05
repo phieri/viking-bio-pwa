@@ -3,7 +3,7 @@
 A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15/viking-bio-pelletsbrannare) pellet burner integration system. It consists of two components:
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the proxy
-2. **[proxy/](proxy/)** – Go proxy server that receives burner data over signed TCP ingest, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, stores browser subscriptions, and sends Web Push notifications using proxy-managed VAPID keys
+2. **[proxy/](proxy/)** – Go proxy server that receives burner data over signed TCP ingest, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, and sends alert payloads to a configurable webhook endpoint
 
 ## Architecture
 
@@ -16,12 +16,8 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                           ├── HTTP/HTTPS server (IPv6 [::]:3000)
                           │   ├── GET /                     Dashboard PWA
                           │   ├── GET /api/data             Burner state (JSON)
-                          │   ├── GET /api/vapid-public-key Proxy VAPID public key
-                          │   ├── GET /api/subscribers      Subscription count
-                          │   ├── POST /api/subscribe       Add/update subscription
-                         │   └── POST /api/unsubscribe     Remove subscription
-                         └── Web Push notifications
- Browser push subscriptions and all notification handling live in the proxy.
+                          │   └── POST /webhook             Notification payloads to configured endpoint
+                          └── Notification processor
 ```
 
 ## pico-bridge
@@ -75,8 +71,7 @@ The Go proxy server:
 - Signed TCP ingest on `INGEST_TCP_PORT` receives framed telemetry from the Pico bridge
 - Go net/http server serves the PWA dashboard; binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
-- Web Push notifications via proxy-generated VAPID keys
-- Subscriptions persisted to `<DATA_DIR>/subscriptions.json`; the proxy is the only Web Push component
+- Alert notifications are forwarded to `WEBHOOK_URL` as JSON payloads
 - **Device configurator** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available, falls back to a terminal TUI on headless hosts (set `NO_GUI` to any non-empty value to force TUI)
 
 ### Device Configurator
@@ -109,9 +104,9 @@ Both interfaces provide:
 ### PWA Dashboard
 
 The dashboard at `proxy/public/` is a fully installable Progressive Web App:
-- **Offline support**: ServiceWorker precaches all static assets (HTML, CSS, JS, icons, manifest) using a cache-first strategy; API requests bypass the cache
+- **Offline support**: the app cache remains available for the dashboard shell while API requests bypass the cache
 - **Icons**: SVG source icon with PNG variants at 192×192 and 512×512 (standard + maskable), plus favicon and Apple touch icon
-- **Push notifications**: subscribe/unsubscribe UI with per-type preference checkboxes (flame, error, cleaning reminder)
+- **Alert delivery**: the proxy sends notification payloads to the configured `WEBHOOK_URL`; no browser-side subscription flow remains
 
 ### Running
 
@@ -138,14 +133,13 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 | `--configure` | Run the interactive device configurator TUI |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, no automatic Let's Encrypt, local network only |
-| `--notify-test` | Send a test push notification to all subscribers and exit |
+| `--notify-test` | Send a test notification to `WEBHOOK_URL` and exit |
 | `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
 
 Defensive validation notes:
 - `HTTP_PORT` and `ACME_HTTP_PORT` must be integers in the range `1..65535`
-- `POST /api/subscribe` and `POST /api/unsubscribe`
-  reject malformed JSON or missing required fields with `400 Bad Request`
+- `WEBHOOK_URL` must be a valid HTTP(S) URL when notification delivery is enabled
 - Existing devices must be reprovisioned to use `INGEST_TCP_PORT` (`9000`) and
   a per-device telemetry key because the legacy webhook API has been removed
 
@@ -169,9 +163,9 @@ TLS_CERT_PATH=server.crt TLS_KEY_PATH=server.key ./viking-bio-proxy
 
 For production use a certificate from Let's Encrypt (requires a public IPv6 AAAA record) or a private CA.
 
-### Push Notification Types
+### Notification Types
 
-Subscribers can opt in to three types:
+The webhook payload includes the same alert categories as the old browser-flow notifications:
 
 | Type | Trigger |
 |------|---------|
