@@ -49,11 +49,13 @@ final class PushSender
             ],
         ]);
 
+        $timezone = $this->resolveBridgeTimezone($extra);
         $payload = json_encode([
             'title' => $title,
             'body' => $body,
             'icon' => $icon ?? '/icon.svg',
-            ...$extra,
+            ...$this->stripTimezoneMetadata($extra),
+            'timestamp' => $this->currentBridgeTimestamp($timezone),
         ], JSON_UNESCAPED_SLASHES);
 
         $sent = 0;
@@ -115,5 +117,47 @@ final class PushSender
         }
 
         return ['sent' => $sent, 'failed' => $failed];
+    }
+
+    private function resolveBridgeTimezone(array $extra): ?string
+    {
+        foreach (['timezone', 'tz'] as $key) {
+            if (isset($extra[$key]) && is_string($extra[$key])) {
+                $timezone = trim($extra[$key]);
+                if ($timezone !== '') {
+                    return $timezone;
+                }
+            }
+        }
+
+        foreach (['BRIDGE_TIMEZONE', 'TIMEZONE', 'TZ'] as $envName) {
+            $timezone = getenv($envName);
+            if (is_string($timezone) && trim($timezone) !== '') {
+                return trim($timezone);
+            }
+        }
+
+        return null;
+    }
+
+    private function currentBridgeTimestamp(?string $timezone): int
+    {
+        if ($timezone === null || $timezone === '') {
+            return time();
+        }
+
+        try {
+            return (new \DateTimeImmutable('now', new \DateTimeZone($timezone)))->getTimestamp();
+        } catch (\Throwable) {
+            return time();
+        }
+    }
+
+    private function stripTimezoneMetadata(array $extra): array
+    {
+        $cleanExtra = $extra;
+        unset($cleanExtra['timezone'], $cleanExtra['tz'], $cleanExtra['timestamp']);
+
+        return $cleanExtra;
     }
 }

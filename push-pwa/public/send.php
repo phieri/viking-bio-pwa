@@ -79,7 +79,13 @@ if ($senderValue === '') {
     $senderValue = null;
 }
 
+$bridgeTimezone = $data['timezone'] ?? ($data['tz'] ?? (getenv('BRIDGE_TIMEZONE') ?: (getenv('TIMEZONE') ?: getenv('TZ'))));
+$payloadExtra = ['tag' => 'viking-bio-alert', 'url' => $url];
+if (is_string($bridgeTimezone) && trim($bridgeTimezone) !== '') {
+    $payloadExtra['timezone'] = trim($bridgeTimezone);
+}
+
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
-$result = $sender->send($title, $bodyText, $icon, ['tag' => 'viking-bio-alert', 'url' => $url], $priority, $senderValue);
+$result = $sender->send($title, $bodyText, $icon, $payloadExtra, $priority, $senderValue);
 
 echo json_encode(['ok' => true, 'priority' => $priority, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
