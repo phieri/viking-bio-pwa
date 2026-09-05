@@ -332,10 +332,11 @@ bool wifi_config_load_webhook_url(char *url, size_t len) {
 	if (n <= 0 || n > WIFI_WEBHOOK_URL_MAX_LEN) return false;
 
 	buf[n] = '\0';
-	if (strlen(buf) == 0) return false;
-	if (strlen(buf) + 1 > len) return false;
+	size_t slen = strlen(buf);
+	if (slen == 0) return false;
+	if (slen + 1 > len) return false;
 
-	memcpy(url, buf, strlen(buf) + 1);
+	memcpy(url, buf, slen + 1);
 	return true;
 }
 
@@ -343,6 +344,7 @@ bool wifi_config_save_webhook_url(const char *url) {
 	if (!url) return false;
 	size_t len = strlen(url);
 	if (len == 0 || len > WIFI_WEBHOOK_URL_MAX_LEN) return false;
+	if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0) return false;
 
 	if (!lfs_hal_write_file(WIFI_WEBHOOK_URL_FILE, url, len)) {
 		printf("wifi_config: ERROR saving webhook URL\n");

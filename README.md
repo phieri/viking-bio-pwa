@@ -16,6 +16,7 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                               │
                           Go Configurator (proxy)
                           ├── HTTP/HTTPS server (IPv6 [::]:3000)
+                          │   ├── GET /                     local operational dashboard
                           │   ├── GET /api/data             Burner state (JSON)
                           │   └── local operational config UI
                           └── Bridge provisioning and state view
@@ -135,6 +136,7 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 | `--configure` | Run the interactive device configurator TUI |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, local network only |
+| `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
 
 Defensive validation notes:

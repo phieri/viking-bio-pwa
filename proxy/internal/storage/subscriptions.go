@@ -44,7 +44,7 @@ func NewStore(dataDir string) (*Store, error) {
 # TLS_KEY_PATH=/etc/ssl/private/server.key
 
 # Device provisioning stores per-device secrets in devices.json here.
-# DATA_DIR=/var/lib/viking-bio-proxy
+# DATA_DIR=/var/lib/viking-bio-configurator
 `
 		if err := os.WriteFile(cfgPath, []byte(conf), 0o644); err != nil {
 			log.Printf("storage: failed to write %s: %v", cfgPath, err)

@@ -301,6 +301,41 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		d.Show()
 	})
 
+	// ── Set webhook URL ──────────────────────────────────────────────────
+	btnWebhook := widget.NewButton("Set webhook URL", func() {
+		urlEntry := widget.NewEntry()
+		urlEntry.SetPlaceHolder("https://hooks.example.com/secret")
+
+		form := &widget.Form{
+			Items: []*widget.FormItem{
+				{Text: "Webhook URL", Widget: urlEntry},
+			},
+		}
+		d := dialog.NewCustomConfirm("Set webhook URL", "Set", "Cancel", form, func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+			url := strings.TrimSpace(urlEntry.Text)
+			if url == "" || (!strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://")) {
+				dialog.ShowError(fmt.Errorf("webhook URL must start with http:// or https://"), w)
+				return
+			}
+			go func() {
+				appendLog("→ WEBHOOK=" + url)
+				lines, err := bridge.SendCommand("WEBHOOK=" + url)
+				if err != nil {
+					appendLog("Error: " + err.Error())
+					dialog.ShowError(err, w)
+					return
+				}
+				for _, l := range lines {
+					appendLog("  " + l)
+				}
+			}()
+		}, w)
+		d.Show()
+	})
+
 	// ── Provision telemetry device key ──────────────────────────────────
 	btnProvision := widget.NewButton("Provision telemetry device key", func() {
 		go func() {
@@ -380,6 +415,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		btnWiFi,
 		btnCountry,
 		btnServer,
+		btnWebhook,
 		btnProvision,
 		btnClear,
 	)

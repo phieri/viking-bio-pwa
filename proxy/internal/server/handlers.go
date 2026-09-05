@@ -112,9 +112,8 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 }
 
 func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
-	// The bridge owns outbound webhook delivery. The proxy only ingests telemetry
-	// and maintains the local state used by the configurator UI.
-	_ = notificationsForMachineData(result)
+	// The bridge owns outbound webhook delivery. The configurator only ingests
+	// telemetry and maintains the local state used by the UI.
 }
 
 func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {

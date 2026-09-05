@@ -73,8 +73,9 @@ func (t *TUI) printMenu() {
 	fmt.Println(color("  2.", colorYellow) + " Configure WiFi (SSID + password)")
 	fmt.Println(color("  3.", colorYellow) + " Set Wi-Fi country code")
 	fmt.Println(color("  4.", colorYellow) + " Set proxy server address & port")
-	fmt.Println(color("  5.", colorYellow) + " Provision telemetry device key")
-	fmt.Println(color("  6.", colorYellow) + " Clear all credentials")
+	fmt.Println(color("  5.", colorYellow) + " Set webhook URL")
+	fmt.Println(color("  6.", colorYellow) + " Provision telemetry device key")
+	fmt.Println(color("  7.", colorYellow) + " Clear all credentials")
 	fmt.Println(color("  0.", colorRed) + " Exit")
 	fmt.Println()
 }
@@ -173,6 +174,19 @@ func (t *TUI) setServer() {
 	t.sendAndPrint("PORT=" + port)
 }
 
+func (t *TUI) setWebhook() {
+	url := t.readLine("Webhook URL (http:// or https://): ")
+	if url == "" {
+		fmt.Println(color("Cancelled.", colorYellow))
+		return
+	}
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		fmt.Println(color("Webhook URL must start with http:// or https://.", colorRed))
+		return
+	}
+	t.sendAndPrint("WEBHOOK=" + url)
+}
+
 func randomDeviceKey() (string, error) {
 	var raw [32]byte
 	if _, err := rand.Read(raw[:]); err != nil {
@@ -230,8 +244,10 @@ func (t *TUI) Run() {
 		case "4":
 			t.setServer()
 		case "5":
-			t.provisionDeviceKey()
+			t.setWebhook()
 		case "6":
+			t.provisionDeviceKey()
+		case "7":
 			t.clearCredentials()
 		case "0", "q", "quit", "exit":
 			fmt.Println(color("Bye!", colorCyan))

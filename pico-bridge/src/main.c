@@ -193,6 +193,10 @@ static bool handle_device_key_command(const char *arg) {
 }
 
 static bool handle_webhook_command(const char *arg) {
+	if (strncmp(arg, "http://", 7) != 0 && strncmp(arg, "https://", 8) != 0) {
+		printf("notifications: webhook URL must start with http:// or https://\n");
+		return false;
+	}
 	if (wifi_config_save_webhook_url(arg)) {
 		printf("notifications: webhook URL saved – reboot to apply\n");
 	} else {
@@ -239,7 +243,7 @@ static bool handle_status_command(const char *arg) {
 
 	char webhook_url[WIFI_WEBHOOK_URL_MAX_LEN + 1] = {0};
 	printf("  webhook: %s\n",
-		   wifi_config_load_webhook_url(webhook_url, sizeof(webhook_url)) ? webhook_url : "not set");
+		   wifi_config_load_webhook_url(webhook_url, sizeof(webhook_url)) ? "(set)" : "not set");
 
 	printf("  telemetry: %s\n", http_client_is_active() ? "active" : "idle");
 
