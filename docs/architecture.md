@@ -9,7 +9,7 @@ The active system has a strict process and language boundary:
 - `proxy/` is the Go HTTP server and PWA host.
 - The firmware and the proxy communicate over a signed framed TCP ingest channel.
 
-The older `push-pwa/` directory is legacy/archived and is not part of the current runtime path. There is no cgo, no FFI, and no shared-memory boundary between the firmware and the proxy.
+There is no cgo, no FFI, and no shared-memory boundary between the firmware and the proxy.
 
 ## Firmware → Proxy ingest
 
