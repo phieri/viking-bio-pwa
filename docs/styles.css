@@ -274,19 +274,32 @@ h3 {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  padding: 1rem 1.1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, rgba(13, 24, 38, 0.9), rgba(8, 16, 24, 0.9));
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.18);
   color: var(--text);
 }
 
-.stack-item span {
+.stack-item > span:first-child {
   display: inline-grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex-shrink: 0;
   border-radius: 50%;
   background: rgba(96, 165, 250, 0.18);
   color: var(--highlight);
   font-weight: 800;
+}
+
+.stack-item > span:last-child {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .project-panel {
