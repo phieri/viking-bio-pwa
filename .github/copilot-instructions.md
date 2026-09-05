@@ -1,75 +1,97 @@
 # Copilot Instructions for viking-bio-pwa
 
-## Project Overview
+## Project overview
 
 This repository is a monorepo for the Viking Bio 20 pellet burner integration system.
-There are two active components:
+There are four active components:
 
 1. **`pico-bridge/`** - Raspberry Pi Pico W / Pico 2 W firmware in C. It reads burner data
-   over UART, stores config in LittleFS, discovers the configurator over mDNS, and streams
-   signed telemetry over a persistent TCP ingest connection.
-2. **`proxy/`** - Go configurator/runtime. It receives burner telemetry, serves the local
-   operational UI, and manages the Pico configuration flow without sending outbound webhook
-   payloads itself.
+   over UART, stores configuration in LittleFS, discovers the configurator over mDNS, and
+   streams signed telemetry over a persistent TCP ingest connection.
+2. **`pico-bridge/libvikingbio/`** - shared protocol parser library used by the bridge firmware.
+3. **`proxy/`** - Go configurator/runtime. It receives signed telemetry, manages the Pico
+   configuration flow, and exposes the local HTTP API used by automation and local tooling.
+   It does not serve a dashboard anymore.
+4. **`push-pwa/`** - browser push notification frontend. It registers browser subscriptions,
+   keeps VAPID metadata, and sends operator-facing push notifications.
 
-The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
-Node.js implementation, browser-push/VAPID flows, or legacy webhook paths; verify against
-the current Go code and CI workflow before acting. The guidance in this file supersedes
-stale README-era assumptions and reflects the active runtime architecture.
+The active runtime architecture is: burner -> Pico bridge -> proxy ingest -> browser push app.
+Older docs, memories, and stale README-era notes may still mention a dashboard in `proxy/`,
+old Node.js paths, or legacy webhook flows; verify against the current code and CI workflow
+before acting.
 
 ## How to work efficiently in this repo
 
-When a cloud agent sees this repository for the first time, use the smallest targeted
-workflow that proves the relevant behaviour:
+When a cloud agent sees this repository for the first time, use the smallest targeted workflow
+that proves the relevant behaviour:
 
-- Start with one targeted search or symbol lookup to identify the files most likely to
-  contain the change.
-- Read only the relevant files and tests for the component you are touching (configurator server,
-  firmware, or dashboard assets), then patch the smallest possible surface area.
-- Prefer Go validation commands for configurator work (`go test`, `go vet`, `go build`) and keep
-  the CI smoke-test constraints in mind (`MDNS_DISABLE=1` for mDNS-disabled local runs).
-- For firmware work, verify the toolchain prerequisites before attempting a local build;
-  the workflow requires Pico SDK and ARM cross-compilation tools.
-- Treat stale documentation as a risk: confirm behaviour against the current code and the
-  CI workflow rather than older Node.js-era assumptions.
+- Start with one targeted search or symbol lookup to identify the files most likely to contain
+  the change.
+- Read only the relevant files and tests for the component you are touching (firmware,
+  configurator, or browser push app), then patch the smallest possible surface area.
+- Prefer Go validation commands for configurator work (`go test`, `go vet`, `go build`) and
+  remember the CI smoke-test constraints (`MDNS_DISABLE=1` for local mDNS-disabled runs).
+- For firmware work, verify the toolchain prerequisites before attempting a local build; the CI
+  workflow requires Pico SDK and ARM cross-compilation tools.
+- For `push-pwa/`, treat it as a distinct workflow with its own packaging and browser-push setup,
+  not as part of the Go proxy runtime.
+- Treat stale documentation as a risk: confirm behaviour against the current code and workflow
+  files rather than older docs that describe the retired dashboard or legacy webhook model.
 
-## Repository Structure
+## Repository structure
 
 ```text
 .
+├── .github/
+│   ├── copilot-instructions.md      # Guidance for first-time cloud agents
+│   ├── dependabot.yml               # Dependency updates
+│   └── workflows/
+│       ├── build-firmware.yml       # C firmware build for pico_w / pico2_w
+│       ├── build-proxy.yml          # Go proxy lint/test/build/smoke tests
+│       ├── build-push-pwa.yml       # Push PWA packaging workflow
+│       └── pages.yml                # Demo/site publish workflow
 ├── pico-bridge/
-│   ├── CMakeLists.txt              # Firmware build, Pico SDK setup, LittleFS FetchContent
-│   ├── CMakePresets.json           # CMake presets for pico_w / pico2_w
-│   ├── include/                    # Firmware public headers
+│   ├── CMakeLists.txt               # Firmware build, Pico SDK setup, LittleFS setup
+│   ├── CMakePresets.json            # CMake presets for pico_w / pico2_w
+│   ├── include/                     # Firmware public headers
 │   ├── src/
-│   │   ├── main.c                  # Main loop, USB commands, Wi-Fi startup
-│   │   ├── http_client.c           # Signed TCP ingest client
-│   │   ├── wifi_config.c           # Encrypted Wi-Fi/server/token storage
-│   │   ├── lfs_hal.c               # LittleFS flash backend
-│   │   └── dns_sd_browser.c        # Passive mDNS/DNS-SD listener for proxy discovery
+│   │   ├── main.c                   # Main loop, USB commands, Wi-Fi startup
+│   │   ├── http_client.c            # Signed TCP ingest client
+│   │   ├── wifi_config.c            # Encrypted Wi‑Fi/server/token storage
+│   │   ├── lfs_hal.c                # LittleFS flash backend
+│   │   ├── dns_sd_browser.c         # Passive mDNS/DNS-SD listener for proxy discovery
+│   │   └── ...
 │   └── platform/
-│       ├── lwipopts.h              # lwIP options for IPv6 + TLS client
-│       └── mbedtls_config.h        # mbedTLS config used by firmware
+│       ├── lwipopts.h               # lwIP options for IPv6 + TLS client
+│       └── mbedtls_config.h         # mbedTLS config used by firmware
+├── pico-bridge/libvikingbio/        # Shared protocol parser library
 ├── proxy/
-│   ├── cmd/proxy/main.go           # Entry point and .env loading
+│   ├── cmd/proxy/main.go            # Entry point and .env loading
 │   ├── internal/
-│   │   ├── server/                 # HTTP routes, handlers, tests
-│   │   ├── config/                 # Environment parsing and validation
-│   │   ├── storage/                # device registry and local runtime state
-│   │   ├── serial/                 # USB serial bridge for Pico configurator
-│   │   ├── configure/              # Fyne GUI (gui.go) for device setup
-│   │   └── mdns/                   # Proxy DNS-SD advertisement
-│   ├── public/                     # Static PWA files (served from disk or embedded)
-│   ├── assets.go                   # go:embed for proxy/public
-│   ├── Makefile                    # build/run/test/configure shortcuts
-│   └── README.md                   # Proxy-specific runtime docs
-└── .github/workflows/
-    ├── build-firmware.yml          # Builds firmware for pico_w and pico2_w
-    ├── build-proxy.yml             # go vet/test/build/smoke test/cross-compile
-    └── pages.yml                   # Publishes demo page from proxy/public
+│   │   ├── config/                  # Environment parsing and validation
+│   │   ├── configure/               # Fyne GUI for local bridge setup
+│   │   ├── mdns/                    # Proxy mDNS advertisement
+│   │   ├── serial/                  # USB serial bridge for Pico configurator
+│   │   ├── server/                  # HTTP API and ingest handlers
+│   │   ├── storage/                 # Device registry and runtime state
+│   │   └── ...
+│   ├── README.md                    # Go proxy runtime documentation
+│   ├── Makefile                     # build/test/run shortcuts
+│   └── go.mod                       # Go module definition
+├── push-pwa/
+│   ├── public/                      # Browser PWA frontend, service worker, app JS
+│   ├── README.md                    # Browser push app runtime notes
+│   └── ...
+├── docs/
+│   └── architecture.md              # Current runtime architecture overview
+├── README.md                        # Top-level monorepo overview
+├── .editorconfig                    # Repo code style defaults
+├── .gitignore                       # Ignore rules
+├── .goreleaser.yml                  # Release config
+└── ...
 ```
 
-## Architecture Notes
+## Architecture notes
 
 ### Data flow
 
@@ -77,50 +99,58 @@ workflow that proves the relevant behaviour:
 Viking Bio 20 ──UART──► Pico W firmware
                          ├── signed TCP frames → INGEST_TCP_PORT (default 9000)
                          ├── passive mDNS listener for _viking-bio._tcp
-                         └── telemetry + bridge-owned webhook target
+                         └── bridge-owned outbound alert target
 
-Configurator (Go)
+Go configurator (proxy)
 ├── TCP ingest listener (INGEST_TCP_PORT)  signed framed telemetry from Pico
-├── GET /                     local operational dashboard
-├── GET /api/data             current burner state
-├── USB bridge configuration flow for Wi‑Fi, server, and device provisioning
-└── Optional TLS / mDNS support for local deployment
+├── local API (HTTP/HTTPS) for operational state, metrics, and config helpers
+├── USB provisioning flow for Wi‑Fi/server/device key setup
+├── optional TLS and mDNS advertisement
+└── no dashboard endpoint is served from the proxy
+
+Browser push app (push-pwa)
+├── registers VAPID subscriptions in the browser
+├── stores subscription metadata for operator clients
+└── sends browser push notifications for burner alerts
 ```
 
-### Configurator details
+### Proxy details
 
 - Main entry point is `proxy/cmd/proxy/main.go`.
 - HTTP routes are registered in `proxy/internal/server/server.go`.
-- Request handling and shared burner state live in `proxy/internal/server/handlers.go`.
-- Static files are served from disk when `proxy/public/` exists locally; otherwise the
-  binary serves embedded assets from `proxy/assets.go`.
-- The ServiceWorker's cache key (in `sw.js`) needs to be incremented whenever there
-  are changes made to any file in `proxy/public/`.
-- The bridge owns the outbound webhook target; the configurator does not send alert webhooks.
-- The configurator advertises `_viking-bio._tcp` with TXT `path=/api/data` via
-  `proxy/internal/mdns/advertiser.go`.
-- `MDNS_DISABLE=1` disables mDNS advertisement and is used by CI smoke tests.
+- Request handling and shared runtime state live in `proxy/internal/server/handlers.go`.
+- The proxy intentionally does not serve a dashboard at `/`; the root route returns `404`.
+- The proxy is a headless service by default. `--notify-only` restricts access to local-network
+  addresses and disables dashboard-style routes.
+- The mDNS advertises the proxy as `_viking-bio._tcp` with TXT `path=/api/data` from the
+  `mdns` package.
+- `MDNS_DISABLE=1` disables mDNS advertisement and is used in CI smoke-test runs.
+- The proxy no longer owns browser push delivery; browser notifications are handled by the
+  separate `push-pwa/` app.
+
+### Push PWA details
+
+- `push-pwa/` is the browser-facing subscription and delivery app for VAPID/web-push alerts.
+- It is a separate runtime from the Go proxy and not a `proxy/public` dashboard.
+- Changes to browser subscription logic, UI, or notification payload handling belong under
+  `push-pwa/` rather than `proxy/internal/server`.
 
 ### Firmware details
 
-- Main loop is in `pico-bridge/src/main.c`. Wi-Fi and lwIP are serviced by the CYW43 arch
-  background thread on **core 1** (threadsafe background mode); `cyw43_arch_poll()` is
-  **not** called from the main loop. Direct lwIP API calls from core 0 (e.g.
-  `tcp_connect`, `tcp_write`) must be wrapped with `cyw43_arch_lwip_begin()` /
-  `cyw43_arch_lwip_end()`; lwIP callbacks run on core 1 and do not need extra wrapping.
+- Main loop is in `pico-bridge/src/main.c`.
+- Wi‑Fi and lwIP are serviced by the CYW43 arch background thread on core 1; `cyw43_arch_poll()`
+  is not called from the main loop.
 - USB serial commands are handled directly in `process_usb_commands()` inside `main.c`.
-- LittleFS-backed persistent files include Wi‑Fi credentials, country, server/port,
-  telemetry device key, and the bridge-side webhook target.
-- The default ingest port is `WIFI_SERVER_PORT_DEFAULT` in
-  `pico-bridge/include/wifi_config.h`, currently **9000**.
-- The Pico passively listens for unsolicited mDNS announcements from the configurator; it
-  does not actively query for services.
-- The firmware stores the outbound webhook URL locally and sends alert payloads from the
-  bridge itself rather than delegating that to the Go runtime.
-- The old Node.js-era `scheduler.js` no longer exists in the active runtime; scheduled
-  cleaning reminders are driven by the Go configurator from telemetry updates.
+- LittleFS-backed persistent files include Wi‑Fi credentials, country, server/port, telemetry
+  device key, and the bridge-side webhook target.
+- The default ingest port is `WIFI_SERVER_PORT_DEFAULT` in `pico-bridge/include/wifi_config.h`,
+  currently `9000`.
+- The Pico passively listens for unsolicited mDNS announcements from the configurator; it does
+  not actively query for services.
+- The bridge owns the outbound webhook target and sends alert payloads from the Pico itself; the
+  Go runtime does not deliver those webhooks.
 
-## Build, Test, and Validation
+## Build, test, and validation
 
 ### Proxy
 
@@ -138,9 +168,9 @@ sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
 From `proxy/`, use these validation commands:
 
 ```bash
-golangci-lint run ./...
 go vet ./...
-go test -race ./...
+go test ./...
+CGO_ENABLED=0 go test ./...
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-configurator ./cmd/proxy
 ```
 
@@ -152,8 +182,8 @@ make run
 make test        # runs go test ./...
 ```
 
-The current CI smoke test starts the proxy, provisions a device record, sends an HMAC-signed
-framed TCP payload to `::1:9000`, and verifies the ingest path and API behaviour:
+The current smoke test starts the proxy, provisions a device record, sends a signed framed TCP
+payload to `::1:9000`, and verifies the ingest path and API behaviour:
 
 ```bash
 mkdir -p /tmp/proxy-data
@@ -209,8 +239,8 @@ kill "$SERVER_PID" || true
 
 ### Firmware
 
-`build-firmware.yml` is the source of truth for firmware CI. Local build requires the Pico
-SDK and ARM toolchain:
+`build-firmware.yml` is the source of truth for firmware CI. Local builds require the Pico SDK
+and ARM toolchain:
 
 ```bash
 mkdir -p pico-bridge/build
@@ -221,77 +251,89 @@ make -j$(nproc)
 
 The workflow builds both `pico_w` and `pico2_w`.
 
-## Where to Make Changes
+### Push PWA
+
+The push app is a separate browser workflow. Typical validation is not a Go build; instead, it is
+packaged and served as a static site:
+
+```bash
+cd push-pwa
+composer install
+php -S 0.0.0.0:8000 -t public
+```
+
+Treat `push-pwa/` as a separate app with its own package/deploy workflow and browser-specific
+notification config.
+
+## Where to make changes
 
 ### Proxy HTTP/API changes
 
 - Add or update routes in `proxy/internal/server/server.go`.
 - Implement logic in `proxy/internal/server/handlers.go`.
-- Update or add tests in `proxy/internal/server/handlers_test.go` and
-  `proxy/internal/server/server_test.go`.
+- Update or add tests in `proxy/internal/server/*_test.go`.
 
 ### Proxy configuration changes
 
-- Update parsing/validation in `proxy/internal/config/config.go`.
-- Keep `proxy/.env.example` and `proxy/README.md` aligned with any new env vars or runtime
-  behaviour.
-
-### Dashboard / PWA changes
-
-- Edit files under `proxy/public/`.
-- There is no JS build step; the Go server serves these files directly or from embedded
-  assets.
-- For Pages, `.github/workflows/pages.yml` manually copies individual files from
-  `proxy/public/` after generating the demo HTML.
+- Update parsing and validation in `proxy/internal/config/config.go`.
+- Keep `proxy/README.md` aligned with any new env vars or runtime behaviour.
 
 ### Device configurator changes
 
-- The local provisioning GUI is launched from the desktop/OS app entry; the TUI is deprecated.
+- The local provisioning GUI is launched from the desktop/OS app entry.
 - GUI (Fyne) lives in `proxy/internal/configure/gui.go`.
 - `RunGUI(bridge, store)` is called when a graphical display is available (X11/Wayland on
-  Linux, always on Windows/macOS). Legacy `NO_GUI`/TUI paths remain in the codebase but are no longer a supported or documented path.
+  Linux, always on Windows/macOS).
 - The Fyne GUI requires native development libraries at compile time on Linux:
   `libgl1-mesa-dev xorg-dev libasound2-dev`.
-- Serial transport and STATUS parsing live in `proxy/internal/serial/bridge.go`.
+- Serial transport and status parsing live in `proxy/internal/serial/bridge.go`.
+
+### Push PWA changes
+
+- Browser UI, service worker, and VAPID subscription logic live under `push-pwa/`.
+- This is the correct place for browser push-related logic and UI changes.
+- Do not confuse it with `proxy/internal/server` or any dashboard assets under `proxy/`.
 
 ### Firmware config or networking changes
 
-- Wi-Fi/server/token persistence lives in `pico-bridge/src/wifi_config.c`.
+- Wi‑Fi/server/token persistence lives in `pico-bridge/src/wifi_config.c`.
 - Signed TCP ingest client logic lives in `pico-bridge/src/http_client.c`.
 - mDNS discovery logic lives in `pico-bridge/src/dns_sd_browser.c`.
 - USB command behaviour lives in `pico-bridge/src/main.c`.
 
-## Important Runtime Behaviour
+## Important runtime behaviour
 
 - The Pico bridge connects to `INGEST_TCP_PORT` (default `9000`) using a signed framed TCP
-  connection; `POST /api/machine-data` has been removed and returns 404.
-- For the Pico USB `SERVER=` command, use the bare IPv6 address without brackets.
+  connection; `POST /api/machine-data` has been removed and returns `404`.
 - The proxy binds to `[::]:<port>` and prefers IPv6.
-- The proxy serves static files from disk first, then falls back to embedded assets.
-- The proxy's subscription capacity is 32 (`proxy/internal/storage/subscriptions.go`).
+- The proxy does not serve a dashboard at `/`; the server intentionally returns `404` for
+  browser-root requests.
+- The proxy accepts only local-network access in `--notify-only` mode.
+- For the Pico USB `SERVER=` command, use the bare IPv6 address without brackets.
+- `MDNS_DISABLE=1` disables the proxy mDNS advertisement and is used by CI smoke tests.
+- Browser notifications are handled by the separate `push-pwa/` app, not by the Go proxy.
+- `proxy/public` and related dashboard assets are not the active user-facing app; do not treat
+  them as the current dashboard flow unless you are working in a legacy branch.
 
-## Common Pitfalls
+## Common pitfalls
 
-1. **Do not assume Node.js tooling exists for the proxy.** The proxy is Go; use Go commands
-   and Go files.
-2. **Do not trust stale docs blindly.** Older text may still mention Node.js, the legacy
-   HTTP webhook (`/api/machine-data`), or the old dashboard port (`3000`) being used for
-   telemetry. The current ingest uses signed TCP on port `9000`.
-3. **When changing proxy routes, update tests too.** Existing tests are small and fast.
-4. **When editing dashboard assets, remember Pages copies files explicitly.** If you add a
-   new static asset needed by the demo page, update `.github/workflows/pages.yml`.
-5. **mDNS discovery on the Pico is passive.** If the Pico connects after the proxy is
-   already running, restart the proxy to force a fresh unsolicited announcement.
-6. **Do not call `cyw43_arch_poll()` in the firmware main loop.** Networking runs in a
-   CYW43 arch background thread on core 1. Long-blocking logic on core 0 is still
-   undesirable, but `cyw43_arch_poll()` is a no-op and must not be (re-)introduced.
+1. **Do not assume the proxy is a dashboard service.** The active runtime is headless and API-only.
+2. **Do not treat `push-pwa/` as part of `proxy/`.** It is a separate browser push app and has its
+   own workflow.
+3. **Do not trust stale docs blindly.** Older text may still mention a dashboard, Node.js, or the
+   legacy webhook route `/api/machine-data`.
+4. **When changing proxy routes, update tests too.** Existing tests are small and fast.
+5. **mDNS discovery on the Pico is passive.** If the Pico connects after the proxy is already
+   running, restart the proxy to force a fresh unsolicited announcement.
+6. **Do not call `cyw43_arch_poll()` in the firmware main loop.** Networking runs in a CYW43
+   background thread on core 1.
 
-## Errors Encountered and Workarounds
+## Errors encountered and workarounds
 
 ### 1. Local firmware build prerequisites are usually missing in the cloud agent
 
-Observed while auditing this repository: `PICO_SDK_PATH` was unset and `arm-none-eabi-gcc`
-was not installed, so a local firmware build could not be started immediately.
+Observed while auditing this repository: `PICO_SDK_PATH` was unset and `arm-none-eabi-gcc` was
+not installed, so a local firmware build could not be started immediately.
 
 **Workaround:**
 
@@ -300,25 +342,36 @@ was not installed, so a local firmware build could not be started immediately.
   `gcc-arm-none-eabi`, `libnewlib-arm-none-eabi`, `build-essential`, fetch Pico SDK 2.3.0,
   and export `PICO_SDK_PATH` before running CMake.
 
-### 2. CI/local smoke tests can fail in environments without multicast support
+### 2. CI/local smoke tests can fail in restricted environments without multicast support
 
-The proxy publishes mDNS by default, which is unnecessary in CI and can be noisy or
-unreliable in restricted environments.
+The proxy advertises mDNS by default, which is unnecessary in CI and can be noisy or unreliable
+in restricted environments.
 
 **Workaround:**
 
-- Run proxy smoke tests with `MDNS_DISABLE=1`, matching `build-proxy.yml`.
+- Run proxy smoke tests with `MDNS_DISABLE=1`, matching the CI workflow.
 
-### 3. Pico auto-discovery may appear broken when the proxy was already running
+### 3. Stale docs can mislead the agent about the current runtime
+
+Older repo text may still describe a dashboard in `proxy/`, legacy browser-push logic in the
+proxy, or webhook delivery owned by the configurator.
+
+**Workaround:**
+
+- Verify behaviour in `proxy/cmd/proxy/main.go`, `proxy/internal/server/server.go`, and the
+  current workflow files before patching.
+- Treat `push-pwa/` as the browser push app and `proxy/` as the headless Go runtime.
+
+### 4. Pico auto-discovery may appear broken when the proxy was already running
 
 The Pico only listens for unsolicited mDNS announcements and does not send queries.
 
 **Workaround:**
 
-- Restart the proxy after the Pico has connected to Wi-Fi so the proxy emits a fresh
+- Restart the proxy after the Pico has connected to Wi‑Fi so the proxy emits a fresh
   `_viking-bio._tcp` announcement.
 
-## Code Style
+## Code style
 
 From `.editorconfig`:
 
@@ -327,3 +380,4 @@ From `.editorconfig`:
 - Markdown: 2 spaces, trailing whitespace preserved
 - YAML/JSON: 2 spaces
 - UTF-8, LF, final newline everywhere
+- Human-facing text uses British English spelling; code identifiers and tool flags remain as-is.
