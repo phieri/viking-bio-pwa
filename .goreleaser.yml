@@ -63,7 +63,7 @@ nfpms:
     vendor: Viking Bio
     homepage: https://github.com/phieri/viking-bio-pwa
     maintainer: Viking Bio contributors
-    description: Viking Bio 20 pellet burner configurator and local telemetry dashboard
+    description: Viking Bio 20 pellet burner configurator and local telemetry API
     license: MIT
     formats:
       - deb

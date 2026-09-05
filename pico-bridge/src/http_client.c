@@ -133,7 +133,7 @@ static bool build_frame(const vikingbio_data_t *data, uint8_t *frame, size_t *fr
 	uint64_t seq = next_sequence();
 	// The bridge does not have a trusted wall clock at boot. We therefore send a
 	// monotonic boot-relative timestamp and rely on the persisted sequence number
-	// for replay protection and ordering on the proxy.
+	// for replay protection and ordering on the configurator.
 	uint64_t ts = to_ms_since_boot(get_absolute_time());
 
 	if (!build_data_json(data, data_json, sizeof(data_json))) {

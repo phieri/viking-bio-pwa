@@ -1,6 +1,6 @@
 .PHONY: all build run test clean
 
-BINARY ?= viking-bio-proxy
+BINARY ?= viking-bio-configurator
 GO = go
 
 all: build

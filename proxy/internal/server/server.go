@@ -64,7 +64,7 @@ var netInterfaceAddrs = func() []net.Addr {
 }
 
 // sharesPrefix64WithLocal returns true if ip (a ULA IPv6 address) shares the
-// same /64 prefix as at least one of the proxy's own IPv6 interface addresses.
+// same /64 prefix as at least one of the configurator's own IPv6 interface addresses.
 func sharesPrefix64WithLocal(ip net.IP) bool {
 	ip16 := ip.To16()
 	if ip16 == nil {

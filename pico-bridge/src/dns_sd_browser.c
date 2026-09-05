@@ -14,8 +14,8 @@
  * Passive mDNS service listener for _viking-bio._tcp.
  *
  * The Pico joins the ff02::fb IPv6 multicast group and listens on UDP port
- * 5353 for unsolicited mDNS announcements sent by the proxy (bonjour).  No
- * DNS queries are sent by the Pico; discovery is entirely passive.
+ * 5353 for unsolicited mDNS announcements sent by the configurator (bonjour).
+ * No DNS queries are sent by the Pico; discovery is entirely passive.
  *
  * A complete DNS-SD record set consists of:
  *   PTR  _viking-bio._tcp.local  → <instance>._viking-bio._tcp.local

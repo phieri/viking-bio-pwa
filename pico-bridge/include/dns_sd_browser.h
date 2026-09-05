@@ -6,8 +6,8 @@
 
 /**
  * Callback invoked when a _viking-bio._tcp service is discovered via mDNS.
- * @param ip6addr  Proxy IPv6 address as a string (bare, no brackets)
- * @param port     Proxy HTTP port
+ * @param ip6addr  Configurator IPv6 address as a string (bare, no brackets)
+ * @param port     Configurator ingest TCP port
  */
 typedef void (*dns_sd_found_cb_t)(const char *ip6addr, uint16_t port);
 
@@ -16,15 +16,15 @@ typedef void (*dns_sd_found_cb_t)(const char *ip6addr, uint16_t port);
  *
  * Joins the ff02::fb IPv6 multicast group and binds a UDP socket to the mDNS
  * port (5353).  The Pico does not send any DNS queries; it only listens for
- * unsolicited mDNS service announcements sent by the proxy (bonjour) to the
- * multicast group.  When a complete record set (PTR + SRV + AAAA) for
- * _viking-bio._tcp is received, @p cb is invoked with the proxy address and
- * port.
+ * unsolicited mDNS service announcements sent by the configurator (bonjour)
+ * to the multicast group.  When a complete record set (PTR + SRV + AAAA) for
+ * _viking-bio._tcp is received, @p cb is invoked with the configurator address
+ * and port.
  *
- * Note: because the Pico does not query, discovery depends on the proxy
- * sending a spontaneous announcement.  This happens automatically when the
- * proxy (re-)starts.  If the proxy was already running before the Pico
- * connected, restart the proxy to trigger a fresh announcement.
+ * Note: because the Pico does not query, discovery depends on the configurator
+ * sending a spontaneous announcement. This happens automatically when the
+ * configurator (re-)starts. If the configurator was already running before the
+ * Pico connected, restart the configurator to trigger a fresh announcement.
  *
  * Must be called after WiFi is connected.
  *

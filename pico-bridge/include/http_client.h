@@ -13,8 +13,8 @@
 
 /**
  * Initialize the persistent telemetry client.
- * @param host       Proxy server hostname or IP (IPv4 or bare IPv6 without brackets)
- * @param port       Proxy ingest TCP port
+ * @param host       Configurator server hostname or IP (IPv4 or bare IPv6 without brackets)
+ * @param port       Configurator ingest TCP port
  * @param device_key Provisioned device key (may be NULL or empty when not provisioned yet)
  */
 void http_client_init(const char *host, uint16_t port, const char *device_key);

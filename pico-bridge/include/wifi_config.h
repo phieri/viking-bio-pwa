@@ -12,10 +12,10 @@
 // WiFi country code length (2-letter ISO 3166-1 alpha-2)
 #define WIFI_COUNTRY_LEN 2
 
-// Proxy server IP address max length (IPv6 max string + null)
+// Configurator server IP address max length (IPv6 max string + null)
 #define WIFI_SERVER_IP_MAX_LEN 46
 
-// Default proxy ingest port (matches the proxy's INGEST_TCP_PORT default)
+// Default configurator ingest port (matches the configurator's INGEST_TCP_PORT default)
 #define WIFI_SERVER_PORT_DEFAULT 9000
 
 /**
@@ -76,7 +76,7 @@ bool wifi_config_save_country(const char *country);
 uint32_t wifi_config_country_to_cyw43(const char *country);
 
 /**
- * Load the proxy server IP address and port from storage (LittleFS).
+ * Load the configurator server IP address and port from storage (LittleFS).
  * @param ip      Output buffer for IP string (at least WIFI_SERVER_IP_MAX_LEN+1 bytes)
  * @param ip_len  Size of ip buffer
  * @param port    Output for port number
@@ -85,7 +85,7 @@ uint32_t wifi_config_country_to_cyw43(const char *country);
 bool wifi_config_load_server(char *ip, size_t ip_len, uint16_t *port);
 
 /**
- * Save the proxy server IP address and port to storage (LittleFS).
+ * Save the configurator server IP address and port to storage (LittleFS).
  * @param ip    Server IP address string
  * @param port  Server TCP port
  * @return true on success, false on error

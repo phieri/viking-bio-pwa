@@ -10,7 +10,7 @@ import (
 
 const serviceType = "_viking-bio._tcp"
 
-// Advertiser publishes the proxy as a DNS-SD service.
+// Advertiser publishes the configurator as a DNS-SD service.
 type Advertiser struct {
 	server *zeroconf.Server
 }

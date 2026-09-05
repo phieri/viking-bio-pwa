@@ -24,12 +24,12 @@ Makefile
 *.uf2
 *.map
 
-# Go proxy binary
+# Go configurator binary
 proxy/proxy
-proxy/viking-bio-proxy
-proxy/viking-bio-proxy.exe
+proxy/viking-bio-configurator
+proxy/viking-bio-configurator.exe
 
-# Go proxy runtime data (generated at runtime)
+# Go configurator runtime data (generated at runtime)
 proxy/data/server.crt
 proxy/data/server.key
 proxy/.env
