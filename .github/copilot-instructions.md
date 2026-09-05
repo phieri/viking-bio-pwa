@@ -49,13 +49,13 @@ workflow that proves the relevant behaviour:
 │       ├── lwipopts.h              # lwIP options for IPv6 + TLS client
 │       └── mbedtls_config.h        # mbedTLS config used by firmware
 ├── proxy/
-│   ├── cmd/proxy/main.go           # Entry point, .env loading, --configure mode
+│   ├── cmd/proxy/main.go           # Entry point and .env loading
 │   ├── internal/
 │   │   ├── server/                 # HTTP routes, handlers, tests
 │   │   ├── config/                 # Environment parsing and validation
 │   │   ├── storage/                # device registry and local runtime state
 │   │   ├── serial/                 # USB serial bridge for Pico configurator
-│   │   ├── configure/              # Fyne GUI (gui.go) and TUI fallback (tui.go) for device setup
+│   │   ├── configure/              # Fyne GUI (gui.go) for device setup
 │   │   └── mdns/                   # Proxy DNS-SD advertisement
 │   ├── public/                     # Static PWA files (served from disk or embedded)
 │   ├── assets.go                   # go:embed for proxy/public
@@ -148,7 +148,6 @@ Useful shortcuts:
 make build
 make run
 make test        # runs go test ./...
-make configure
 ```
 
 The current CI smoke test starts the proxy, provisions a device record, sends an HMAC-signed
@@ -245,11 +244,10 @@ The workflow builds both `pico_w` and `pico2_w`.
 
 ### Device configurator changes
 
-- CLI entry is `./viking-bio-configurator --configure`.
-- GUI (Fyne) lives in `proxy/internal/configure/gui.go`; TUI fallback lives in
-  `proxy/internal/configure/tui.go`.
+- The local provisioning GUI is launched from the desktop/OS app entry; the TUI is deprecated.
+- GUI (Fyne) lives in `proxy/internal/configure/gui.go`.
 - `RunGUI(bridge, store)` is called when a graphical display is available (X11/Wayland on
-  Linux, always on Windows/macOS). Set `NO_GUI` to any non-empty value to force the TUI.
+  Linux, always on Windows/macOS). Legacy `NO_GUI`/TUI paths remain in the codebase but are no longer a supported or documented path.
 - The Fyne GUI requires native development libraries at compile time on Linux:
   `libgl1-mesa-dev xorg-dev libasound2-dev`.
 - Serial transport and STATUS parsing live in `proxy/internal/serial/bridge.go`.

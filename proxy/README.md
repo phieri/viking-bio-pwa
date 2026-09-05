@@ -18,10 +18,7 @@ make build
 
 | Flag | Description |
 |------|-------------|
-| `--configure` | Run the interactive device configurator (GUI when a display is available, TUI otherwise) |
-| `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, local network only |
-| `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
 
 ## Run
@@ -51,7 +48,7 @@ make run
 | `TELEMETRY_HISTORY_ENABLED` | `false` | Enable in-memory metrics history for `GET /api/metrics` (`1` or `true`) |
 | `CLEANING_REMINDER_WEEKDAY` | `Saturday` | Weekday for cleaning reminders (e.g. `Monday`, `Saturday`) |
 | `CLEANING_REMINDER_TIME` | `07:00` | Start time (UTC) for the cleaning reminder window (`HH:MM`) |
-| `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for `--configure` |
+| `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for the local provisioning GUI |
 | `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for device registry, logs, and local config |
 
 ## Configuration Files
@@ -101,18 +98,14 @@ TLS_KEY_PATH=/etc/ssl/private/server.key
 
 ## Device Configurator
 
-Connect the Pico W via USB and run the interactive configurator:
-
-```bash
-./viking-bio-configurator --configure
-# or specify port directly
-./viking-bio-configurator --configure --port /dev/ttyACM0
-```
+Connect the Pico W via USB and launch the local provisioning GUI from the desktop or
+OS launcher. If the environment variable `PICO_SERIAL_PORT` is set, the GUI uses that
+USB serial port automatically; otherwise it prompts to select one.
 
 When a graphical display is available (X11 `DISPLAY` or Wayland `WAYLAND_DISPLAY` on
 Linux; always on Windows and macOS) the configurator opens a **Fyne-based GUI window**.
-On headless machines or when the environment variable `NO_GUI` is set to any non-empty
-value (e.g. `NO_GUI=1`), it falls back to the interactive **terminal TUI**.
+On headless systems, the GUI is not supported; run it from a machine with a local
+desktop session or remote X/Wayland display.
 
 The configurator allows you to:
 

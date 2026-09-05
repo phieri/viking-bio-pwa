@@ -1,4 +1,4 @@
-.PHONY: all build run test clean configure
+.PHONY: all build run test clean
 
 BINARY ?= viking-bio-proxy
 GO = go
@@ -10,9 +10,6 @@ build:
 
 run:
 	$(GO) run ./cmd/proxy
-
-configure:
-	$(GO) run ./cmd/proxy -- --configure
 
 test:
 	$(GO) test ./...
