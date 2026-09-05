@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -27,12 +26,11 @@ const version = "1.0.0"
 
 func main() {
 	var (
-		showVersion   = flag.Bool("version", false, "print version and exit")
-		doConfig      = flag.Bool("configure", false, "run device configurator (GUI when display available, TUI otherwise)")
-		serialPort    = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
-		noOpenBrowser = flag.Bool("no-open-browser", false, "do not open the browser automatically on startup")
-		notifyTest    = flag.Bool("notify-test", false, "send a test webhook notification and exit")
-		notifyOnly    = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, local network connections only")
+		showVersion = flag.Bool("version", false, "print version and exit")
+		doConfig    = flag.Bool("configure", false, "run device configurator (GUI when display available, TUI otherwise)")
+		serialPort  = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
+		notifyTest  = flag.Bool("notify-test", false, "send a test webhook notification and exit")
+		notifyOnly  = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, local network connections only")
 	)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Viking Bio Proxy v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
@@ -63,7 +61,7 @@ func main() {
 		return
 	}
 
-	runServer(*noOpenBrowser, *notifyOnly)
+	runServer(*notifyOnly)
 }
 
 // loadDotEnv reads a simple KEY=VALUE file and sets environment variables.
@@ -96,7 +94,7 @@ func loadDotEnv(path string) {
 	}
 }
 
-func runServer(noOpenBrowser bool, notifyOnly bool) {
+func runServer(notifyOnly bool) {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -119,13 +117,8 @@ func runServer(noOpenBrowser bool, notifyOnly bool) {
 	// Create server
 	srv := server.New(cfg, store, notifyOnly)
 
-	// Open the browser automatically unless disabled by flag or CI environment.
-	if !noOpenBrowser && !notifyOnly && os.Getenv("CI") == "" {
-		srv.OnReady = func(url string) {
-			log.Printf("browser: opening %s", url)
-			openBrowser(url)
-		}
-	}
+	// No dashboard is served anymore; keep the server headless and rely on the
+	// Fyne configurator for local operational status.
 
 	// Graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -227,23 +220,4 @@ func guiAvailable() bool {
 	default:
 		return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
 	}
-}
-
-// openBrowser opens the given URL in the system default browser.
-func openBrowser(url string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	if err := cmd.Start(); err != nil {
-		log.Printf("browser: could not open %s: %v", url, err)
-		return
-	}
-	// Reap the child process to avoid zombies.
-	go func() { _ = cmd.Wait() }()
 }

@@ -114,6 +114,26 @@ func TestBuildMux_DoesNotExposeLegacyMachineDataRoute(t *testing.T) {
 	}
 }
 
+func TestBuildMux_DoesNotServeDashboardAtRoot(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	store, err := storage.NewStore(dir)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+
+	srv := New(&config.Config{HTTPPort: 3000, IngestTCPPort: 9000}, store, false)
+	for _, path := range []string{"/", "/index.html", "/app.js"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rr := httptest.NewRecorder()
+		srv.buildMux().ServeHTTP(rr, req)
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 for %s, got %d", path, rr.Code)
+		}
+	}
+}
+
 func TestIsLocalNetwork(t *testing.T) {
 	// Inject a fake local interface address so that the ULA /64 check is
 	// deterministic regardless of the test machine's network configuration.

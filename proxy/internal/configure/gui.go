@@ -3,9 +3,12 @@
 package configure
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"fyne.io/fyne/v2"
 	fyneapp "fyne.io/fyne/v2/app"
@@ -29,6 +32,76 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 	a := fyneapp.New()
 	w := a.NewWindow("Viking Bio – Device Configurator")
 	w.Resize(fyne.NewSize(680, 480))
+
+	maskStatusValue := func(value string) string {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return ""
+		}
+		if len(value) <= 4 {
+			return strings.Repeat("*", len(value))
+		}
+		return strings.Repeat("*", len(value)-4) + value[len(value)-4:]
+	}
+
+	statusLabel := widget.NewLabel("Loading device status...")
+	statusLabel.Wrapping = fyne.TextWrapWord
+	statusLabel.TextStyle = fyne.TextStyle{Monospace: true}
+
+	var refreshInFlight atomic.Bool
+	refreshStatus := func() {
+		if !refreshInFlight.CompareAndSwap(false, true) {
+			return
+		}
+		defer refreshInFlight.Store(false)
+
+		status, err := bridge.GetStatus()
+		if err != nil {
+			statusLabel.SetText("Status unavailable: " + err.Error())
+			return
+		}
+		var sb strings.Builder
+		sb.WriteString("WiFi:      ")
+		if status.Connected {
+			sb.WriteString("connected\n")
+		} else {
+			sb.WriteString("not connected\n")
+		}
+		for _, addr := range status.Addresses {
+			sb.WriteString("Address:   " + addr + "\n")
+		}
+		if status.Country != "" {
+			sb.WriteString("Country:   " + status.Country + "\n")
+		}
+		if status.DeviceID != "" {
+			sb.WriteString("Device:    " + status.DeviceID + "\n")
+		}
+		if status.Server != "" {
+			sb.WriteString(fmt.Sprintf("Server:    %s:%d\n", status.Server, status.Port))
+		}
+		if status.Telemetry != "" {
+			sb.WriteString("Telemetry: " + status.Telemetry + "\n")
+		}
+		if status.DeviceKey != "" {
+			sb.WriteString("DeviceKey: " + maskStatusValue(status.DeviceKey) + "\n")
+		}
+		statusLabel.SetText(strings.TrimRight(sb.String(), "\n"))
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	w.SetOnClosed(cancel)
+	go refreshStatus()
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				refreshStatus()
+			}
+		}
+	}()
 
 	// Log area for command output – Fyne widget calls are goroutine-safe.
 	logEntry := widget.NewMultiLineEntry()
@@ -79,7 +152,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				sb.WriteString("  Telemetry: " + status.Telemetry + "\n")
 			}
 			if status.DeviceKey != "" {
-				sb.WriteString("  DeviceKey: " + status.DeviceKey + "\n")
+				sb.WriteString("  DeviceKey: " + maskStatusValue(status.DeviceKey) + "\n")
 			}
 			appendLog(strings.TrimRight(sb.String(), "\n"))
 		}()
