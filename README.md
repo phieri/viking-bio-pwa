@@ -1,6 +1,8 @@
 # Viking Bio Monorepo
 
-A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15/viking-bio-pelletsbrannare) pellet burner integration system. It consists of four active parts:
+A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15/viking-bio-pelletsbrannare) pellet burner integration system. It consists of four active parts.
+
+The project landing page is published at <https://phieri.github.io/viking-bio-pwa/>.
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the configurator
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
