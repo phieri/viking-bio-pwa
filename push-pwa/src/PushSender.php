@@ -25,7 +25,7 @@ final class PushSender
         }
 
         // A null sender means broadcast to every subscription. Explicit sender values are
-        // matched case-insensitively so each browser client only receives the device it chose.
+        // matched case-insensitively so each browser client only receives the burner it chose.
         $normalizedSender = $sender !== null ? trim($sender) : null;
         if ($normalizedSender === '' || ($normalizedSender !== null && strtolower($normalizedSender) === 'all')) {
             $normalizedSender = null;
@@ -65,7 +65,7 @@ final class PushSender
                 continue;
             }
 
-            $subscriptionSender = $subscription['sender'] ?? $subscription['device'] ?? null;
+            $subscriptionSender = $subscription['sender'] ?? null;
             if (is_string($subscriptionSender)) {
                 $subscriptionSender = trim($subscriptionSender);
             } else {

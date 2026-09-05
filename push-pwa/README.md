@@ -8,7 +8,7 @@ This small installable PWA is the fourth part of the Viking Bio monorepo. It gen
 - Add subscribers manually to a YAML file rather than through a server-side save endpoint
 - Keep the storage layer read-only so subscription records are maintained by operators, not by the PHP app
 - Include a `priority` field for low, normal, and high notifications
-- Support multiple sender subscriptions so each browser client only receives alerts for the burner it is interested in; older `device` entries remain accepted as a legacy alias
+- Support multiple sender subscriptions so each browser client only receives alerts for the burner it is interested in
 - Offer an install CTA on iOS Safari via the native Add to Home Screen flow
 
 ## Quick start
@@ -40,7 +40,7 @@ The generated JSON is meant to be pasted into `storage/subscriptions.yaml` as a 
 - The app exposes `public-key.php`, `config.php`, and `send.php` for the VAPID registration flow and test send path.
 - `send.php` validates a per-session bearer token issued by `/config.php` so the browser can trigger test messages without embedding a secret in the frontend source.
 - `subscribe.php` is intentionally not used; operators add client entries directly to `storage/subscriptions.yaml`.
-- Use `sender: "all"` only if a subscriber should receive every burner alert; otherwise set a single device-specific sender ID so the browser only receives messages for that burner.
+- Use `sender: "all"` only if a subscriber should receive every burner alert; otherwise set a single burner-specific sender ID so the browser only receives messages for that burner.
 - Set `PUSH_UI_URL` to the interface that should open when a notification is tapped; it defaults to the app URL and is linked to the web-push webhook flow.
 - Subscribers are stored in a YAML file (`storage/subscriptions.yaml`) so each browser endpoint remains easy to inspect and manage.
 - The browser service worker listens for `push` events and displays the notification.

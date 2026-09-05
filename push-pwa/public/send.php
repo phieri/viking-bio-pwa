@@ -73,7 +73,7 @@ if (!in_array($rawPriority, $allowedPriorities, true)) {
 }
 $priority = $rawPriority;
 
-$rawSender = $data['sender'] ?? ($data['device'] ?? null);
+$rawSender = $data['sender'] ?? null;
 $senderValue = is_string($rawSender) ? trim($rawSender) : '';
 if ($senderValue === '') {
     $senderValue = null;
