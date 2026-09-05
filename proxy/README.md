@@ -1,8 +1,9 @@
-# Viking Bio Proxy (Go)
+# Viking Bio Configurator (Go)
 
-Go rewrite of the Viking Bio pellet burner proxy server. Receives burner
-telemetry from the Pico W bridge, serves the PWA dashboard, and forwards
-notification alerts to a configurable webhook endpoint.
+Go implementation of the Viking Bio pellet-burner configurator. It receives
+signed telemetry from the Pico W bridge, serves the local operational dashboard,
+and manages the bridge configuration flow without sending outbound webhook
+payloads itself.
 
 ## Build
 
@@ -20,7 +21,6 @@ make build
 | `--configure` | Run the interactive device configurator (GUI when a display is available, TUI otherwise) |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, local network only |
-| `--notify-test` | Send a test notification to the configured `WEBHOOK_URL` and exit |
 | `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
 
@@ -46,9 +46,6 @@ make run
 | `INGEST_TCP_TLS` | `false` | Require TLS on the ingest listener (uses `TLS_CERT_PATH`/`TLS_KEY_PATH`) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
-| `WEBHOOK_URL` | _(empty)_ | Webhook endpoint for burner alert notifications, receives JSON notification payloads |
-| `NOTIFY_WEBHOOK_URL` | _(empty)_ | Compatibility alias for `WEBHOOK_URL` |
-| `NOTIFICATION_WEBHOOK_URL` | _(empty)_ | Compatibility alias for `WEBHOOK_URL` |
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
 | `TELEMETRY_HISTORY_ENABLED` | `false` | Enable in-memory metrics history for `GET /api/metrics` (`1` or `true`) |
@@ -78,9 +75,8 @@ CLEANING_REMINDER_WEEKDAY=Saturday
 CLEANING_REMINDER_TIME=07:00
 ```
 
-Set `WEBHOOK_URL` to receive notification payloads when the burner enters a
-new flame/error/cleaning state. If it is unset, the proxy logs notification
-messages instead of sending them upstream.
+The bridge owns outbound webhook delivery during runtime; the configurator stays
+responsible for provisioning the Pico and serving the local operational UI.
 
 ## Notification-Only Mode
 
@@ -172,7 +168,7 @@ The proxy exposes a small JSON API for the dashboard and alert consumers:
 
 - `GET /api/data` returns the current burner state snapshot.
 - `GET /api/metrics` returns the last 60 minutes of burner history as JSON samples in memory only when `TELEMETRY_HISTORY_ENABLED=1`.
-- Notification events are sent as HTTP `POST` requests to `WEBHOOK_URL` with a JSON payload containing `type`, `title`, `body`, and `timestamp`.
+- Bridge-side notifications are configured on the Pico itself; the proxy does not send outbound alert webhooks.
 
 ## mDNS / DNS-SD
 

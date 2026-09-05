@@ -95,6 +95,9 @@ bool wifi_config_save_server(const char *ip, uint16_t port);
 // Provisioned telemetry device key max length
 #define WIFI_DEVICE_KEY_MAX_LEN 128
 
+// Outbound notification webhook URL max length
+#define WIFI_WEBHOOK_URL_MAX_LEN 512
+
 // Hex-encoded RP2040 unique ID length
 #define WIFI_DEVICE_ID_MAX_LEN 16
 
@@ -112,6 +115,21 @@ bool wifi_config_load_device_key(char *key, size_t len);
  * @return true on success, false on error
  */
 bool wifi_config_save_device_key(const char *key);
+
+/**
+ * Load the outbound notification webhook URL from storage (LittleFS).
+ * @param url  Output buffer (at least WIFI_WEBHOOK_URL_MAX_LEN+1 bytes)
+ * @param len  Size of output buffer
+ * @return true if a URL was loaded, false otherwise
+ */
+bool wifi_config_load_webhook_url(char *url, size_t len);
+
+/**
+ * Save the outbound notification webhook URL to storage (LittleFS).
+ * @param url  Absolute HTTP(S) webhook URL (max WIFI_WEBHOOK_URL_MAX_LEN chars)
+ * @return true on success, false on error
+ */
+bool wifi_config_save_webhook_url(const char *url);
 
 /**
  * Fill the output buffer with the device ID derived from the RP2040 unique ID.

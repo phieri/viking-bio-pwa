@@ -1,15 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"mime"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
@@ -17,9 +14,8 @@ import (
 
 // Handlers bundles all HTTP handler dependencies.
 type Handlers struct {
-	state        *State
-	notifyByType func(string, string, string)
-	config       *config.Config
+	state  *State
+	config *config.Config
 }
 
 // NewHandlers creates a new Handlers instance. cfg may be nil to disable the
@@ -27,22 +23,10 @@ type Handlers struct {
 func NewHandlers(cfg *config.Config) *Handlers {
 	state := &State{}
 	state.setReminderSchedule(cfg)
-	h := &Handlers{
+	return &Handlers{
 		state:  state,
 		config: cfg,
 	}
-	if cfg != nil && cfg.WebhookURL != "" {
-		h.notifyByType = func(typ, title, body string) {
-			if err := SendWebhookNotification(cfg.WebhookURL, typ, title, body, time.Now()); err != nil {
-				log.Printf("server: webhook notification failed for %s: %v", typ, err)
-			}
-		}
-	} else {
-		h.notifyByType = func(typ, title, body string) {
-			log.Printf("server: webhook URL not configured; skipping %s notification %q", typ, title)
-		}
-	}
-	return h
 }
 
 const maxJSONBodySize = 64 << 10
@@ -101,46 +85,6 @@ func decodeJSONBodyWithEndpoint(w http.ResponseWriter, r *http.Request, dst endp
 	return true
 }
 
-type webhookPayload struct {
-	Type      string `json:"type"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	Timestamp int64  `json:"timestamp"`
-}
-
-var webhookHTTPClient = &http.Client{Timeout: 10 * time.Second}
-
-// SendWebhookNotification posts a notification payload to a configured webhook URL.
-func SendWebhookNotification(webhookURL, typ, title, body string, sentAt time.Time) error {
-	if webhookURL == "" {
-		return nil
-	}
-	payload, err := json.Marshal(webhookPayload{
-		Type:      typ,
-		Title:     title,
-		Body:      body,
-		Timestamp: sentAt.UTC().UnixMilli(),
-	})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(http.MethodPost, webhookURL, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := webhookHTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("webhook returned %s: %s", resp.Status, strings.TrimSpace(string(bodyBytes)))
-	}
-	return nil
-}
-
 // HandleGetData serves GET /api/data.
 func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.snapshot())
@@ -168,9 +112,8 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 }
 
 func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
-	for _, notification := range notificationsForMachineData(result) {
-		go h.notifyByType(notification.typ, notification.title, notification.body)
-	}
+	// The bridge owns outbound webhook delivery. The configurator only ingests
+	// telemetry and maintains the local state used by the UI.
 }
 
 func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {

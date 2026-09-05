@@ -245,7 +245,7 @@ func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) e
 	if err != nil {
 		return err
 	}
-	log.Printf("Viking Bio Proxy listening on http://%s", addr)
+	log.Printf("Viking Bio Configurator listening on http://%s", addr)
 	shutdownOnContext(ctx, srv)
 	return srv.Serve(ln)
 }
@@ -261,7 +261,7 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 	if err != nil {
 		return err
 	}
-	log.Printf("Viking Bio Proxy listening on https://%s (manual TLS)", addr)
+	log.Printf("Viking Bio Configurator listening on https://%s (manual TLS)", addr)
 	shutdownOnContext(ctx, srv)
 	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
 }
