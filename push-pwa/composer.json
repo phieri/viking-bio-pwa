@@ -3,7 +3,7 @@
   "description": "Installable PWA for Viking Bio burner push notifications",
   "type": "project",
   "require": {
-    "minishlink/web-push": "^8.0"
+    "minishlink/web-push": "^11.0"
   },
   "autoload": {
     "psr-4": {
