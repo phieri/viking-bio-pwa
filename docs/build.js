@@ -1,8 +1,12 @@
+// Static docs generator for the English and Swedish landing pages.
+// The generated HTML files in docs/en/, docs/sv/, and docs/index.html are committed build artifacts.
+// Regenerate from the repo root with: node docs/build.js
+
 const fs = require('fs');
 const path = require('path');
 
 const root = __dirname;
-const outputDir = path.join(root, 'en');
+const englishDir = path.join(root, 'en');
 const swedishDir = path.join(root, 'sv');
 
 const pages = {
@@ -19,6 +23,7 @@ const pages = {
     ctaExplore: 'Explore the project',
     ctaSource: 'View source',
     sourceAria: 'View source on GitHub (opens in new tab)',
+    footerGitHubAria: 'Viking Bio project on GitHub (opens in new tab)',
     panelLabel: 'Telemetry flow',
     panelConfigurator: 'Local configurator',
     panelItem1: 'UART capture from burner output',
@@ -86,6 +91,7 @@ const pages = {
     ctaExplore: 'Utforska projektet',
     ctaSource: 'Visa källkod',
     sourceAria: 'Visa källkod på GitHub (öppnas i ny flik)',
+    footerGitHubAria: 'Viking Bio-projekt på GitHub (öppnas i ny flik)',
     panelLabel: 'Telemetriflöde',
     panelConfigurator: 'Lokal konfigurator',
     panelItem1: 'UART-avläsning från brännaren',
@@ -142,24 +148,32 @@ const pages = {
   }
 };
 
-function renderPage(data, variant) {
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function renderPage(data) {
+  const anchors = ['overview', 'features', 'architecture', 'project'];
   const nav = data.nav
     .map((label, index) => {
-      const anchors = ['overview', 'features', 'architecture', 'project'];
-      const href = variant === 'en' ? `#${anchors[index]}` : `#${anchors[index]}`;
-      return `<a href="${href}">${label}</a>`;
+      const href = `#${anchors[index]}`;
+      return `<a href="${href}">${escapeHtml(label)}</a>`;
     })
-    .join('\n');
+    .join('\n          ');
 
   return `<!DOCTYPE html>
 <html lang="${data.lang}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="${data.metaDescription}" />
-    <title>${data.title}</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <link rel="stylesheet" href="./styles.css" />
+    <meta name="description" content="${escapeHtml(data.metaDescription)}" />
+    <title>${escapeHtml(data.title)}</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="stylesheet" href="../styles.css" />
   </head>
   <body id="top">
     <header class="topbar">
@@ -178,36 +192,36 @@ function renderPage(data, variant) {
       <section class="hero">
         <div class="container hero-grid">
           <div>
-            <p class="eyebrow">${data.heroEyebrow}</p>
-            <h1>${data.heroTitle}</h1>
-            <p class="lead">${data.heroLead}</p>
+            <p class="eyebrow">${escapeHtml(data.heroEyebrow)}</p>
+            <h1>${escapeHtml(data.heroTitle)}</h1>
+            <p class="lead">${escapeHtml(data.heroLead)}</p>
             <div class="cta-row">
-              <a class="button primary" href="#overview">${data.ctaExplore}</a>
+              <a class="button primary" href="#overview">${escapeHtml(data.ctaExplore)}</a>
               <a
                 class="button secondary"
                 href="https://github.com/phieri/viking-bio-pwa"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="${data.sourceAria}"
+                aria-label="${escapeHtml(data.sourceAria)}"
               >
-                ${data.ctaSource}
+                ${escapeHtml(data.ctaSource)}
               </a>
             </div>
           </div>
           <div class="hero-panel">
             <div class="panel-card">
-              <span class="panel-label">${data.panelLabel}</span>
+              <span class="panel-label">${escapeHtml(data.panelLabel)}</span>
               <div class="flow-block">
                 <span>Viking Bio 20</span>
                 <span class="arrow">→</span>
                 <span>Pico W</span>
                 <span class="arrow">→</span>
-                <span>${data.panelConfigurator}</span>
+                <span>${escapeHtml(data.panelConfigurator)}</span>
               </div>
               <ul>
-                <li>${data.panelItem1}</li>
-                <li>${data.panelItem2}</li>
-                <li>${data.panelItem3}</li>
+                <li>${escapeHtml(data.panelItem1)}</li>
+                <li>${escapeHtml(data.panelItem2)}</li>
+                <li>${escapeHtml(data.panelItem3)}</li>
               </ul>
             </div>
           </div>
@@ -217,21 +231,21 @@ function renderPage(data, variant) {
       <section id="overview" class="section">
         <div class="container">
           <div class="section-heading">
-            <p class="eyebrow">${data.overviewEyebrow}</p>
-            <h2>${data.overviewTitle}</h2>
+            <p class="eyebrow">${escapeHtml(data.overviewEyebrow)}</p>
+            <h2>${escapeHtml(data.overviewTitle)}</h2>
           </div>
           <div class="cards three-up">
             <article class="info-card">
-              <h3>${data.cardBridgeTitle}</h3>
-              <p>${data.cardBridgeBody}</p>
+              <h3>${escapeHtml(data.cardBridgeTitle)}</h3>
+              <p>${escapeHtml(data.cardBridgeBody)}</p>
             </article>
             <article class="info-card">
-              <h3>${data.cardControlTitle}</h3>
-              <p>${data.cardControlBody}</p>
+              <h3>${escapeHtml(data.cardControlTitle)}</h3>
+              <p>${escapeHtml(data.cardControlBody)}</p>
             </article>
             <article class="info-card">
-              <h3>${data.cardInsightTitle}</h3>
-              <p>${data.cardInsightBody}</p>
+              <h3>${escapeHtml(data.cardInsightTitle)}</h3>
+              <p>${escapeHtml(data.cardInsightBody)}</p>
             </article>
           </div>
         </div>
@@ -240,34 +254,34 @@ function renderPage(data, variant) {
       <section id="features" class="section alt">
         <div class="container">
           <div class="section-heading narrow">
-            <p class="eyebrow">${data.featuresEyebrow}</p>
-            <h2>${data.featuresTitle}</h2>
+            <p class="eyebrow">${escapeHtml(data.featuresEyebrow)}</p>
+            <h2>${escapeHtml(data.featuresTitle)}</h2>
           </div>
 
           <div class="feature-list">
             <div class="feature-item">
-              <h3>${data.featureTelemetryTitle}</h3>
-              <p>${data.featureTelemetryBody}</p>
+              <h3>${escapeHtml(data.featureTelemetryTitle)}</h3>
+              <p>${escapeHtml(data.featureTelemetryBody)}</p>
             </div>
             <div class="feature-item">
-              <h3>${data.featureUSBTitle}</h3>
-              <p>${data.featureUSBBody}</p>
+              <h3>${escapeHtml(data.featureUSBTitle)}</h3>
+              <p>${escapeHtml(data.featureUSBBody)}</p>
             </div>
             <div class="feature-item">
-              <h3>${data.featureNetworkTitle}</h3>
-              <p>${data.featureNetworkBody}</p>
+              <h3>${escapeHtml(data.featureNetworkTitle)}</h3>
+              <p>${escapeHtml(data.featureNetworkBody)}</p>
             </div>
             <div class="feature-item">
-              <h3>${data.featureMDNSTitle}</h3>
-              <p>${data.featureMDNSBody}</p>
+              <h3>${escapeHtml(data.featureMDNSTitle)}</h3>
+              <p>${escapeHtml(data.featureMDNSBody)}</p>
             </div>
             <div class="feature-item">
-              <h3>${data.featureStateTitle}</h3>
-              <p>${data.featureStateBody}</p>
+              <h3>${escapeHtml(data.featureStateTitle)}</h3>
+              <p>${escapeHtml(data.featureStateBody)}</p>
             </div>
             <div class="feature-item">
-              <h3>${data.featureHardwareTitle}</h3>
-              <p>${data.featureHardwareBody}</p>
+              <h3>${escapeHtml(data.featureHardwareTitle)}</h3>
+              <p>${escapeHtml(data.featureHardwareBody)}</p>
             </div>
           </div>
         </div>
@@ -276,16 +290,16 @@ function renderPage(data, variant) {
       <section id="architecture" class="section">
         <div class="container architecture-grid">
           <div>
-            <p class="eyebrow">${data.architectureEyebrow}</p>
-            <h2>${data.architectureTitle}</h2>
-            <p>${data.architectureBody}</p>
+            <p class="eyebrow">${escapeHtml(data.architectureEyebrow)}</p>
+            <h2>${escapeHtml(data.architectureTitle)}</h2>
+            <p>${escapeHtml(data.architectureBody)}</p>
           </div>
           <div class="stack">
-            <div class="stack-item"><span>1</span><span>${data.stack1}</span></div>
-            <div class="stack-item"><span>2</span><span>${data.stack2}</span></div>
-            <div class="stack-item"><span>3</span><span>${data.stack3}</span></div>
-            <div class="stack-item"><span>4</span><span>${data.stack4}</span></div>
-            <div class="stack-item"><span>5</span><span>${data.stack5}</span></div>
+            <div class="stack-item"><span>1</span><span>${escapeHtml(data.stack1)}</span></div>
+            <div class="stack-item"><span>2</span><span>${escapeHtml(data.stack2)}</span></div>
+            <div class="stack-item"><span>3</span><span>${escapeHtml(data.stack3)}</span></div>
+            <div class="stack-item"><span>4</span><span>${escapeHtml(data.stack4)}</span></div>
+            <div class="stack-item"><span>5</span><span>${escapeHtml(data.stack5)}</span></div>
           </div>
         </div>
       </section>
@@ -294,12 +308,12 @@ function renderPage(data, variant) {
         <div class="container">
           <div class="project-panel">
             <div>
-              <p class="eyebrow">${data.projectEyebrow}</p>
-              <h2 id="project-title">${data.projectTitle}</h2>
+              <p class="eyebrow">${escapeHtml(data.projectEyebrow)}</p>
+              <h2 id="project-title">${escapeHtml(data.projectTitle)}</h2>
             </div>
             <div class="project-copy">
-              <p>${data.projectBody1}</p>
-              <p>${data.projectBody2}</p>
+              <p>${escapeHtml(data.projectBody1)}</p>
+              <p>${escapeHtml(data.projectBody2)}</p>
             </div>
           </div>
         </div>
@@ -308,8 +322,8 @@ function renderPage(data, variant) {
 
     <footer class="footer">
       <div class="container footer-row">
-        <span>${data.footerBrand}</span>
-        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="${data.sourceAria}">${data.footerGitHub}</a>
+        <span>${escapeHtml(data.footerBrand)}</span>
+        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(data.footerGitHubAria)}">${escapeHtml(data.footerGitHub)}</a>
       </div>
     </footer>
   </body>
@@ -317,25 +331,31 @@ function renderPage(data, variant) {
 }
 
 const redirectPage = `<!DOCTYPE html>
-<html lang="en">
+<html lang="mul">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Viking Bio integration for monitoring and managing pellet burner telemetry with a Pico-based bridge and local configurator." />
+    <link rel="canonical" href="./en/" />
     <title>Viking Bio Integration</title>
+  </head>
+  <body>
+    <noscript>
+      <p><a href="./en/">English</a> | <a href="./sv/">Svenska</a></p>
+    </noscript>
     <script>
       (function () {
         var preferred = navigator.language && navigator.language.toLowerCase().indexOf('sv') === 0 ? 'sv' : 'en';
         window.location.replace(preferred === 'sv' ? './sv/' : './en/');
       })();
-    </script>
-  </head>
-  <body></body>
+    <\/script>
+  </body>
 </html>`;
 
-fs.mkdirSync(outputDir, { recursive: true });
+fs.mkdirSync(englishDir, { recursive: true });
 fs.mkdirSync(swedishDir, { recursive: true });
-fs.writeFileSync(path.join(outputDir, 'index.html'), renderPage(pages.en, 'en'));
-fs.writeFileSync(path.join(swedishDir, 'index.html'), renderPage(pages.sv, 'sv'));
-fs.writeFileSync(path.join(root, 'index.html'), redirectPage);
+fs.writeFileSync(path.join(englishDir, 'index.html'), renderPage(pages.en), 'utf8');
+fs.writeFileSync(path.join(swedishDir, 'index.html'), renderPage(pages.sv), 'utf8');
+fs.writeFileSync(path.join(root, 'index.html'), redirectPage, 'utf8');
 
-console.log('Generated docs/en/index.html and docs/sv/index.html');
+console.log('Generated docs/en/index.html, docs/sv/index.html, and docs/index.html');
