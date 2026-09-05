@@ -1,0 +1,66 @@
+name: Build and Package Push PWA
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'push-pwa/**'
+      - '.github/workflows/build-push-pwa.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'push-pwa/**'
+      - '.github/workflows/build-push-pwa.yml'
+  workflow_dispatch:
+
+jobs:
+  package-push-pwa:
+    name: Package Push PWA for production upload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: push-pwa
+        run: composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader
+
+      - name: Validate PHP entry points
+        working-directory: push-pwa
+        run: |
+          php -l public/config.php
+          php -l public/public-key.php
+          php -l public/send.php
+
+      - name: Prepare production package
+        run: |
+          set -euo pipefail
+          pkg_dir="${RUNNER_TEMP}/push-pwa-package"
+          rm -rf "$pkg_dir"
+          mkdir -p "$pkg_dir"
+          cp -a push-pwa/. "$pkg_dir/"
+          mkdir -p "$pkg_dir/storage"
+          : > "$pkg_dir/storage/subscriptions.yaml"
+          if [ -f "$pkg_dir/.env.example" ]; then
+            cp "$pkg_dir/.env.example" "$pkg_dir/.env"
+          fi
+          tar -czf "${RUNNER_TEMP}/push-pwa-production.tar.gz" -C "${RUNNER_TEMP}" push-pwa-package
+          ls -lh "${RUNNER_TEMP}/push-pwa-production.tar.gz"
+
+      - name: Upload push-pwa package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: push-pwa-production
+          path: ${{ runner.temp }}/push-pwa-production.tar.gz
+          if-no-files-found: error
+          retention-days: 30
