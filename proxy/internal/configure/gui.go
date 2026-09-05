@@ -249,8 +249,8 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		d.Show()
 	})
 
-	// ── Set proxy server & port ──────────────────────────────────────────
-	btnServer := widget.NewButton("Set proxy server & port", func() {
+	// ── Set server address & port ─────────────────────────────────────────
+	btnServer := widget.NewButton("Set server address & port", func() {
 		addrEntry := widget.NewEntry()
 		addrEntry.SetPlaceHolder("192.168.1.10 or fd00::1")
 		portEntry := widget.NewEntry()
@@ -262,7 +262,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				{Text: "Port", Widget: portEntry},
 			},
 		}
-		d := dialog.NewCustomConfirm("Set proxy server", "Set", "Cancel", form, func(confirmed bool) {
+		d := dialog.NewCustomConfirm("Set server", "Set", "Cancel", form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}

@@ -96,7 +96,7 @@ func (a *Advertiser) Start(port int, name string) {
 		// pick up global/public addresses through mDNS discovery.
 		hostname, herr := os.Hostname()
 		if herr != nil || hostname == "" {
-			hostname = "viking-bio-proxy"
+			hostname = "viking-bio-configurator"
 		}
 		log.Printf("mdns: advertising local-only IPv6 addresses: %v", localAddrs)
 		a.server, err = zeroconf.RegisterProxy(

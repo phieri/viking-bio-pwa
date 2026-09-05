@@ -72,7 +72,7 @@ func (t *TUI) printMenu() {
 	fmt.Println(color("  1.", colorYellow) + " Show device status")
 	fmt.Println(color("  2.", colorYellow) + " Configure WiFi (SSID + password)")
 	fmt.Println(color("  3.", colorYellow) + " Set Wi-Fi country code")
-	fmt.Println(color("  4.", colorYellow) + " Set proxy server address & port")
+	fmt.Println(color("  4.", colorYellow) + " Set server address & port")
 	fmt.Println(color("  5.", colorYellow) + " Set webhook URL")
 	fmt.Println(color("  6.", colorYellow) + " Provision telemetry device key")
 	fmt.Println(color("  7.", colorYellow) + " Clear all credentials")

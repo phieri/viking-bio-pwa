@@ -1,4 +1,4 @@
-name: Build and Test Proxy
+name: Build and Test Configurator
 
 on:
   push:
@@ -15,7 +15,7 @@ on:
 
 jobs:
   build-proxy:
-    name: Build and Test Go Proxy
+    name: Build and Test Go Configurator
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -51,7 +51,7 @@ jobs:
 
     - name: Build binary (linux/amd64)
       working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-proxy ./cmd/proxy
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-configurator ./cmd/proxy
 
     - name: "Smoke-test: server starts and API responds"
       run: |
@@ -66,7 +66,7 @@ jobs:
           }
         }
         JSON
-        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 proxy/dist/linux_amd64/viking-bio-proxy &
+        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 proxy/dist/linux_amd64/viking-bio-configurator &
         SERVER_PID=$!
         sleep 2
         curl -sf http://localhost:3000/api/data
@@ -113,32 +113,32 @@ jobs:
 
     - name: Cross-compile linux/arm64
       working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/linux_arm64/viking-bio-proxy ./cmd/proxy
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/linux_arm64/viking-bio-configurator ./cmd/proxy
 
     - name: Cross-compile windows/amd64
       working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/windows_amd64/viking-bio-proxy.exe ./cmd/proxy
+      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/windows_amd64/viking-bio-configurator.exe ./cmd/proxy
 
-    - name: Upload proxy binaries linux-amd64
+    - name: Upload configurator binaries linux-amd64
       uses: actions/upload-artifact@v7
       with:
-        name: viking-bio-proxy-linux-amd64
+        name: viking-bio-configurator-linux-amd64
         path: |
-          proxy/dist/linux_amd64/viking-bio-proxy
+          proxy/dist/linux_amd64/viking-bio-configurator
         retention-days: 30
 
-    - name: Upload proxy binaries linux-arm64
+    - name: Upload configurator binaries linux-arm64
       uses: actions/upload-artifact@v7
       with:
-        name: viking-bio-proxy-linux-arm64
+        name: viking-bio-configurator-linux-arm64
         path: |
-          proxy/dist/linux_arm64/viking-bio-proxy
+          proxy/dist/linux_arm64/viking-bio-configurator
         retention-days: 30
 
-    - name: Upload proxy binaries win-amd64
+    - name: Upload configurator binaries win-amd64
       uses: actions/upload-artifact@v7
       with:
-        name: viking-bio-proxy-win-amd64
+        name: viking-bio-configurator-win-amd64
         path: |
-          proxy/dist/windows_amd64/viking-bio-proxy.exe
+          proxy/dist/windows_amd64/viking-bio-configurator.exe
         retention-days: 30
