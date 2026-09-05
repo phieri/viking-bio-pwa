@@ -7,6 +7,7 @@ The active system has a strict process and language boundary:
 - `pico-bridge/` is firmware written in C for Raspberry Pi Pico W / Pico 2 W.
 - `pico-bridge/libvikingbio/` is the shared protocol parser library used by the bridge.
 - `proxy/` is the Go HTTP server and PWA host.
+- `push-pwa/` is the browser push notification frontend used to register subscriptions and deliver alerts to operators.
 - The firmware and the proxy communicate over a signed framed TCP ingest channel.
 
 There is no cgo, no FFI, and no shared-memory boundary between the firmware and the proxy.
@@ -56,5 +57,5 @@ state/update/notification pipeline.
 ## Notification delivery ownership
 
 - The proxy derives flame, error, and cleaning reminder events from telemetry ingest frames.
-- The proxy formats those events into a JSON webhook payload and sends them to `WEBHOOK_URL`.
-- The external endpoint owns the final notification delivery and any platform-specific UX.
+- The active browser notification flow is the `push-pwa/` app, which maintains VAPID subscriptions and delivers operator-facing alerts.
+- The proxy or external services may still forward JSON payloads to configured endpoints when that delivery model is required.

@@ -1,10 +1,11 @@
 # Viking Bio Monorepo
 
-A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15/viking-bio-pelletsbrannare) pellet burner integration system. It consists of three parts:
+A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15/viking-bio-pelletsbrannare) pellet burner integration system. It consists of four active parts:
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the proxy
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
-3. **[proxy/](proxy/)** – Go proxy server that receives burner data over signed TCP ingest, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, and sends alert payloads to a configurable webhook endpoint
+3. **[proxy/](proxy/)** – Go proxy server that receives burner data over signed TCP ingest, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, and sends alert payloads to a configurable endpoint
+4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions and pushes burner alerts to the operator using VAPID/web-push
 
 ## Architecture
 
@@ -107,7 +108,7 @@ Both interfaces provide:
 The dashboard at `proxy/public/` is a fully installable Progressive Web App:
 - **Offline support**: the app cache remains available for the dashboard shell while API requests bypass the cache
 - **Icons**: SVG source icon with PNG variants at 192×192 and 512×512 (standard + maskable), plus favicon and Apple touch icon
-- **Alert delivery**: the proxy sends notification payloads to the configured `WEBHOOK_URL`; no browser-side subscription flow remains
+- **Alert delivery**: the active browser notification flow is handled by `push-pwa/`, which registers VAPID subscriptions and delivers burner alerts to the operator via web-push
 
 ### Running
 
