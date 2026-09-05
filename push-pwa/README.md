@@ -6,6 +6,7 @@ This small installable PWA is the fourth part of the Viking Bio monorepo. It gen
 
 - Build a browser subscription payload with a VAPID keypair
 - Add subscribers manually to a JSON file rather than through a server-side save endpoint
+- Keep the storage layer read-only so subscription records are maintained by operators, not by the PHP app
 - Include a `priority` field for low, normal, and high notifications
 - Offer an install CTA on iOS Safari via the native Add to Home Screen flow
 
@@ -21,7 +22,7 @@ Then open `http://localhost:8000/` in a browser and click “Generate client JSO
 
 ## Manual subscription file
 
-The generated JSON is meant to be pasted into `storage/subscriptions.json` as an array of objects, for example:
+The generated JSON is meant to be pasted into `storage/subscriptions.json` as an array of objects. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
 
 ```json
 [
