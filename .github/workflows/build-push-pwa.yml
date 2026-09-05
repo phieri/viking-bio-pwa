@@ -49,11 +49,9 @@ jobs:
           rm -rf "$pkg_dir"
           mkdir -p "$pkg_dir"
           cp -a push-pwa/. "$pkg_dir/"
+          find "$pkg_dir" -type f \( -name '.env' -o -name '.env.*' \) ! -name '.env.example' -delete
           mkdir -p "$pkg_dir/storage"
           : > "$pkg_dir/storage/subscriptions.yaml"
-          if [ -f "$pkg_dir/.env.example" ]; then
-            cp "$pkg_dir/.env.example" "$pkg_dir/.env"
-          fi
           tar -czf "${RUNNER_TEMP}/push-pwa-production.tar.gz" -C "${RUNNER_TEMP}" push-pwa-package
           ls -lh "${RUNNER_TEMP}/push-pwa-production.tar.gz"
 
