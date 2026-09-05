@@ -77,25 +77,21 @@ The Go configurator/runtime:
 - Go net/http server exposes the local operational API and binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
 - Bridge-side alert delivery is configured directly on the Pico; the configurator does not send outbound webhook payloads
-- **Device configurator** (`./viking-bio-configurator --configure`) for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available, falls back to a terminal TUI on headless hosts (set `NO_GUI` to any non-empty value to force TUI); the runtime behaves as the configurator for the bridge and keeps the operational view in the local device UI
+- **Device configurator** for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available; the runtime behaves as the configurator for the bridge and keeps the operational view in the local device UI.
 
 ### Device Configurator
 
 The configurator includes an interactive utility for configuring the Pico W bridge over
 USB serial – no separate serial terminal application required.
 
-```bash
-./viking-bio-configurator --configure                        # auto-detect Pico W USB port
-./viking-bio-configurator --configure --port /dev/ttyACM0   # specify port directly (Linux)
-./viking-bio-configurator --configure --port COM3           # Windows
-```
+Launch the local provisioning GUI from the desktop or OS launcher. Set `PICO_SERIAL_PORT`
+if you want it to use a specific USB serial port without prompting.
 
 When a graphical display is available (X11/Wayland on Linux, always on Windows/macOS)
-a **Fyne GUI window** opens.  On headless machines or when `NO_GUI` is set to any
-non-empty value (e.g. `NO_GUI=1`), the configurator falls back to the interactive
-**terminal TUI**.
+a **Fyne GUI window** opens. On headless systems, use a local desktop session or a
+remote X/Wayland display.
 
-Both interfaces provide:
+The GUI provides:
 
 | Option | Description |
 |--------|-------------|
@@ -135,10 +131,7 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 
 | Flag | Description |
 |------|-------------|
-| `--configure` | Run the interactive device configurator TUI |
-| `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, local network only |
-| `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
 
 Defensive validation notes:
