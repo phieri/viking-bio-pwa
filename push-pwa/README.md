@@ -40,6 +40,7 @@ The generated JSON is meant to be pasted into `storage/subscriptions.yaml` as a 
 - The app exposes `public-key.php`, `config.php`, and `send.php` for the VAPID registration flow and test send path.
 - `send.php` validates a per-session bearer token issued by `/config.php` so the browser can trigger test messages without embedding a secret in the frontend source.
 - `subscribe.php` is intentionally not used; operators add client entries directly to `storage/subscriptions.yaml`.
+- The `storage/` directory is intentionally blocked from direct web access via `.htaccess`, so `subscriptions.yaml` and `vapid.json` cannot be exposed on the public internet.
 - Use `sender: "all"` only if a subscriber should receive every burner alert; otherwise set a single burner-specific sender ID so the browser only receives messages for that burner.
 - Set `PUSH_UI_URL` to the interface that should open when a notification is tapped; it defaults to the app URL and is linked to the web-push webhook flow.
 - Subscribers are stored in a YAML file (`storage/subscriptions.yaml`) so each browser endpoint remains easy to inspect and manage.
