@@ -8,14 +8,14 @@ The active system has a strict process and language boundary:
 - `pico-bridge/libvikingbio/` is the shared protocol parser library used by the bridge.
 - `proxy/` is the Go HTTP server and PWA host.
 - `push-pwa/` is the browser push notification frontend used to register subscriptions and deliver alerts to operators.
-- The firmware and the proxy communicate over a signed framed TCP ingest channel.
+- The firmware and the configurator communicate over a signed framed TCP ingest channel.
 
-There is no cgo, no FFI, and no shared-memory boundary between the firmware and the proxy.
+There is no cgo, no FFI, and no shared-memory boundary between the firmware and the configurator.
 
-## Firmware → Proxy ingest
+## Firmware → Configurator ingest
 
 The firmware sends burner telemetry over a long-lived TCP connection to the
-proxy ingest listener (`INGEST_TCP_PORT`, default `9000`).
+configurator ingest listener (`INGEST_TCP_PORT`, default `9000`).
 
 Current frame payload:
 
@@ -35,7 +35,7 @@ Current frame payload:
 }
 ```
 
-The proxy verifies the device-specific HMAC, checks replay ordering via the
+The configurator verifies the device-specific HMAC, checks replay ordering via the
 persisted sequence number, and then forwards accepted telemetry into the normal
 state/update/notification pipeline.
 
@@ -48,14 +48,14 @@ state/update/notification pipeline.
 - The refactored firmware command path continues to avoid heap allocation.
 - Buffer ownership remains local to each module; callers pass output buffers and lengths explicitly.
 
-### Proxy
+### Configurator
 
-- The proxy uses normal Go heap allocation and garbage collection.
+- The configurator uses normal Go heap allocation and garbage collection.
 - The ingest listener decodes frames into Go structs before updating shared state.
 - Provisioned device metadata and fallback ingest state are persisted in the data directory with mutex-protected access.
 
 ## Notification delivery ownership
 
-- The proxy derives flame, error, and cleaning reminder events from telemetry ingest frames.
+- The configurator derives flame, error, and cleaning reminder events from telemetry ingest frames.
 - The active browser notification flow is the `push-pwa/` app, which maintains VAPID subscriptions and delivers operator-facing alerts.
-- The proxy or external services may still forward JSON payloads to configured endpoints when that delivery model is required.
+- The configurator or external services may still forward JSON payloads to configured endpoints when that delivery model is required.

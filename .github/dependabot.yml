@@ -18,6 +18,15 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: "composer"
+    directory: "/push-pwa/"
+    schedule:
+      interval: "monthly"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+
   - package-ecosystem: "docker"
     directory: "/.devcontainer/"
     schedule:
