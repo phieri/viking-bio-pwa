@@ -17,11 +17,21 @@ final class PushSender
     /**
      * @return array{sent:int, failed:int}
      */
-    public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null): array
+    public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
     {
         $normalizedPriority = $priority !== null ? strtolower($priority) : null;
         if ($normalizedPriority !== null && !in_array($normalizedPriority, ['low', 'normal', 'high'], true)) {
             throw new \InvalidArgumentException('Priority must be one of low, normal, or high');
+        }
+
+        // A null sender means broadcast to every subscription. Explicit sender values are
+        // matched case-insensitively so each browser client only receives the burner it chose.
+        $normalizedSender = $sender !== null ? trim($sender) : null;
+        if ($normalizedSender === '' || ($normalizedSender !== null && strtolower($normalizedSender) === 'all')) {
+            $normalizedSender = null;
+        }
+        if ($normalizedSender !== null) {
+            $normalizedSender = strtolower($normalizedSender);
         }
 
         $storage = new PushStorage($this->storagePath);
@@ -51,8 +61,24 @@ final class PushSender
 
         foreach ($subscriptions as $subscription) {
             $priorityValue = is_string($subscription['priority'] ?? null) ? strtolower($subscription['priority']) : 'normal';
-            if ($normalizedPriority !== null && $normalizedPriority !== 'all' && $priorityValue !== $normalizedPriority) {
+            if ($normalizedPriority !== null && $priorityValue !== $normalizedPriority) {
                 continue;
+            }
+
+            $subscriptionSender = $subscription['sender'] ?? null;
+            if (is_string($subscriptionSender)) {
+                $subscriptionSender = trim($subscriptionSender);
+            } else {
+                $subscriptionSender = '';
+            }
+
+            if ($normalizedSender !== null) {
+                $subscriptionSenderLower = strtolower($subscriptionSender);
+                // `sender: all` is a deliberate wildcard; otherwise a message is only sent to
+                // subscriptions that explicitly match the requested sender value.
+                if ($subscriptionSenderLower !== 'all' && ($subscriptionSender === '' || $subscriptionSenderLower !== $normalizedSender)) {
+                    continue;
+                }
             }
 
             $endpoint = $subscription['endpoint'] ?? null;
