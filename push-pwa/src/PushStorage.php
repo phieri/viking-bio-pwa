@@ -134,11 +134,6 @@ final class PushStorage
             return [];
         }
 
-        $json = json_decode($trimmed, true);
-        if (is_array($json)) {
-            return $json;
-        }
-
         $yaml = self::parseSimpleYaml($trimmed);
         if (is_array($yaml)) {
             return $yaml;

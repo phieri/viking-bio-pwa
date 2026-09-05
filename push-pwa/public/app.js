@@ -110,7 +110,7 @@ async function enableNotifications() {
 
     const payload = buildSubscriptionJson(subscription);
     subscriptionJson.value = JSON.stringify(payload, null, 2);
-    setStatus('Client subscription generated (JSON format). Paste it into subscriptions.yaml.', 'success');
+    setStatus('Client subscription generated. Paste it into subscriptions.yaml.', 'success');
   } catch (error) {
     setStatus(error.message, 'error');
   }
