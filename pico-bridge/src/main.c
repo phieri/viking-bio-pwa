@@ -46,6 +46,7 @@ volatile uint32_t event_flags = 0;
 #define USB_SERVER_PREFIX "SERVER="
 #define USB_PORT_PREFIX "PORT="
 #define USB_DEVICE_KEY_PREFIX "DEVICEKEY="
+#define USB_WEBHOOK_PREFIX "WEBHOOK="
 #define USB_STATUS_COMMAND "STATUS"
 #define USB_CLEAR_COMMAND "CLEAR"
 
@@ -103,6 +104,7 @@ static void print_usb_help(void) {
 	printf("  SERVER=<ip>      – set proxy server IP/hostname\n");
 	printf("  PORT=<port>      – set proxy server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
 	printf("  DEVICEKEY=<key>  – set telemetry device key\n");
+	printf("  WEBHOOK=<url>    – set bridge notification webhook\n");
 	printf("  STATUS           – show status\n");
 	printf("  CLEAR            – erase stored credentials\n");
 }
@@ -190,6 +192,16 @@ static bool handle_device_key_command(const char *arg) {
 	return false;
 }
 
+static bool handle_webhook_command(const char *arg) {
+	if (wifi_config_save_webhook_url(arg)) {
+		printf("notifications: webhook URL saved – reboot to apply\n");
+	} else {
+		printf("notifications: ERROR saving webhook URL (max %d chars)\n",
+			   WIFI_WEBHOOK_URL_MAX_LEN);
+	}
+	return false;
+}
+
 static bool handle_status_command(const char *arg) {
 	(void)arg;
 
@@ -225,6 +237,10 @@ static bool handle_status_command(const char *arg) {
 	printf("  device key: %s\n",
 		   wifi_config_load_device_key(device_key, sizeof(device_key)) ? "(set)" : "not set");
 
+	char webhook_url[WIFI_WEBHOOK_URL_MAX_LEN + 1] = {0};
+	printf("  webhook: %s\n",
+		   wifi_config_load_webhook_url(webhook_url, sizeof(webhook_url)) ? webhook_url : "not set");
+
 	printf("  telemetry: %s\n", http_client_is_active() ? "active" : "idle");
 
 	return false;
@@ -244,6 +260,7 @@ static const usb_command_entry_t s_usb_commands[] = {
 	{USB_SERVER_PREFIX, false, handle_server_command},
 	{USB_PORT_PREFIX, false, handle_port_command},
 	{USB_DEVICE_KEY_PREFIX, false, handle_device_key_command},
+	{USB_WEBHOOK_PREFIX, false, handle_webhook_command},
 	{USB_STATUS_COMMAND, true, handle_status_command},
 	{USB_CLEAR_COMMAND, true, handle_clear_command},
 };

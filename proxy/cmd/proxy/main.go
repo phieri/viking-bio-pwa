@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/configure"
@@ -29,17 +28,16 @@ func main() {
 		showVersion = flag.Bool("version", false, "print version and exit")
 		doConfig    = flag.Bool("configure", false, "run device configurator (GUI when display available, TUI otherwise)")
 		serialPort  = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
-		notifyTest  = flag.Bool("notify-test", false, "send a test webhook notification and exit")
 		notifyOnly  = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, local network connections only")
 	)
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Viking Bio Proxy v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
+		fmt.Fprintf(os.Stderr, "Viking Bio Configurator v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("viking-bio-proxy v%s\n", version)
+		fmt.Printf("viking-bio-configurator v%s\n", version)
 		return
 	}
 
@@ -53,11 +51,6 @@ func main() {
 
 	if *doConfig {
 		runConfigurator(*serialPort)
-		return
-	}
-
-	if *notifyTest {
-		runNotifyTest()
 		return
 	}
 
@@ -135,22 +128,7 @@ func runServer(notifyOnly bool) {
 	if err := srv.Start(ctx); err != nil {
 		log.Printf("server: %v", err)
 	}
-	log.Println("Viking Bio Proxy stopped.")
-}
-
-func runNotifyTest() {
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("config: %v", err)
-	}
-	if cfg.WebhookURL == "" {
-		log.Fatal("WEBHOOK_URL must be configured before using --notify-test")
-	}
-	fmt.Printf("Sending test webhook notification to %s\n", cfg.WebhookURL)
-	if err := server.SendWebhookNotification(cfg.WebhookURL, "test", "Viking Bio: Test", "Proxy webhook test notification", time.Now()); err != nil {
-		log.Fatalf("webhook: %v", err)
-	}
-	fmt.Println("Done.")
+	log.Println("Viking Bio Configurator stopped.")
 }
 
 func runConfigurator(portArg string) {

@@ -14,6 +14,7 @@
 #define WIFI_COUNTRY_FILE      "/country.dat"
 #define WIFI_SERVER_FILE       "/server.dat"
 #define WIFI_DEVICE_KEY_FILE   "/device_key.dat"
+#define WIFI_WEBHOOK_URL_FILE  "/webhook_url.dat"
 #define WIFI_BOOT_COUNTER_FILE "/boot_counter.dat"
 
 #define WIFI_CONFIG_MAGIC 0x57494649U  // "WIFI"
@@ -201,6 +202,9 @@ void wifi_config_clear(void) {
 	if (!lfs_hal_delete_file(WIFI_DEVICE_KEY_FILE)) {
 		printf("wifi_config: WARNING failed to delete %s\n", WIFI_DEVICE_KEY_FILE);
 	}
+	if (!lfs_hal_delete_file(WIFI_WEBHOOK_URL_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_WEBHOOK_URL_FILE);
+	}
 	if (!lfs_hal_delete_file(WIFI_BOOT_COUNTER_FILE)) {
 		printf("wifi_config: WARNING failed to delete %s\n", WIFI_BOOT_COUNTER_FILE);
 	}
@@ -317,6 +321,34 @@ bool wifi_config_save_device_key(const char *key) {
 		return false;
 	}
 	printf("wifi_config: telemetry device key saved\n");
+	return true;
+}
+
+bool wifi_config_load_webhook_url(char *url, size_t len) {
+	if (!url || len == 0) return false;
+
+	char buf[WIFI_WEBHOOK_URL_MAX_LEN + 1];
+	int n = lfs_hal_read_file(WIFI_WEBHOOK_URL_FILE, buf, sizeof(buf));
+	if (n <= 0 || n > WIFI_WEBHOOK_URL_MAX_LEN) return false;
+
+	buf[n] = '\0';
+	if (strlen(buf) == 0) return false;
+	if (strlen(buf) + 1 > len) return false;
+
+	memcpy(url, buf, strlen(buf) + 1);
+	return true;
+}
+
+bool wifi_config_save_webhook_url(const char *url) {
+	if (!url) return false;
+	size_t len = strlen(url);
+	if (len == 0 || len > WIFI_WEBHOOK_URL_MAX_LEN) return false;
+
+	if (!lfs_hal_write_file(WIFI_WEBHOOK_URL_FILE, url, len)) {
+		printf("wifi_config: ERROR saving webhook URL\n");
+		return false;
+	}
+	printf("wifi_config: webhook URL saved\n");
 	return true;
 }
 

@@ -13,9 +13,6 @@ var configEnvKeys = []string{
 	"INGEST_TCP_TLS",
 	"TLS_CERT_PATH",
 	"TLS_KEY_PATH",
-	"WEBHOOK_URL",
-	"NOTIFY_WEBHOOK_URL",
-	"NOTIFICATION_WEBHOOK_URL",
 	"MDNS_NAME",
 	"MDNS_DISABLE",
 	"PICO_SERIAL_PORT",
@@ -134,7 +131,6 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("INGEST_TCP_TLS", "true")
 	t.Setenv("TLS_CERT_PATH", "/cert.pem")
 	t.Setenv("TLS_KEY_PATH", "/key.pem")
-	t.Setenv("WEBHOOK_URL", "https://example.com/webhook")
 	t.Setenv("MDNS_NAME", "Custom Name")
 	t.Setenv("MDNS_DISABLE", "1")
 	t.Setenv("PICO_SERIAL_PORT", "/dev/ttyACM0")
@@ -158,8 +154,8 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.DataDir != "/data" || cfg.TLSCertPath != "/cert.pem" || cfg.TLSKeyPath != "/key.pem" {
 		t.Fatalf("unexpected string overrides: %+v", cfg)
 	}
-	if cfg.WebhookURL != "https://example.com/webhook" || cfg.MDNSName != "Custom Name" {
-		t.Fatalf("unexpected webhook/mdns overrides: %+v", cfg)
+	if cfg.MDNSName != "Custom Name" {
+		t.Fatalf("unexpected MDNS overrides: %+v", cfg)
 	}
 	if !cfg.IngestTCPTLS || !cfg.MDNSDisable {
 		t.Fatalf("expected boolean overrides to be true: %+v", cfg)
@@ -172,30 +168,6 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.CleaningReminderWeekday != time.Monday || cfg.CleaningReminderHour != 8 || cfg.CleaningReminderMinute != 30 {
 		t.Fatalf("unexpected reminder schedule overrides: %+v", cfg)
-	}
-}
-
-func TestLoadUsesWebhookAliases(t *testing.T) {
-	clearConfigEnv(t)
-	t.Setenv("NOTIFY_WEBHOOK_URL", "https://example.com/notify")
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.WebhookURL != "https://example.com/notify" {
-		t.Fatalf("expected alt alias to populate WebhookURL, got %q", cfg.WebhookURL)
-	}
-
-	clearConfigEnv(t)
-	t.Setenv("NOTIFICATION_WEBHOOK_URL", "https://example.com/notification")
-
-	cfg, err = Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.WebhookURL != "https://example.com/notification" {
-		t.Fatalf("expected compatibility alias to populate WebhookURL, got %q", cfg.WebhookURL)
 	}
 }
 

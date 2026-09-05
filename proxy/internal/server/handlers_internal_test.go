@@ -48,49 +48,6 @@ func TestDecodeMachineData(t *testing.T) {
 	}
 }
 
-func TestSendWebhookNotification(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if got := r.Header.Get("Content-Type"); got != "application/json" {
-				t.Fatalf("expected JSON content type, got %q", got)
-			}
-			defer r.Body.Close()
-			var payload webhookPayload
-			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-				t.Fatalf("decode webhook payload: %v", err)
-			}
-			if payload.Type != "error" || payload.Title == "" || payload.Body == "" {
-				t.Fatalf("unexpected payload: %+v", payload)
-			}
-			w.WriteHeader(http.StatusAccepted)
-		}))
-		defer srv.Close()
-
-		if err := SendWebhookNotification(srv.URL, "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now()); err != nil {
-			t.Fatalf("SendWebhookNotification: %v", err)
-		}
-	})
-
-	t.Run("non-2xx", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte("bad receiver"))
-		}))
-		defer srv.Close()
-
-		err := SendWebhookNotification(srv.URL, "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now())
-		if err == nil || !strings.Contains(err.Error(), "webhook returned 500") {
-			t.Fatalf("expected non-2xx webhook error, got %v", err)
-		}
-	})
-
-	t.Run("empty-url", func(t *testing.T) {
-		if err := SendWebhookNotification("", "error", "Viking Bio: Fel", "Felkod 12 detekterad", time.Now()); err != nil {
-			t.Fatalf("empty webhook URL should be a no-op, got %v", err)
-		}
-	})
-}
-
 func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
 	t.Parallel()
 
@@ -214,33 +171,6 @@ func TestUpdateBurnerStateUsesConfiguredCleaningReminderSchedule(t *testing.T) {
 	}, reminderTime.Add(10*time.Minute))
 	if second.cleanDue {
 		t.Fatal("expected reminder to be debounced within the configured reminder window")
-	}
-}
-
-func TestTriggerNotifications(t *testing.T) {
-	h := newInternalTestHandlers(t)
-
-	type call struct {
-		typ   string
-		title string
-		body  string
-	}
-	calls := make(chan call, 2)
-	h.notifyByType = func(typ, title, body string) {
-		calls <- call{typ: typ, title: title, body: body}
-	}
-
-	h.triggerNotifications(machineDataUpdateResult{
-		flameChanged: true,
-		newErr:       true,
-		flame:        true,
-		temp:         73,
-		err:          12,
-	})
-
-	got := []call{<-calls, <-calls}
-	if len(got) != 2 {
-		t.Fatalf("expected 2 notifications, got %d", len(got))
 	}
 }
 

@@ -24,8 +24,8 @@ func NewStore(dataDir string) (*Store, error) {
 	}
 	cfgPath := filepath.Join(dataDir, "viking-bio.conf")
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		conf := `# Viking Bio Proxy configuration
-# Copy or edit this file, then restart the proxy.
+		conf := `# Viking Bio Configurator configuration
+# Copy or edit this file, then restart the configurator.
 # Lines starting with '#' are comments. Uncommented lines set a value.
 # Environment variables always take precedence over values in this file.
 
@@ -42,9 +42,6 @@ func NewStore(dataDir string) (*Store, error) {
 # Optional manual HTTPS for the dashboard.
 # TLS_CERT_PATH=/etc/ssl/certs/server.crt
 # TLS_KEY_PATH=/etc/ssl/private/server.key
-
-# Webhook notification target for burner alerts.
-# WEBHOOK_URL=https://example.com/webhook
 
 # Device provisioning stores per-device secrets in devices.json here.
 # DATA_DIR=/var/lib/viking-bio-proxy

@@ -6,10 +6,11 @@ This repository is a monorepo for the Viking Bio 20 pellet burner integration sy
 There are two active components:
 
 1. **`pico-bridge/`** - Raspberry Pi Pico W / Pico 2 W firmware in C. It reads burner data
-   over UART, stores config in LittleFS, discovers the proxy over mDNS, and streams telemetry
-   to the proxy over a signed persistent TCP ingest connection.
-2. **`proxy/`** - Go proxy server and PWA dashboard. It receives burner telemetry, serves
-   the web UI, and forwards burner alerts to a configurable `WEBHOOK_URL` endpoint.
+   over UART, stores config in LittleFS, discovers the configurator over mDNS, and streams
+   signed telemetry over a persistent TCP ingest connection.
+2. **`proxy/`** - Go configurator/runtime. It receives burner telemetry, serves the local
+   operational UI, and manages the Pico configuration flow without sending outbound webhook
+   payloads itself.
 
 The proxy is **Go**, not Node.js. Older docs or memories may still mention a previous
 Node.js implementation; verify against the current Go code before acting.
@@ -74,28 +75,27 @@ workflow that proves the relevant behavior:
 Viking Bio 20 ──UART──► Pico W firmware
                          ├── signed TCP frames → INGEST_TCP_PORT (default 9000)
                          ├── passive mDNS listener for _viking-bio._tcp
-                         └── telemetry only
+                         └── telemetry + bridge-owned webhook target
 
-Proxy (Go)
+Configurator (Go)
 ├── TCP ingest listener (INGEST_TCP_PORT)  signed framed telemetry from Pico
-├── GET /                     PWA dashboard
+├── GET /                     local operational dashboard
 ├── GET /api/data             current burner state
-├── POST /webhook             webhook alert payloads to configured endpoint
+├── USB bridge configuration flow for Wi‑Fi, server, and device provisioning
 └── Optional TLS / mDNS support for local deployment
 ```
 
-### Proxy details
+### Configurator details
 
 - Main entry point is `proxy/cmd/proxy/main.go`.
 - HTTP routes are registered in `proxy/internal/server/server.go`.
-- Request handling, shared burner state, and notification dispatch live in
-  `proxy/internal/server/handlers.go`.
+- Request handling and shared burner state live in `proxy/internal/server/handlers.go`.
 - Static files are served from disk when `proxy/public/` exists locally; otherwise the
   binary serves embedded assets from `proxy/assets.go`.
 - The ServiceWorker's cache key (in `sw.js`) needs to be incremented whenever there
   are changes made to any file in `proxy/public/`.
-- The proxy sends structured alert payloads to the configured `WEBHOOK_URL`.
-- The proxy advertises `_viking-bio._tcp` with TXT `path=/api/data` via
+- The bridge owns the outbound webhook target; the configurator does not send alert webhooks.
+- The configurator advertises `_viking-bio._tcp` with TXT `path=/api/data` via
   `proxy/internal/mdns/advertiser.go`.
 - `MDNS_DISABLE=1` disables mDNS advertisement and is used by CI smoke tests.
 
@@ -107,16 +107,16 @@ Proxy (Go)
   `tcp_connect`, `tcp_write`) must be wrapped with `cyw43_arch_lwip_begin()` /
   `cyw43_arch_lwip_end()`; lwIP callbacks run on core 1 and do not need extra wrapping.
 - USB serial commands are handled directly in `process_usb_commands()` inside `main.c`.
-- LittleFS-backed persistent files include Wi-Fi credentials, country, proxy server/port,
-  and telemetry device key.
-- The default proxy port is `WIFI_SERVER_PORT_DEFAULT` in
+- LittleFS-backed persistent files include Wi‑Fi credentials, country, server/port,
+  telemetry device key, and the bridge-side webhook target.
+- The default ingest port is `WIFI_SERVER_PORT_DEFAULT` in
   `pico-bridge/include/wifi_config.h`, currently **9000**.
-- The Pico passively listens for unsolicited mDNS announcements from the proxy; it does
-  not actively query for services.
-- The firmware does not store webhook credentials or notification subscriptions; it only
-  streams signed telemetry to the proxy and schedules reminder logic on the proxy side.
-- The old Node.js-era `scheduler.js` no longer exists in the active proxy; scheduled
-  cleaning reminders are driven by the Go proxy from telemetry updates.
+- The Pico passively listens for unsolicited mDNS announcements from the configurator; it
+  does not actively query for services.
+- The firmware stores the outbound webhook URL locally and sends alert payloads from the
+  bridge itself rather than delegating that to the Go runtime.
+- The old Node.js-era `scheduler.js` no longer exists in the active runtime; scheduled
+  cleaning reminders are driven by the Go configurator from telemetry updates.
 
 ## Build, Test, and Validation
 

@@ -17,7 +17,6 @@ type Config struct {
 	IngestTCPTLS   bool
 	TLSCertPath    string
 	TLSKeyPath     string
-	WebhookURL     string
 	MDNSName       string
 	MDNSDisable    bool
 	PicoSerialPort string
@@ -168,7 +167,6 @@ func Load() (*Config, error) {
 	}
 	dataDir := DefaultDataDir()
 
-	webhookURL := firstNonEmptyEnv("WEBHOOK_URL", "NOTIFY_WEBHOOK_URL", "NOTIFICATION_WEBHOOK_URL")
 	mdnsName := firstNonEmptyEnv("MDNS_NAME")
 	if mdnsName == "" {
 		mdnsName = "Viking Bio"
@@ -203,7 +201,6 @@ func Load() (*Config, error) {
 		IngestTCPTLS:   parseBool(os.Getenv("INGEST_TCP_TLS")),
 		TLSCertPath:    os.Getenv("TLS_CERT_PATH"),
 		TLSKeyPath:     os.Getenv("TLS_KEY_PATH"),
-		WebhookURL:     webhookURL,
 		MDNSName:       mdnsName,
 		MDNSDisable:    parseBool(os.Getenv("MDNS_DISABLE")),
 		PicoSerialPort: os.Getenv("PICO_SERIAL_PORT"),

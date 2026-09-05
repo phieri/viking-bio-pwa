@@ -4,7 +4,7 @@ A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the proxy
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
-3. **[proxy/](proxy/)** – Go proxy server that receives burner data over signed TCP ingest, serves the PWA dashboard over IPv6-capable HTTP/HTTPS, and sends alert payloads to a configurable endpoint
+3. **[proxy/](proxy/)** – Go configurator/runtime that receives burner data over signed TCP ingest and manages the local configuration flow for the Pico bridge
 4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions and pushes burner alerts to the operator using VAPID/web-push
 
 ## Architecture
@@ -14,12 +14,11 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                               │
                      Signed TCP ingest on INGEST_TCP_PORT
                               │
-                          Go Proxy (proxy)
+                          Go Configurator (proxy)
                           ├── HTTP/HTTPS server (IPv6 [::]:3000)
-                          │   ├── GET /                     Dashboard PWA
                           │   ├── GET /api/data             Burner state (JSON)
-                          │   └── → POST <WEBHOOK_URL>       Outbound alert payloads
-                          └── Notification processor
+                          │   └── local operational config UI
+                          └── Bridge provisioning and state view
 ```
 
 ## pico-bridge
@@ -64,17 +63,18 @@ Connect via USB serial (115200 baud) to configure:
 | `SERVER=<ip>` | Set proxy server IP/hostname (IPv6 bare address without brackets) |
 | `PORT=<port>` | Set proxy server port (default: 9000) |
 | `DEVICEKEY=<key>` | Set the provisioned telemetry device key |
-| `STATUS` | Show WiFi, server, and telemetry status |
+| `WEBHOOK=<url>` | Set the bridge-side webhook target for outbound alerts |
+| `STATUS` | Show WiFi, server, telemetry, and webhook status |
 | `CLEAR` | Erase stored credentials (reboots) |
 
 ## proxy
 
-The Go proxy server:
+The Go configurator/runtime:
 - Signed TCP ingest on `INGEST_TCP_PORT` receives framed telemetry from the Pico bridge
-- Go net/http server serves the PWA dashboard; binds to `::` for dual-stack IPv6/IPv4
+- Go net/http server exposes the local operational API and binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
-- Alert notifications are forwarded to `WEBHOOK_URL` as JSON payloads
-- **Device configurator** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available, falls back to a terminal TUI on headless hosts (set `NO_GUI` to any non-empty value to force TUI)
+- Bridge-side alert delivery is configured directly on the Pico; the configurator does not send outbound webhook payloads
+- **Device configurator** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available, falls back to a terminal TUI on headless hosts (set `NO_GUI` to any non-empty value to force TUI); the runtime behaves as the configurator for the bridge and keeps the operational view in the local device UI
 
 ### Device Configurator
 
@@ -105,10 +105,10 @@ Both interfaces provide:
 
 ### PWA Dashboard
 
-The dashboard at `proxy/public/` is a fully installable Progressive Web App:
+The local dashboard at `proxy/public/` remains available for local inspection and setup:
 - **Offline support**: the app cache remains available for the dashboard shell while API requests bypass the cache
 - **Icons**: SVG source icon with PNG variants at 192×192 and 512×512 (standard + maskable), plus favicon and Apple touch icon
-- **Alert delivery**: the active browser notification flow is handled by `push-pwa/`, which registers VAPID subscriptions and delivers burner alerts to the operator via web-push
+- **Bridge ownership**: alert delivery is configured on the Pico side, so the proxy stays focused on configuration and telemetry state rather than outbound webhooks
 
 ### Running
 
@@ -135,15 +135,13 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 | `--configure` | Run the interactive device configurator TUI |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
 | `--notify-only` | Notification-only mode: no dashboard, local network only |
-| `--notify-test` | Send a test notification to `WEBHOOK_URL` and exit |
-| `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
 
 Defensive validation notes:
 - `HTTP_PORT` and `INGEST_TCP_PORT` must be integers in the range `1..65535`
-- `WEBHOOK_URL` must be a valid HTTP(S) URL when notification delivery is enabled
+- The bridge owns the outbound webhook target; the configurator never sends direct alert webhooks
 - Existing devices must be reprovisioned to use `INGEST_TCP_PORT` (`9000`) and
-  a per-device telemetry key because the legacy webhook API has been removed
+  a per-device telemetry key to authenticate signed telemetry
 
 ### IPv6-only environments
 
