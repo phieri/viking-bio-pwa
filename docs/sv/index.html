@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Viking Bio-integration för att övervaka och hantera telemetri från pelletsbrännare med en Pico-baserad brygga och lokal konfigurator." />
+    <title>Viking Bio Integration</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body id="top">
+    <header class="topbar">
+      <div class="container nav">
+        <a class="brand" href="#top" aria-label="Viking Bio home">
+          <span class="brand-mark">V</span>
+          <span>Viking Bio</span>
+        </a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a href="#overview">Översikt</a>
+<a href="#features">Funktioner</a>
+<a href="#architecture">Arkitektur</a>
+<a href="#project">Projekt</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero-grid">
+          <div>
+            <p class="eyebrow">Pellettbrännarmonitorering</p>
+            <h1>Gör en Viking Bio 20 till ett uppkopplat, observerbart värmesystem</h1>
+            <p class="lead">Det här projektet kombinerar en Raspberry Pi Pico-brygga, signerad telemetri och en lokal Go-konfigurator för att övervaka brännarens hälsa, följa driftstatus och förenkla installation i hemmet eller på fastigheten.</p>
+            <div class="cta-row">
+              <a class="button primary" href="#overview">Utforska projektet</a>
+              <a
+                class="button secondary"
+                href="https://github.com/phieri/viking-bio-pwa"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visa källkod på GitHub (öppnas i ny flik)"
+              >
+                Visa källkod
+              </a>
+            </div>
+          </div>
+          <div class="hero-panel">
+            <div class="panel-card">
+              <span class="panel-label">Telemetriflöde</span>
+              <div class="flow-block">
+                <span>Viking Bio 20</span>
+                <span class="arrow">→</span>
+                <span>Pico W</span>
+                <span class="arrow">→</span>
+                <span>Lokal konfigurator</span>
+              </div>
+              <ul>
+                <li>UART-avläsning från brännaren</li>
+                <li>Signerad TCP-ström till lokal runtime</li>
+                <li>Lokal konfigurations- och statusvy</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="overview" class="section">
+        <div class="container">
+          <div class="section-heading">
+            <p class="eyebrow">Översikt</p>
+            <h2>Byggt för tillförlitlighet, överblick och lokalt ägarskap</h2>
+          </div>
+          <div class="cards three-up">
+            <article class="info-card">
+              <h3>Tillförlitlig brygga</h3>
+              <p>Ett Pico W / Pico 2 W-firmware läser brännarens UART-flöde, lagrar Wi‑Fi- och serverinställningar lokalt och vidarebefordrar signerad telemetri via en stabil TCP-anslutning.</p>
+            </article>
+            <article class="info-card">
+              <h3>Lokal styrplan</h3>
+              <p>Go-konfiguratorn sköter onboarding, bryggstatus och lokal runtime utan att förlita sig på en extern tjänst eller molnapp.</p>
+            </article>
+            <article class="info-card">
+              <h3>Driftsinsikt</h3>
+              <p>Projektet är designat för att visa brännarens tillstånd och fel i ett format som enkelt kan inspekteras via en lokal dashboard eller den lokala konfigurationsvyn.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="section alt">
+        <div class="container">
+          <div class="section-heading narrow">
+            <p class="eyebrow">Funktioner</p>
+            <h2>Allt som behövs för att göra en brännare smartare utan att förlora kontrollen</h2>
+          </div>
+
+          <div class="feature-list">
+            <div class="feature-item">
+              <h3>Signerad telemetri</h3>
+              <p>Varje meddelande autentiseras med en enhetsnyckel så att den lokala servern kan verifiera inkommande data.</p>
+            </div>
+            <div class="feature-item">
+              <h3>USB-installation</h3>
+              <p>Bryggkonfiguration kan ske över seriell port med GUI eller terminalbaserad konfigurator, vilket gör installationen enkel.</p>
+            </div>
+            <div class="feature-item">
+              <h3>Lokal nätverks-first design</h3>
+              <p>Runtime är byggt kring en lokal, enhetscentrerad design i stället för en externt hostad dashboard.</p>
+            </div>
+            <div class="feature-item">
+              <h3>mDNS-upptäckt</h3>
+              <p>Bryggan lyssnar efter mDNS-meddelanden från konfiguratorn, vilket möjliggör automatisk tjänsteupptäckt i ett hemnät utan manuell konfiguration.</p>
+            </div>
+            <div class="feature-item">
+              <h3>Beständig status</h3>
+              <p>Wi‑Fi-uppgifter, serverinställningar och per-enhetsidentifiering sparas i lokal flash-baserad lagring.</p>
+            </div>
+            <div class="feature-item">
+              <h3>Öppen hårdvaruväg</h3>
+              <p>Repo:t är avsiktligt transparent: firmware, protokollparsering, runtime och konfigurationsverktyg finns samlat.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="architecture" class="section">
+        <div class="container architecture-grid">
+          <div>
+            <p class="eyebrow">Arkitektur</p>
+            <h2>Enkelt lagerflöde, tydlig ansvarsfördelning och lokal-first design</h2>
+            <p>Systemet separerar hårdvarunära bryggan från lokal övervakning och konfiguration. Pico läser brännardata och strömmar signerad telemetri till en Go-process i samma lokala nätverk. Den processen äger användargränssnitt, tjänster och konfigurationsflöde medan bryggan fokuserar på mätning och leverans.</p>
+          </div>
+          <div class="stack">
+            <div class="stack-item"><span>1</span><span>Seriedata från brännaren</span></div>
+            <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W firmware</span></div>
+            <div class="stack-item"><span>3</span><span>Signerad TCP-ingest</span></div>
+            <div class="stack-item"><span>4</span><span>Go runtime + lokala API:er</span></div>
+            <div class="stack-item"><span>5</span><span>Operatörspanel / konfigurationsgränssnitt</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="project" class="section alt" aria-labelledby="project-title">
+        <div class="container">
+          <div class="project-panel">
+            <div>
+              <p class="eyebrow">Projekt</p>
+              <h2 id="project-title">Byggt för ägare, installatörer och skapare som vill ha en praktisk brännarmonitor</h2>
+            </div>
+            <div class="project-copy">
+              <p>Det här repo:t är ett komplett integrationsprojekt för Viking Bio 20-pelletbrännaren: firmware, protokollanalys, lokal runtime och webb-baserat statusgränssnitt för konfiguration. Det är designat för att vara lätt att förstå, utöka och köra på liten lokal utrustning i hemmet.</p>
+              <p>Fokus ligger på ärlig driftkontroll: håll data lokalt, verifiera enheten i kanten och erbjuda ett pålitligt konfigurationsflöde utan att vara beroende av en hostad produkt eller molnbackend.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-row">
+        <span>Viking Bio Integration</span>
+        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="Visa källkod på GitHub (öppnas i ny flik)">GitHub</a>
+      </div>
+    </footer>
+  </body>
+</html>
