@@ -22,7 +22,7 @@ Then open `http://localhost:8000/` in a browser and click “Generate client JSO
 
 ## Manual subscription file
 
-The generated JSON is meant to be pasted into `storage/subscriptions.json` as an array of objects, for example:
+The generated JSON is meant to be pasted into `storage/subscriptions.json` as an array of objects. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
 
 ```json
 [
