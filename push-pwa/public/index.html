@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+    <title>Viking Bio Alerts</title>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="card">
+        <p class="eyebrow">Viking Bio</p>
+        <h1>Burner alerts</h1>
+        <p class="lead">Enable push notifications to receive burner status changes on your phone or tablet.</p>
+
+        <div id="install-banner" class="install-banner hidden" aria-live="polite">
+          <strong>Install this app</strong>
+          <p>On iPhone or iPad, tap the Share button and choose “Add to Home Screen”.</p>
+          <button id="install-button" type="button">Install app</button>
+        </div>
+
+        <div class="actions">
+          <button id="enable-push" type="button" class="primary">Enable notifications</button>
+          <button id="send-test" type="button" class="secondary">Send test alert</button>
+        </div>
+
+        <div id="status" class="status" aria-live="polite">Waiting for permission.</div>
+      </div>
+    </main>
+  </body>
+</html>

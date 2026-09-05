@@ -34,6 +34,12 @@ proxy/data/server.crt
 proxy/data/server.key
 proxy/.env
 
+# PHP push app runtime data
+push-pwa/vendor/
+push-pwa/.env
+push-pwa/storage/*.json
+push-pwa/storage/*.yml
+
 # IDE files
 .vscode/
 .idea/
