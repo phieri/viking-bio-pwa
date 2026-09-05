@@ -4,15 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	iofs "io/fs"
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
-	proxy "github.com/phieri/viking-bio-pwa/proxy"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
 	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
@@ -138,8 +134,6 @@ type Server struct {
 	httpSrv    *http.Server
 	ingestSrv  *tcpIngestServer
 	notifyOnly bool
-	// OnReady is called with the dashboard URL once the server is accepting connections.
-	OnReady func(url string)
 }
 
 // New creates a Server. When notifyOnly is true the server skips the dashboard and
@@ -152,23 +146,6 @@ func New(cfg *config.Config, store *storage.Store, notifyOnly bool) *Server {
 		ingestSrv:  newTCPIngestServer(cfg, store, h),
 		notifyOnly: notifyOnly,
 	}
-}
-
-// staticFS returns the filesystem to serve static files from.
-func staticFS() http.FileSystem {
-	candidates := []string{
-		"public",
-		filepath.Join(filepath.Dir(os.Args[0]), "public"),
-	}
-	for _, p := range candidates {
-		if info, err := os.Stat(p); err == nil && info.IsDir() {
-			log.Printf("server: serving static files from disk: %s", p)
-			return http.Dir(p)
-		}
-	}
-	log.Printf("server: serving static files from embedded FS")
-	sub, _ := iofs.Sub(proxy.PublicFS, "public")
-	return http.FS(sub)
 }
 
 type apiRoute struct {
@@ -197,9 +174,9 @@ func (s *Server) registerAPIRoutes(mux *http.ServeMux) {
 func (s *Server) buildMux() http.Handler {
 	mux := http.NewServeMux()
 	s.registerAPIRoutes(mux)
-	if !s.notifyOnly {
-		mux.Handle("/", http.FileServer(staticFS()))
-	}
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+	})
 	var handler http.Handler = mux
 	if s.notifyOnly {
 		log.Println("server: notify-only mode – all routes restricted to local network")
@@ -261,22 +238,6 @@ func shutdownOnContext(ctx context.Context, servers ...*http.Server) {
 	}()
 }
 
-// notifyReady calls OnReady in a goroutine if it is set.
-// A recover() guard prevents a misbehaving callback from crashing the server.
-func (s *Server) notifyReady(url string) {
-	if s.OnReady == nil {
-		return
-	}
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("server: OnReady panic: %v", r)
-			}
-		}()
-		s.OnReady(url)
-	}()
-}
-
 func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
 	srv := &http.Server{Addr: addr, Handler: mux}
 	s.httpSrv = srv
@@ -286,7 +247,6 @@ func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) e
 	}
 	log.Printf("Viking Bio Proxy listening on http://%s", addr)
 	shutdownOnContext(ctx, srv)
-	s.notifyReady(fmt.Sprintf("http://localhost:%d", s.cfg.HTTPPort))
 	return srv.Serve(ln)
 }
 
@@ -303,6 +263,5 @@ func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr stri
 	}
 	log.Printf("Viking Bio Proxy listening on https://%s (manual TLS)", addr)
 	shutdownOnContext(ctx, srv)
-	s.notifyReady(fmt.Sprintf("https://localhost:%d", s.cfg.HTTPPort))
 	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
 }
