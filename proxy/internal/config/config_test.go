@@ -14,6 +14,8 @@ var configEnvKeys = []string{
 	"TLS_CERT_PATH",
 	"TLS_KEY_PATH",
 	"WEBHOOK_URL",
+	"NOTIFY_WEBHOOK_URL",
+	"NOTIFICATION_WEBHOOK_URL",
 	"MDNS_NAME",
 	"MDNS_DISABLE",
 	"PICO_SERIAL_PORT",
@@ -61,12 +63,12 @@ func TestParsePort(t *testing.T) {
 func TestParseBool(t *testing.T) {
 	t.Parallel()
 
-	for _, input := range []string{"1", "true", "TRUE", "TrUe"} {
+	for _, input := range []string{"1", "true", "TRUE", "TrUe", "yes", "YES", "on", "enabled"} {
 		if !parseBool(input) {
 			t.Fatalf("expected %q to parse as true", input)
 		}
 	}
-	for _, input := range []string{"", "0", "false", "yes"} {
+	for _, input := range []string{"", "0", "false", "FALSE", "no", "off", "disabled"} {
 		if parseBool(input) {
 			t.Fatalf("expected %q to parse as false", input)
 		}
@@ -170,6 +172,30 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.CleaningReminderWeekday != time.Monday || cfg.CleaningReminderHour != 8 || cfg.CleaningReminderMinute != 30 {
 		t.Fatalf("unexpected reminder schedule overrides: %+v", cfg)
+	}
+}
+
+func TestLoadUsesWebhookAliases(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("NOTIFY_WEBHOOK_URL", "https://example.com/notify")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.WebhookURL != "https://example.com/notify" {
+		t.Fatalf("expected alt alias to populate WebhookURL, got %q", cfg.WebhookURL)
+	}
+
+	clearConfigEnv(t)
+	t.Setenv("NOTIFICATION_WEBHOOK_URL", "https://example.com/notification")
+
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.WebhookURL != "https://example.com/notification" {
+		t.Fatalf("expected compatibility alias to populate WebhookURL, got %q", cfg.WebhookURL)
 	}
 }
 
