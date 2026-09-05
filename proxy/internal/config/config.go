@@ -17,14 +17,6 @@ type Config struct {
 	IngestTCPTLS      bool
 	TLSCertPath       string
 	TLSKeyPath        string
-	ACMEDomain        string
-	ACMEChallenge     string
-	ACMEDNSProvider   string
-	ACMEEmail         string
-	ACMEStaging       bool
-	ACMECertDir       string
-	ACMEHTTPPort      int
-	VAPIDContactEmail string
 	WebhookURL        string
 	MDNSName          string
 	MDNSDisable       bool
@@ -44,12 +36,6 @@ type Config struct {
 	// Telemetry history endpoint
 	TelemetryHistoryEnabled bool
 }
-
-const (
-	ACMEChallengeHTTP01       = "http-01"
-	ACMEChallengeDNS01        = "dns-01"
-	ACMEDNSProviderCloudflare = "cloudflare"
-)
 
 func parsePort(name, val string, def int) (int, error) {
 	if val == "" {
@@ -166,45 +152,8 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	acmeHTTPPort, err := parsePort("ACME_HTTP_PORT", os.Getenv("ACME_HTTP_PORT"), 80)
-	if err != nil {
-		return nil, err
-	}
-
 	dataDir := DefaultDataDir()
 
-	acmeCertDir := os.Getenv("ACME_CERT_DIR")
-	if acmeCertDir == "" {
-		acmeCertDir = dataDir
-	}
-	acmeDomain := strings.TrimSpace(os.Getenv("ACME_DOMAIN"))
-	acmeChallenge := strings.ToLower(strings.TrimSpace(os.Getenv("ACME_CHALLENGE")))
-	if acmeChallenge == "" {
-		acmeChallenge = ACMEChallengeHTTP01
-	}
-	acmeDNSProvider := strings.ToLower(strings.TrimSpace(os.Getenv("ACME_DNS_PROVIDER")))
-	if acmeDomain == "" {
-		if os.Getenv("ACME_CHALLENGE") != "" || os.Getenv("ACME_DNS_PROVIDER") != "" {
-			return nil, fmt.Errorf("ACME_DOMAIN must be set when ACME_CHALLENGE or ACME_DNS_PROVIDER is configured")
-		}
-	} else {
-		switch acmeChallenge {
-		case ACMEChallengeHTTP01, ACMEChallengeDNS01:
-		default:
-			return nil, fmt.Errorf("ACME_CHALLENGE must be %q or %q, got %q", ACMEChallengeHTTP01, ACMEChallengeDNS01, acmeChallenge)
-		}
-		if acmeChallenge == ACMEChallengeDNS01 && acmeDNSProvider == "" {
-			return nil, fmt.Errorf("ACME_DNS_PROVIDER must be set when ACME_CHALLENGE=%s", ACMEChallengeDNS01)
-		}
-		if acmeChallenge == ACMEChallengeHTTP01 && acmeDNSProvider != "" {
-			return nil, fmt.Errorf("ACME_DNS_PROVIDER is only used with ACME_CHALLENGE=%s", ACMEChallengeDNS01)
-		}
-	}
-
-	vapidContact := os.Getenv("VAPID_CONTACT_EMAIL")
-	if vapidContact == "" {
-		vapidContact = "admin@viking-bio.local"
-	}
 	webhookURL := strings.TrimSpace(os.Getenv("WEBHOOK_URL"))
 	if webhookURL == "" {
 		webhookURL = strings.TrimSpace(os.Getenv("NOTIFY_WEBHOOK_URL"))
@@ -246,14 +195,6 @@ func Load() (*Config, error) {
 		IngestTCPTLS:      parseBool(os.Getenv("INGEST_TCP_TLS")),
 		TLSCertPath:       os.Getenv("TLS_CERT_PATH"),
 		TLSKeyPath:        os.Getenv("TLS_KEY_PATH"),
-		ACMEDomain:        acmeDomain,
-		ACMEChallenge:     acmeChallenge,
-		ACMEDNSProvider:   acmeDNSProvider,
-		ACMEEmail:         os.Getenv("ACME_EMAIL"),
-		ACMEStaging:       parseBool(os.Getenv("ACME_STAGING")),
-		ACMECertDir:       acmeCertDir,
-		ACMEHTTPPort:      acmeHTTPPort,
-		VAPIDContactEmail: vapidContact,
 		WebhookURL:        webhookURL,
 		MDNSName:          mdnsName,
 		MDNSDisable:       parseBool(os.Getenv("MDNS_DISABLE")),

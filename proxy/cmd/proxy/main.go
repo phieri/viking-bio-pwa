@@ -32,7 +32,7 @@ func main() {
 		serialPort    = flag.String("port", "", "serial port for --configure (e.g. /dev/ttyACM0)")
 		noOpenBrowser = flag.Bool("no-open-browser", false, "do not open the browser automatically on startup")
 		notifyTest    = flag.Bool("notify-test", false, "send a test webhook notification and exit")
-		notifyOnly    = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, no automatic Let's Encrypt, local network connections only")
+		notifyOnly    = flag.Bool("notify-only", false, "run in notification-only mode: no dashboard, local network connections only")
 	)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Viking Bio Proxy v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
@@ -117,7 +117,7 @@ func runServer(noOpenBrowser bool, notifyOnly bool) {
 	}
 
 	// Create server
-	srv := server.New(cfg, nil, store, notifyOnly)
+	srv := server.New(cfg, store, notifyOnly)
 
 	// Open the browser automatically unless disabled by flag or CI environment.
 	if !noOpenBrowser && !notifyOnly && os.Getenv("CI") == "" {

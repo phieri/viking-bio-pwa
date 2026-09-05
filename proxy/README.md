@@ -46,12 +46,6 @@ make run
 | `INGEST_TCP_TLS` | `false` | Require TLS on the ingest listener (uses `TLS_CERT_PATH`/`TLS_KEY_PATH`) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
-| `ACME_DOMAIN` | _(empty)_ | Domain name to manage with Let's Encrypt |
-| `ACME_CHALLENGE` | `http-01` | Let's Encrypt challenge type (`http-01` or `dns-01`) |
-| `ACME_EMAIL` | _(empty)_ | Email for Let's Encrypt registration |
-| `ACME_STAGING` | `false` | Use Let's Encrypt staging (`1` or `true`) |
-| `ACME_CERT_DIR` | `<data_dir>` | Directory for ACME certificate cache |
-| `ACME_HTTP_PORT` | `80` | Port for HTTP-01 challenge server |
 | `WEBHOOK_URL` | _(empty)_ | Webhook endpoint for burner alert notifications, receives JSON notification payloads |
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
@@ -88,10 +82,8 @@ messages instead of sending them upstream.
 
 ## Notification-Only Mode
 
-Run the proxy in a headless configuration without the PWA dashboard or automatic
-Let's Encrypt
-certificate management. All HTTP routes are restricted to loopback and private-network
-addresses:
+Run the proxy in a headless configuration without the PWA dashboard. All HTTP routes
+are restricted to loopback and private-network addresses:
 
 ```bash
 ./viking-bio-proxy --notify-only
@@ -100,31 +92,14 @@ addresses:
 This is useful when the proxy runs on a local-only host and another service (e.g. a
 reverse proxy) handles public HTTPS termination.
 
-## TLS / ACME
+## TLS / HTTPS
 
-### Manual TLS (Let's Encrypt or custom cert)
-
-```env
-TLS_CERT_PATH=/etc/letsencrypt/live/example.com/fullchain.pem
-TLS_KEY_PATH=/etc/letsencrypt/live/example.com/privkey.pem
-```
-
-### Automatic Let's Encrypt
-
-Set `ACME_DOMAIN` to the public hostname you want the proxy to serve and choose
-an ACME challenge type:
-
-#### HTTP-01
-
-Port 80 must be reachable from the internet for the selected domain.
+### Manual TLS
 
 ```env
-ACME_DOMAIN=burner.example.com
-ACME_CHALLENGE=http-01
-ACME_EMAIL=you@example.com
+TLS_CERT_PATH=/etc/ssl/certs/server.crt
+TLS_KEY_PATH=/etc/ssl/private/server.key
 ```
-
-Use `ACME_STAGING=1` while testing to avoid rate limits.
 
 ## Device Configurator
 

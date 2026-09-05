@@ -132,7 +132,7 @@ Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured)
 |------|-------------|
 | `--configure` | Run the interactive device configurator TUI |
 | `--port <port>` | Serial port for `--configure` (e.g. `/dev/ttyACM0`, `COM3`) |
-| `--notify-only` | Notification-only mode: no dashboard, no automatic Let's Encrypt, local network only |
+| `--notify-only` | Notification-only mode: no dashboard, local network only |
 | `--notify-test` | Send a test notification to `WEBHOOK_URL` and exit |
 | `--no-open-browser` | Do not open the browser automatically on startup |
 | `--version` | Print version and exit |
@@ -161,7 +161,7 @@ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
 TLS_CERT_PATH=server.crt TLS_KEY_PATH=server.key ./viking-bio-proxy
 ```
 
-For production use a certificate from Let's Encrypt (requires a public IPv6 AAAA record) or a private CA.
+For production use a certificate from a private CA or a public certificate authority that matches your deployment.
 
 ### Notification Types
 

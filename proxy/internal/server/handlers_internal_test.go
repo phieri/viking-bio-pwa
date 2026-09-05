@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 func newInternalTestHandlers(t *testing.T) *Handlers {
@@ -21,21 +19,18 @@ func newInternalTestHandlers(t *testing.T) *Handlers {
 
 func newInternalTestHandlersWithConfig(t *testing.T, cfg *config.Config) *Handlers {
 	t.Helper()
-	dir := t.TempDir()
-	store, err := storage.NewStore(dir)
-	if err != nil {
-		t.Fatalf("storage: %v", err)
-	}
-	mgr, err := push.New(dir, "admin@test.local", store)
-	if err != nil {
-		t.Fatalf("push: %v", err)
-	}
-	return NewHandlers(mgr, cfg)
+	return NewHandlers(cfg)
 }
 
 func testBoolPtr(v bool) *bool { return &v }
 
 func testFloat64Ptr(v float64) *float64 { return &v }
+
+type fakeEndpointBody struct {
+	Endpoint string `json:"endpoint"`
+}
+
+func (b *fakeEndpointBody) endpoint() string { return b.Endpoint }
 
 func TestDecodeMachineData(t *testing.T) {
 	t.Parallel()
@@ -60,7 +55,7 @@ func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
-	var body sendTestPushRequest
+	var body fakeEndpointBody
 	if decodeJSONBodyWithEndpoint(rr, req, &body) {
 		t.Fatal("expected empty endpoint to be rejected")
 	}

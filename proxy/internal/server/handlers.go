@@ -13,21 +13,18 @@ import (
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/push"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
 )
 
 // Handlers bundles all HTTP handler dependencies.
 type Handlers struct {
 	state        *State
-	pushMgr      *push.Manager
 	notifyByType func(string, string, string)
 	config       *config.Config
 }
 
 // NewHandlers creates a new Handlers instance. cfg may be nil to disable the
 // energy price card (used in tests).
-func NewHandlers(pushMgr *push.Manager, cfg *config.Config) *Handlers {
+func NewHandlers(cfg *config.Config) *Handlers {
 	state := &State{}
 	state.setReminderSchedule(cfg)
 	h := &Handlers{
@@ -142,28 +139,6 @@ func SendWebhookNotification(webhookURL, typ, title, body string, sentAt time.Ti
 	return nil
 }
 
-type sendTestPushRequest struct {
-	Endpoint string `json:"endpoint"`
-	Priority string `json:"priority"`
-}
-
-func (r *sendTestPushRequest) endpoint() string { return r.Endpoint }
-
-type subscribeRequest struct {
-	Endpoint string        `json:"endpoint"`
-	P256DH   string        `json:"p256dh"`
-	Auth     string        `json:"auth"`
-	Prefs    storage.Prefs `json:"prefs"`
-}
-
-func (r *subscribeRequest) endpoint() string { return r.Endpoint }
-
-type unsubscribeRequest struct {
-	Endpoint string `json:"endpoint"`
-}
-
-func (r *unsubscribeRequest) endpoint() string { return r.Endpoint }
-
 // HandleGetData serves GET /api/data.
 func (h *Handlers) HandleGetData(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.snapshot())
@@ -186,21 +161,6 @@ func (h *Handlers) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.state.telemetryHistoryWindow())
 }
 
-// HandleGetVapidKey preserves a compatibility no-op for removed push APIs.
-func (h *Handlers) HandleGetVapidKey(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
-}
-
-// HandleGetSubscribers preserves a compatibility no-op for removed push APIs.
-func (h *Handlers) HandleGetSubscribers(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
-}
-
-// HandleSendTestPush preserves a compatibility no-op for removed push APIs.
-func (h *Handlers) HandleSendTestPush(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
-}
-
 func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machineDataUpdateResult {
 	return h.state.applyMachineData(body, now)
 }
@@ -218,16 +178,6 @@ func (h *Handlers) processMachineData(body machineDataBody, source string, now t
 	}
 	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
 	h.triggerNotifications(result)
-}
-
-// HandleSubscribe serves POST /api/subscribe.
-func (h *Handlers) HandleSubscribe(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
-}
-
-// HandleUnsubscribe serves POST /api/unsubscribe.
-func (h *Handlers) HandleUnsubscribe(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusNotFound, map[string]string{"error": "notification webhooks are configured instead of browser push"})
 }
 
 // energyPriceResponse is the JSON payload for GET /api/energy-price.
