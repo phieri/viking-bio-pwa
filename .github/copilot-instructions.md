@@ -9,7 +9,7 @@ There are four active components:
    over UART, stores configuration in LittleFS, discovers the configurator over mDNS, and
    streams signed telemetry over a persistent TCP ingest connection.
 2. **`pico-bridge/libvikingbio/`** - shared protocol parser library used by the bridge firmware.
-3. **`proxy/`** - Go configurator/runtime. It receives signed telemetry, manages the Pico
+3. **`configurator/`** - Go configurator/runtime. It receives signed telemetry, manages the Pico
    configuration flow, and exposes the local HTTP API used by automation and local tooling.
    It does not serve a dashboard anymore.
 4. **`push-pwa/`** - browser push notification frontend. It registers browser subscriptions,
@@ -65,8 +65,8 @@ that proves the relevant behaviour:
 │       ├── lwipopts.h               # lwIP options for IPv6 + TLS client
 │       └── mbedtls_config.h         # mbedTLS config used by firmware
 ├── pico-bridge/libvikingbio/        # Shared protocol parser library
-├── proxy/
-│   ├── cmd/proxy/main.go            # Entry point and .env loading
+├── configurator/
+│   ├── cmd/configurator/main.go            # Entry point and .env loading
 │   ├── internal/
 │   │   ├── config/                  # Environment parsing and validation
 │   │   ├── configure/               # Fyne GUI for local bridge setup
@@ -106,7 +106,7 @@ Go configurator (proxy)
 ├── local API (HTTP/HTTPS) for operational state, metrics, and config helpers
 ├── USB provisioning flow for Wi‑Fi/server/device key setup
 ├── optional TLS and mDNS advertisement
-└── no dashboard endpoint is served from the proxy
+└── no dashboard endpoint is served from the configurator
 
 Browser push app (push-pwa)
 ├── registers VAPID subscriptions in the browser
@@ -116,12 +116,11 @@ Browser push app (push-pwa)
 
 ### Proxy details
 
-- Main entry point is `proxy/cmd/proxy/main.go`.
-- HTTP routes are registered in `proxy/internal/server/server.go`.
-- Request handling and shared runtime state live in `proxy/internal/server/handlers.go`.
+- Main entry point is `configurator/cmd/configurator/main.go`.
+- HTTP routes are registered in `configurator/internal/server/server.go`.
+- Request handling and shared runtime state live in `configurator/internal/server/handlers.go`.
 - The proxy intentionally does not serve a dashboard at `/`; the root route returns `404`.
-- The proxy is a headless service by default. `--notify-only` restricts access to local-network
-  addresses and disables dashboard-style routes.
+- The configurator is a headless service by default and does not expose dashboard-style routes.
 - The mDNS advertises the proxy as `_viking-bio._tcp` with TXT `path=/api/data` from the
   `mdns` package.
 - `MDNS_DISABLE=1` disables mDNS advertisement and is used in CI smoke-test runs.
@@ -131,9 +130,9 @@ Browser push app (push-pwa)
 ### Push PWA details
 
 - `push-pwa/` is the browser-facing subscription and delivery app for VAPID/web-push alerts.
-- It is a separate runtime from the Go proxy and not a `proxy/public` dashboard.
+- It is a separate runtime from the Go proxy and not a `configurator/public` dashboard.
 - Changes to browser subscription logic, UI, or notification payload handling belong under
-  `push-pwa/` rather than `proxy/internal/server`.
+  `push-pwa/` rather than `configurator/internal/server`.
 
 ### Firmware details
 
@@ -154,7 +153,7 @@ Browser push app (push-pwa)
 
 ### Proxy
 
-The proxy is a Go module in `proxy/` (`module github.com/phieri/viking-bio-pwa/proxy`) and
+The proxy is a Go module in `configurator/` (`module github.com/phieri/viking-bio-pwa/configurator`) and
 currently targets Go 1.26. The CI workflow in `.github/workflows/build-proxy.yml` is the
 source of truth for proxy validation.
 
@@ -165,13 +164,13 @@ sudo apt-get update -q
 sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
 ```
 
-From `proxy/`, use these validation commands:
+From `configurator/`, use these validation commands:
 
 ```bash
 go vet ./...
 go test ./...
 CGO_ENABLED=0 go test ./...
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-configurator ./cmd/proxy
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-configurator ./cmd/configurator
 ```
 
 Useful shortcuts:
@@ -269,30 +268,30 @@ notification config.
 
 ### Proxy HTTP/API changes
 
-- Add or update routes in `proxy/internal/server/server.go`.
-- Implement logic in `proxy/internal/server/handlers.go`.
-- Update or add tests in `proxy/internal/server/*_test.go`.
+- Add or update routes in `configurator/internal/server/server.go`.
+- Implement logic in `configurator/internal/server/handlers.go`.
+- Update or add tests in `configurator/internal/server/*_test.go`.
 
 ### Proxy configuration changes
 
-- Update parsing and validation in `proxy/internal/config/config.go`.
-- Keep `proxy/README.md` aligned with any new env vars or runtime behaviour.
+- Update parsing and validation in `configurator/internal/config/config.go`.
+- Keep `configurator/README.md` aligned with any new env vars or runtime behaviour.
 
 ### Device configurator changes
 
 - The local provisioning GUI is launched from the desktop/OS app entry.
-- GUI (Fyne) lives in `proxy/internal/configure/gui.go`.
+- GUI (Fyne) lives in `configurator/internal/configure/gui.go`.
 - `RunGUI(bridge, store)` is called when a graphical display is available (X11/Wayland on
   Linux, always on Windows/macOS).
 - The Fyne GUI requires native development libraries at compile time on Linux:
   `libgl1-mesa-dev xorg-dev libasound2-dev`.
-- Serial transport and status parsing live in `proxy/internal/serial/bridge.go`.
+- Serial transport and status parsing live in `configurator/internal/serial/bridge.go`.
 
 ### Push PWA changes
 
 - Browser UI, service worker, and VAPID subscription logic live under `push-pwa/`.
 - This is the correct place for browser push-related logic and UI changes.
-- Do not confuse it with `proxy/internal/server` or any dashboard assets under `proxy/`.
+- Do not confuse it with `configurator/internal/server` or any dashboard assets under `configurator/`.
 
 ### Firmware config or networking changes
 
@@ -308,17 +307,16 @@ notification config.
 - The proxy binds to `[::]:<port>` and prefers IPv6.
 - The proxy does not serve a dashboard at `/`; the server intentionally returns `404` for
   browser-root requests.
-- The proxy accepts only local-network access in `--notify-only` mode.
 - For the Pico USB `SERVER=` command, use the bare IPv6 address without brackets.
 - `MDNS_DISABLE=1` disables the proxy mDNS advertisement and is used by CI smoke tests.
 - Browser notifications are handled by the separate `push-pwa/` app, not by the Go proxy.
-- `proxy/public` and related dashboard assets are not the active user-facing app; do not treat
+- `configurator/public` and related dashboard assets are not the active user-facing app; do not treat
   them as the current dashboard flow unless you are working in a legacy branch.
 
 ## Common pitfalls
 
 1. **Do not assume the proxy is a dashboard service.** The active runtime is headless and API-only.
-2. **Do not treat `push-pwa/` as part of `proxy/`.** It is a separate browser push app and has its
+2. **Do not treat `push-pwa/` as part of `configurator/`.** It is a separate browser push app and has its
    own workflow.
 3. **Do not trust stale docs blindly.** Older text may still mention a dashboard, Node.js, or the
    legacy webhook route `/api/machine-data`.
@@ -353,14 +351,14 @@ in restricted environments.
 
 ### 3. Stale docs can mislead the agent about the current runtime
 
-Older repo text may still describe a dashboard in `proxy/`, legacy browser-push logic in the
+Older repo text may still describe a dashboard in `configurator/`, legacy browser-push logic in the
 proxy, or webhook delivery owned by the configurator.
 
 **Workaround:**
 
-- Verify behaviour in `proxy/cmd/proxy/main.go`, `proxy/internal/server/server.go`, and the
+- Verify behaviour in `configurator/cmd/configurator/main.go`, `configurator/internal/server/server.go`, and the
   current workflow files before patching.
-- Treat `push-pwa/` as the browser push app and `proxy/` as the headless Go runtime.
+- Treat `push-pwa/` as the browser push app and `configurator/` as the headless Go runtime.
 
 ### 4. Pico auto-discovery may appear broken when the proxy was already running
 

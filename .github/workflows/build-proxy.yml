@@ -4,12 +4,12 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'proxy/**'
+      - 'configurator/**'
       - '.github/workflows/build-proxy.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'proxy/**'
+      - 'configurator/**'
       - '.github/workflows/build-proxy.yml'
   workflow_dispatch:
 
@@ -27,31 +27,31 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v7
       with:
-        go-version-file: proxy/go.mod
-        cache-dependency-path: proxy/go.sum
+        go-version-file: configurator/go.mod
+        cache-dependency-path: configurator/go.sum
 
     - name: Install Fyne build dependencies
       run: sudo apt-get update -q && sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
 
     - name: Install golangci-lint
-      working-directory: proxy
+      working-directory: configurator
       run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
     - name: golangci-lint
-      working-directory: proxy
+      working-directory: configurator
       run: CGO_ENABLED=0 golangci-lint run ./...
 
     - name: go vet
-      working-directory: proxy
+      working-directory: configurator
       run: CGO_ENABLED=0 go vet ./...
 
     - name: go test
-      working-directory: proxy
+      working-directory: configurator
       run: CGO_ENABLED=0 go test ./...
 
     - name: Build binary (linux/amd64)
-      working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-configurator ./cmd/proxy
+      working-directory: configurator
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-configurator ./cmd/configurator
 
     - name: "Smoke-test: server starts and API responds"
       run: |
@@ -66,7 +66,7 @@ jobs:
           }
         }
         JSON
-        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 proxy/dist/linux_amd64/viking-bio-configurator &
+        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 configurator/dist/linux_amd64/viking-bio-configurator &
         SERVER_PID=$!
         sleep 2
         curl -sf http://localhost:3000/api/data
@@ -112,19 +112,19 @@ jobs:
         kill "$SERVER_PID" || true
 
     - name: Cross-compile linux/arm64
-      working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/linux_arm64/viking-bio-configurator ./cmd/proxy
+      working-directory: configurator
+      run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/linux_arm64/viking-bio-configurator ./cmd/configurator
 
     - name: Cross-compile windows/amd64
-      working-directory: proxy
-      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/windows_amd64/viking-bio-configurator.exe ./cmd/proxy
+      working-directory: configurator
+      run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/windows_amd64/viking-bio-configurator.exe ./cmd/configurator
 
     - name: Upload configurator binaries linux-amd64
       uses: actions/upload-artifact@v7
       with:
         name: viking-bio-configurator-linux-amd64
         path: |
-          proxy/dist/linux_amd64/viking-bio-configurator
+          configurator/dist/linux_amd64/viking-bio-configurator
         retention-days: 30
 
     - name: Upload configurator binaries linux-arm64
@@ -132,7 +132,7 @@ jobs:
       with:
         name: viking-bio-configurator-linux-arm64
         path: |
-          proxy/dist/linux_arm64/viking-bio-configurator
+          configurator/dist/linux_arm64/viking-bio-configurator
         retention-days: 30
 
     - name: Upload configurator binaries win-amd64
@@ -140,5 +140,5 @@ jobs:
       with:
         name: viking-bio-configurator-win-amd64
         path: |
-          proxy/dist/windows_amd64/viking-bio-configurator.exe
+          configurator/dist/windows_amd64/viking-bio-configurator.exe
         retention-days: 30

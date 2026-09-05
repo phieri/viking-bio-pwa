@@ -1,15 +1,15 @@
 # Viking Bio Configurator (Go)
 
 Go implementation of the Viking Bio pellet-burner configurator. It receives
-signed telemetry from the Pico W bridge, serves the local operational dashboard,
-and manages the bridge configuration flow without sending outbound webhook
+signed telemetry from the Pico W bridge, serves the local HTTP API, and
+manages the bridge configuration flow without sending outbound webhook
 payloads itself.
 
 ## Build
 
 ```bash
-cd proxy
-go build -o viking-bio-configurator ./cmd/proxy
+cd configurator
+go build -o viking-bio-configurator ./cmd/configurator
 # or
 make build
 ```
@@ -18,7 +18,6 @@ make build
 
 | Flag | Description |
 |------|-------------|
-| `--notify-only` | Notification-only mode: no dashboard, local network only |
 | `--version` | Print version and exit |
 
 ## Run
@@ -74,18 +73,6 @@ CLEANING_REMINDER_TIME=07:00
 
 The bridge owns outbound webhook delivery during runtime; the configurator stays
 responsible for provisioning the Pico and serving the local operational UI.
-
-## Notification-Only Mode
-
-Run the configurator in a headless configuration without the PWA dashboard. All HTTP routes
-are restricted to loopback and private-network addresses:
-
-```bash
-./viking-bio-configurator --notify-only
-```
-
-This is useful when the configurator runs on a local-only host and another service (e.g. a
-reverse proxy) handles public HTTPS termination.
 
 ## TLS / HTTPS
 

@@ -2,15 +2,14 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"time"
 
-	"github.com/phieri/viking-bio-pwa/proxy/internal/config"
-	"github.com/phieri/viking-bio-pwa/proxy/internal/storage"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 // localNetworks holds the private and loopback IP ranges used by localNetworkOnly.
@@ -129,22 +128,18 @@ func localNetworkOnly(next http.Handler) http.Handler {
 
 // Server wraps the HTTP(S) server with all its dependencies.
 type Server struct {
-	cfg        *config.Config
-	handler    *Handlers
-	httpSrv    *http.Server
-	ingestSrv  *tcpIngestServer
-	notifyOnly bool
+	cfg       *config.Config
+	handler   *Handlers
+	httpSrv   *http.Server
+	ingestSrv *tcpIngestServer
 }
 
-// New creates a Server. When notifyOnly is true the server skips the dashboard and
-// restricts connections to the local network.
-func New(cfg *config.Config, store *storage.Store, notifyOnly bool) *Server {
+func New(cfg *config.Config, store *storage.Store) *Server {
 	h := NewHandlers(cfg)
 	return &Server{
-		cfg:        cfg,
-		handler:    h,
-		ingestSrv:  newTCPIngestServer(cfg, store, h),
-		notifyOnly: notifyOnly,
+		cfg:       cfg,
+		handler:   h,
+		ingestSrv: newTCPIngestServer(cfg, store, h),
 	}
 }
 
@@ -177,12 +172,7 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
-	var handler http.Handler = mux
-	if s.notifyOnly {
-		log.Println("server: notify-only mode – all routes restricted to local network")
-		handler = localNetworkOnly(mux)
-	}
-	return handler
+	return mux
 }
 
 func methodGuard(method string, next http.HandlerFunc) http.HandlerFunc {
@@ -204,10 +194,8 @@ func (s *Server) Start(ctx context.Context) error {
 
 	mux := s.buildMux()
 	addr := fmt.Sprintf("[::]:%d", s.cfg.HTTPPort)
-	if !s.notifyOnly {
-		if s.cfg.TLSCertPath != "" && s.cfg.TLSKeyPath != "" {
-			return s.startManualTLS(ctx, mux, addr)
-		}
+	if s.cfg.TLSCertPath != "" && s.cfg.TLSKeyPath != "" {
+		return s.startManualTLS(ctx, mux, addr)
 	}
 	return s.startHTTP(ctx, mux, addr)
 }
@@ -251,11 +239,7 @@ func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) e
 }
 
 func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr string) error {
-	tlsCert, err := tls.LoadX509KeyPair(s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
-	if err != nil {
-		return fmt.Errorf("load TLS cert/key: %w", err)
-	}
-	srv := &http.Server{Addr: addr, Handler: mux, TLSConfig: &tls.Config{Certificates: []tls.Certificate{tlsCert}}}
+	srv := &http.Server{Addr: addr, Handler: mux}
 	s.httpSrv = srv
 	ln, err := listen(addr)
 	if err != nil {

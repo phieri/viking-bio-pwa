@@ -1,4 +1,4 @@
-module github.com/phieri/viking-bio-pwa/proxy
+module github.com/phieri/viking-bio-pwa/configurator
 
 go 1.26
 

@@ -6,7 +6,7 @@ The project landing page is published at <https://phieri.github.io/viking-bio-pw
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the configurator
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
-3. **[proxy/](proxy/)** – Go configurator/runtime that receives burner data over signed TCP ingest and manages the local configuration flow for the Pico bridge
+3. **[configurator/](configurator/)** – Go configurator/runtime that receives burner data over signed TCP ingest and manages the local configuration flow for the Pico bridge
 4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions and pushes burner alerts to the operator using VAPID/web-push
 
 ## Architecture
@@ -112,8 +112,8 @@ The configurator exposes the local operational API and local setup UI without se
 ### Running
 
 ```bash
-cd proxy
-go build -o viking-bio-configurator ./cmd/proxy
+cd configurator
+go build -o viking-bio-configurator ./cmd/configurator
 ./viking-bio-configurator
 ```
 
@@ -125,13 +125,12 @@ INGEST_TCP_PORT=9000 \
 ./viking-bio-configurator
 ```
 
-Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured).
+The configurator binds to `http://[::]:3000/` for the local API and returns 404 for browser-root requests.
 
 ### Command-Line Flags
 
 | Flag | Description |
 |------|-------------|
-| `--notify-only` | Notification-only mode: no dashboard, local network only |
 | `--version` | Print version and exit |
 
 Defensive validation notes:
