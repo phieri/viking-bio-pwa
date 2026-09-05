@@ -14,13 +14,11 @@ go build -o viking-bio-configurator ./cmd/configurator
 make build
 ```
 
-## Command-Line Flags
-
-| Flag | Description |
-|------|-------------|
-| `--version` | Print version and exit |
-
 ## Run
+
+The configurator is a headless service with no command-line flags. Start it
+directly or deploy it as a system service (see the systemd and Windows Service
+sections below):
 
 ```bash
 # Plain HTTP on port 3000
