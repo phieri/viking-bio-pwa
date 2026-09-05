@@ -28,6 +28,7 @@ Makefile
 configurator/configurator
 configurator/viking-bio-configurator
 configurator/viking-bio-configurator.exe
+configurator/dist/
 
 # Go configurator runtime data (generated at runtime)
 configurator/data/server.crt
