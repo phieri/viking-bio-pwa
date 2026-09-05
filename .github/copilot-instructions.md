@@ -22,9 +22,9 @@ workflow that proves the relevant behavior:
 
 - Start with one targeted search or symbol lookup to identify the files most likely to
   contain the change.
-- Read only the relevant files and tests for the component you are touching (proxy server,
+- Read only the relevant files and tests for the component you are touching (configurator server,
   firmware, or dashboard assets), then patch the smallest possible surface area.
-- Prefer Go validation commands for proxy work (`go test`, `go vet`, `go build`) and keep
+- Prefer Go validation commands for configurator work (`go test`, `go vet`, `go build`) and keep
   the CI smoke-test constraints in mind (`MDNS_DISABLE=1` for mDNS-disabled local runs).
 - For firmware work, verify the toolchain prerequisites before attempting a local build;
   the workflow requires Pico SDK and ARM cross-compilation tools.
@@ -139,7 +139,7 @@ From `proxy/`, use these validation commands:
 golangci-lint run ./...
 go vet ./...
 go test -race ./...
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-proxy ./cmd/proxy
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/viking-bio-configurator ./cmd/proxy
 ```
 
 Useful shortcuts:
@@ -161,7 +161,7 @@ cat > /tmp/proxy-data/devices.json <<'JSON'
   "ci-device": { "key": "ci-secret", "last_seq": 0, "updated_at": 0 }
 }
 JSON
-DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-proxy &
+DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-configurator &
 SERVER_PID=$!
 sleep 2
 curl -sf http://localhost:3000/api/data
@@ -245,7 +245,7 @@ The workflow builds both `pico_w` and `pico2_w`.
 
 ### Device configurator changes
 
-- CLI entry is `./viking-bio-proxy --configure`.
+- CLI entry is `./viking-bio-configurator --configure`.
 - GUI (Fyne) lives in `proxy/internal/configure/gui.go`; TUI fallback lives in
   `proxy/internal/configure/tui.go`.
 - `RunGUI(bridge, store)` is called when a graphical display is available (X11/Wayland on

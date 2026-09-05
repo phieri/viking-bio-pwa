@@ -2,7 +2,7 @@
 
 A monorepo for the [Viking Bio 20](https://varmebaronen.se/produkter/single/p-15/viking-bio-pelletsbrannare) pellet burner integration system. It consists of four active parts:
 
-1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the proxy
+1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the configurator
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
 3. **[proxy/](proxy/)** – Go configurator/runtime that receives burner data over signed TCP ingest and manages the local configuration flow for the Pico bridge
 4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions and pushes burner alerts to the operator using VAPID/web-push
@@ -28,7 +28,7 @@ The Pico firmware:
 - Reads Viking Bio 20 serial data (UART0, GPIO1, auto-detecting 4800/9600/19200 baud, 8N1)
 - Parses binary (`[0xAA] [FLAGS] [SPEED] [TEMP_H] [TEMP_L] [0x55]`) and text (`F:1,S:50,T:75`) protocols
 - Streams parsed data to the proxy via signed persistent TCP ingest
-- WiFi credentials, proxy server address, and telemetry device key stored in LittleFS (credentials encrypted with AES-128-GCM)
+- WiFi credentials, configurator server address, and telemetry device key stored in LittleFS (credentials encrypted with AES-128-GCM)
 - Configurable via USB serial (115200 baud)
 
 ### Hardware
@@ -61,8 +61,8 @@ Connect via USB serial (115200 baud) to configure:
 | `SSID=<ssid>` | Set WiFi SSID |
 | `PASS=<password>` | Set password and save (reboots) |
 | `COUNTRY=<CC>` | Set Wi-Fi country code (e.g. SE, US, GB) |
-| `SERVER=<ip>` | Set proxy server IP/hostname (IPv6 bare address without brackets) |
-| `PORT=<port>` | Set proxy server port (default: 9000) |
+| `SERVER=<ip>` | Set configurator server IP/hostname (IPv6 bare address without brackets) |
+| `PORT=<port>` | Set configurator server port (default: 9000) |
 | `DEVICEKEY=<key>` | Set the provisioned telemetry device key |
 | `WEBHOOK=<url>` | Set the bridge-side webhook target for outbound alerts |
 | `STATUS` | Show WiFi, server, telemetry, and webhook status |
@@ -75,7 +75,7 @@ The Go configurator/runtime:
 - Go net/http server exposes the local operational API and binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
 - Bridge-side alert delivery is configured directly on the Pico; the configurator does not send outbound webhook payloads
-- **Device configurator** (`./viking-bio-proxy --configure`) for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available, falls back to a terminal TUI on headless hosts (set `NO_GUI` to any non-empty value to force TUI); the runtime behaves as the configurator for the bridge and keeps the operational view in the local device UI
+- **Device configurator** (`./viking-bio-configurator --configure`) for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available, falls back to a terminal TUI on headless hosts (set `NO_GUI` to any non-empty value to force TUI); the runtime behaves as the configurator for the bridge and keeps the operational view in the local device UI
 
 ### Device Configurator
 
@@ -83,9 +83,9 @@ The proxy includes an interactive utility for configuring the Pico W bridge over
 USB serial – no separate serial terminal application required.
 
 ```bash
-./viking-bio-proxy --configure                        # auto-detect Pico W USB port
-./viking-bio-proxy --configure --port /dev/ttyACM0   # specify port directly (Linux)
-./viking-bio-proxy --configure --port COM3           # Windows
+./viking-bio-configurator --configure                        # auto-detect Pico W USB port
+./viking-bio-configurator --configure --port /dev/ttyACM0   # specify port directly (Linux)
+./viking-bio-configurator --configure --port COM3           # Windows
 ```
 
 When a graphical display is available (X11/Wayland on Linux, always on Windows/macOS)
@@ -100,8 +100,8 @@ Both interfaces provide:
 | **Show status** | Reads WiFi state, server config, and telemetry status from the device |
 | **Configure WiFi** | Sets SSID + password (device reboots to connect) |
 | **Set country code** | Sets the Wi-Fi regulatory domain (e.g. `SE`, `US`, `GB`) |
-| **Set proxy server** | Sets the IP address and port of this proxy computer |
-| **Provision telemetry key** | Generates/stores a per-device key on the proxy and sends it to the Pico |
+| **Set server** | Sets the IP address and port of this configurator computer |
+| **Provision telemetry key** | Generates/stores a per-device key on the configurator and sends it to the Pico |
 | **Clear credentials** | Erases all stored credentials and reboots the device |
 
 ### PWA Dashboard
@@ -109,14 +109,14 @@ Both interfaces provide:
 The local dashboard at `proxy/public/` remains available for local inspection and setup:
 - **Offline support**: the app cache remains available for the dashboard shell while API requests bypass the cache
 - **Icons**: SVG source icon with PNG variants at 192×192 and 512×512 (standard + maskable), plus favicon and Apple touch icon
-- **Bridge ownership**: alert delivery is configured on the Pico side, so the proxy stays focused on configuration and telemetry state rather than outbound webhooks
+- **Bridge ownership**: alert delivery is configured on the Pico side, so the configurator stays focused on configuration and telemetry state rather than outbound webhooks
 
 ### Running
 
 ```bash
 cd proxy
-go build -o viking-bio-proxy ./cmd/proxy
-./viking-bio-proxy
+go build -o viking-bio-configurator ./cmd/proxy
+./viking-bio-configurator
 ```
 
 With custom configuration:
@@ -124,7 +124,7 @@ With custom configuration:
 ```bash
 HTTP_PORT=8080 \
 INGEST_TCP_PORT=9000 \
-./viking-bio-proxy
+./viking-bio-configurator
 ```
 
 Open the dashboard at `http://[::]:3000/` (or `https://` when TLS is configured).
@@ -160,7 +160,7 @@ Generate a self-signed certificate for development:
 ```bash
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
   -keyout server.key -out server.crt -days 365 -nodes -subj '/CN=localhost'
-TLS_CERT_PATH=server.crt TLS_KEY_PATH=server.key ./viking-bio-proxy
+TLS_CERT_PATH=server.crt TLS_KEY_PATH=server.key ./viking-bio-configurator
 ```
 
 For production use a certificate from a private CA or a public certificate authority that matches your deployment.

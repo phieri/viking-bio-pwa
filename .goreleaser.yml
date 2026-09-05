@@ -1,6 +1,6 @@
 version: 2
 
-project_name: viking-bio-proxy
+project_name: viking-bio-configurator
 
 before:
   hooks:
@@ -8,10 +8,10 @@ before:
     - go generate ./...
 
 builds:
-  - id: viking-bio-proxy
+  - id: viking-bio-configurator
     dir: proxy
     main: ./cmd/proxy
-    binary: viking-bio-proxy
+    binary: viking-bio-configurator
     env:
       - CGO_ENABLED=0
     goos:
@@ -32,7 +32,7 @@ builds:
 archives:
   - id: default
     builds:
-      - viking-bio-proxy
+      - viking-bio-configurator
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
@@ -58,12 +58,12 @@ changelog:
 nfpms:
   - id: linux-packages
     builds:
-      - viking-bio-proxy
-    package_name: viking-bio-proxy
+      - viking-bio-configurator
+    package_name: viking-bio-configurator
     vendor: Viking Bio
     homepage: https://github.com/phieri/viking-bio-pwa
     maintainer: Viking Bio contributors
-    description: Viking Bio 20 pellet burner proxy server and PWA dashboard
+    description: Viking Bio 20 pellet burner configurator and local telemetry dashboard
     license: MIT
     formats:
       - deb
@@ -71,8 +71,8 @@ nfpms:
     bindir: /usr/bin
     contents:
       - src: proxy/README.md
-        dst: /usr/share/doc/viking-bio-proxy/README.md
+        dst: /usr/share/doc/viking-bio-configurator/README.md
       - src: proxy/.env.example
-        dst: /usr/share/doc/viking-bio-proxy/.env.example
+        dst: /usr/share/doc/viking-bio-configurator/.env.example
       - type: ghost
-        dst: /etc/viking-bio-proxy/.env
+        dst: /etc/viking-bio-configurator/.env
