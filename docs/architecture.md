@@ -2,15 +2,14 @@
 
 ## Runtime boundary
 
-The system has a strict process and language boundary:
+The active system has a strict process and language boundary:
 
 - `pico-bridge/` is firmware written in C for Raspberry Pi Pico W / Pico 2 W.
 - `pico-bridge/libvikingbio/` is the shared protocol parser library used by the bridge.
-- `proxy/` is a Go HTTP server and PWA host.
-- `push-pwa/` is the installable browser-PWA frontend used for VAPID subscription and push delivery.
+- `proxy/` is the Go HTTP server and PWA host.
 - The firmware and the proxy communicate over a signed framed TCP ingest channel.
 
-There is no cgo, no FFI, and no shared-memory boundary between the firmware and the proxy.
+The older `push-pwa/` directory is legacy/archived and is not part of the current runtime path. There is no cgo, no FFI, and no shared-memory boundary between the firmware and the proxy.
 
 ## Firmware → Proxy ingest
 
@@ -52,7 +51,7 @@ state/update/notification pipeline.
 
 - The proxy uses normal Go heap allocation and garbage collection.
 - The ingest listener decodes frames into Go structs before updating shared state.
-- Subscription persistence is file-backed JSON storage guarded by mutexes.
+- Provisioned device metadata and fallback ingest state are persisted in the data directory with mutex-protected access.
 
 ## Notification delivery ownership
 
