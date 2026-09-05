@@ -101,8 +101,8 @@ static void print_usb_help(void) {
 	printf("  SSID=<ssid>      – set WiFi SSID\n");
 	printf("  PASS=<pass>      – set password and save\n");
 	printf("  COUNTRY=<CC>     – set Wi-Fi country (e.g. SE, US)\n");
-	printf("  SERVER=<ip>      – set proxy server IP/hostname\n");
-	printf("  PORT=<port>      – set proxy server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
+	printf("  SERVER=<ip>      – set configurator server IP/hostname\n");
+	printf("  PORT=<port>      – set configurator server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
 	printf("  DEVICEKEY=<key>  – set telemetry device key\n");
 	printf("  WEBHOOK=<url>    – set bridge notification webhook\n");
 	printf("  STATUS           – show status\n");
@@ -313,10 +313,10 @@ static bool process_usb_commands(void) {
 
 /*
  * Called from the lwIP poll context when a _viking-bio._tcp mDNS announcement
- * is received. Saves the new proxy address and re-initialises the telemetry
+ * is received. Saves the new configurator address and re-initialises the telemetry
  * client only when the address actually changed.
  */
-static void on_proxy_discovered(const char *ip6addr, uint16_t port) {
+static void on_configurator_discovered(const char *ip6addr, uint16_t port) {
 	char cur_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
 	uint16_t cur_port = 0;
 	wifi_config_load_server(cur_ip, sizeof(cur_ip), &cur_port);
@@ -326,9 +326,9 @@ static void on_proxy_discovered(const char *ip6addr, uint16_t port) {
 		return;
 	}
 
-	printf("dns_sd: proxy changed to %s:%d – updating config\n", ip6addr, port);
+	printf("dns_sd: configurator changed to %s:%d – updating config\n", ip6addr, port);
 	if (!wifi_config_save_server(ip6addr, port)) {
-		printf("dns_sd: failed to save proxy config\n");
+		printf("dns_sd: failed to save configurator config\n");
 	}
 	char device_key[WIFI_DEVICE_KEY_MAX_LEN + 1] = {0};
 	wifi_config_load_device_key(device_key, sizeof(device_key));
@@ -448,7 +448,7 @@ static bool start_wifi_services(const char *ssid, const char *password, bool hav
 		return false;
 	}
 
-	dns_sd_browser_start(on_proxy_discovered);
+	dns_sd_browser_start(on_configurator_discovered);
 
 	char srv_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
 	uint16_t srv_port = WIFI_SERVER_PORT_DEFAULT;
@@ -456,10 +456,10 @@ static bool start_wifi_services(const char *ssid, const char *password, bool hav
 	char device_key[WIFI_DEVICE_KEY_MAX_LEN + 1] = {0};
 	wifi_config_load_device_key(device_key, sizeof(device_key));
 	if (srv_ip[0] != '\0') {
-		printf("Proxy server: %s:%d\n", srv_ip, srv_port);
+		printf("Configurator server: %s:%d\n", srv_ip, srv_port);
 		http_client_init(srv_ip, srv_port, device_key[0] ? device_key : NULL);
 	} else {
-		printf("Proxy server not configured – use SERVER=<ip> via USB serial\n");
+		printf("Configurator server not configured – use SERVER=<ip> via USB serial\n");
 	}
 
 	if (device_key[0] == '\0') {

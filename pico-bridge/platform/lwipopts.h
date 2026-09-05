@@ -63,7 +63,7 @@
 #define ARP_QUEUEING 1
 #define ETHARP_SUPPORT_STATIC_ENTRIES 0
 
-// Keep-alive for TCP connection to proxy
+// Keep-alive for TCP connection to the configurator
 #define LWIP_TCP_KEEPALIVE 1
 
 // Checksums

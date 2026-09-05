@@ -39,9 +39,9 @@ func main() {
 	// Load .env file if present (best-effort)
 	loadDotEnv(".env")
 	// Also load config from the data directory (created on first run by storage.NewStore).
-	// This lets operators configure the proxy by editing <data-dir>/viking-bio.conf without
-	// needing a .env file next to the binary. Values already set (e.g. from .env or the
-	// environment) are not overridden.
+	// This lets operators configure the configurator by editing <data-dir>/viking-bio.conf
+	// without needing a .env file next to the binary. Values already set (e.g. from .env or
+	// the environment) are not overridden.
 	loadDotEnv(filepath.Join(config.DefaultDataDir(), "viking-bio.conf"))
 
 	runServer(*notifyOnly)

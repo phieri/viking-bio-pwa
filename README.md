@@ -18,10 +18,10 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                               │
                           Go Configurator
                           ├── HTTP/HTTPS server (IPv6 [::]:3000)
-                          │   ├── GET /                     local operational dashboard
                           │   ├── GET /api/data             Burner state (JSON)
-                          │   └── local operational config UI
-                          └── Bridge provisioning and state view
+                          │   ├── GET /api/metrics          Optional history samples
+                          │   └── USB provisioning and local config UI
+                          └── Bridge provisioning and runtime state
 ```
 
 ## pico-bridge
@@ -102,11 +102,11 @@ The GUI provides:
 | **Provision telemetry key** | Generates/stores a per-device key on the configurator and sends it to the Pico |
 | **Clear credentials** | Erases all stored credentials and reboots the device |
 
-### PWA Dashboard
+### Local API and configurator UI
 
-The local dashboard at `proxy/public/` remains available for local inspection and setup:
-- **Offline support**: the app cache remains available for the dashboard shell while API requests bypass the cache
-- **Icons**: SVG source icon with PNG variants at 192×192 and 512×512 (standard + maskable), plus favicon and Apple touch icon
+The configurator exposes the local operational API and local setup UI without serving a dashboard at `/`:
+- **Local API**: the Go service manages ingest, telemetry state, and operational helpers over HTTP/HTTPS
+- **USB setup flow**: the local configurator handles bridge onboarding and provisioning over serial
 - **Bridge ownership**: alert delivery is configured on the Pico side, so the configurator stays focused on configuration and telemetry state rather than outbound webhooks
 
 ### Running

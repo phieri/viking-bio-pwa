@@ -6,7 +6,7 @@ The active system has a strict process and language boundary:
 
 - `pico-bridge/` is firmware written in C for Raspberry Pi Pico W / Pico 2 W.
 - `pico-bridge/libvikingbio/` is the shared protocol parser library used by the bridge.
-- `proxy/` is the Go HTTP server and PWA host.
+- `proxy/` is the Go configurator runtime and local API host.
 - `push-pwa/` is the browser push notification frontend used to register subscriptions and deliver alerts to operators.
 - The firmware and the configurator communicate over a signed framed TCP ingest channel.
 
