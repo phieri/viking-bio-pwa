@@ -39,7 +39,7 @@ The generated YAML snippet is meant to be pasted into `storage/subscriptions.yam
 
 - The app exposes `public-key.php`, `config.php`, and `send.php` for the VAPID registration flow and test send path.
 - `send.php` validates a per-session bearer token issued by `/config.php` so the browser can trigger test messages without embedding a secret in the frontend source.
-- `public/reminder.php` can send the backend-owned weekly cleaning reminder using the server's current time, so the Pico bridge does not need to acquire the current time itself.
+- `public/reminder.php` is the backend-owned weekly cleaning reminder trigger. It checks `storage/reminder-state.json` and only sends once every seven days using the server's current time, so the Pico bridge does not need to acquire the current time itself.
 - `subscribe.php` is intentionally not used; operators add client entries directly to `storage/subscriptions.yaml`.
 - The `storage/` directory is intentionally blocked from direct web access via `.htaccess`, so `subscriptions.yaml` and `vapid.json` cannot be exposed on the public internet.
 - Use `sender: "all"` only if a subscriber should receive every burner alert; otherwise set a single burner-specific sender ID so the browser only receives messages for that burner.

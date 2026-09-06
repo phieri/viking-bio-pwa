@@ -66,6 +66,20 @@ $type = is_string($rawType) ? strtolower(trim($rawType)) : '';
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
 
 if ($type === 'weekly_cleaning_reminder' || $type === 'cleaning-reminder' || $type === 'cleaning_reminder') {
+    $reminderState = new \VikingBioPush\ReminderState(__DIR__ . '/../storage/reminder-state.json');
+
+    if (!$reminderState->shouldSendNow()) {
+        http_response_code(200);
+        echo json_encode([
+            'ok' => false,
+            'skipped' => true,
+            'type' => 'weekly_cleaning_reminder',
+            'reason' => 'already_sent_within_week',
+            'last_sent_at' => $reminderState->lastSentAt(),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
     $rawSender = $data['sender'] ?? null;
     $senderValue = is_string($rawSender) ? trim($rawSender) : '';
     if ($senderValue === '') {
@@ -73,6 +87,7 @@ if ($type === 'weekly_cleaning_reminder' || $type === 'cleaning-reminder' || $ty
     }
 
     $result = $sender->sendWeeklyCleaningReminder($senderValue);
+    $reminderState->recordSent();
     echo json_encode(['ok' => true, 'type' => 'weekly_cleaning_reminder', 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
