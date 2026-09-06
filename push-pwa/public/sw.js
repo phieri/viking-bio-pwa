@@ -8,8 +8,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('push', (event) => {
   const payload = event.data && event.data.json ? event.data.json() : { title: 'Viking Bio', body: 'A new burner update is available.' };
+  const rawTimestamp = payload.timestamp;
+  const sentAt = rawTimestamp != null && Number.isFinite(Number(rawTimestamp)) ? Number(rawTimestamp) : Date.now();
 
-  const sentAt = Date.now();
   const options = {
     body: payload.body || 'New burner update',
     icon: payload.icon || '/icon.svg',

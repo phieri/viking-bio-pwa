@@ -79,7 +79,9 @@ if ($senderValue === '') {
     $senderValue = null;
 }
 
+$sentAt = (int) floor(microtime(true) * 1000);
+
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
-$result = $sender->send($title, $bodyText, $icon, ['tag' => 'viking-bio-alert', 'url' => $url], $priority, $senderValue);
+$result = $sender->send($title, $bodyText, $icon, ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt], $priority, $senderValue);
 
 echo json_encode(['ok' => true, 'priority' => $priority, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
