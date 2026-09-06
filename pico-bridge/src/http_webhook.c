@@ -27,6 +27,8 @@ typedef enum {
 static struct tcp_pcb *s_pcb = NULL;
 static http_webhook_state_t s_state = WEBHOOK_STATE_IDLE;
 
+static void send_http_request(void);
+
 static char s_url[WIFI_WEBHOOK_URL_MAX_LEN + 1];
 static char s_host[WIFI_SERVER_IP_MAX_LEN + 1];
 static char s_path[128];
