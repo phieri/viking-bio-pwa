@@ -165,7 +165,6 @@ The webhook payload includes the same alert categories as the old browser-flow n
 |------|---------|
 | `flame` | Flame state changes (on/off) |
 | `error` | Non-zero error code detected |
-| `clean` | Weekly cleaning reminder during heating season (Nov–Mar) |
 
 ## Wiring Diagram
 

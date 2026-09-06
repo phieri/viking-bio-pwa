@@ -111,68 +111,6 @@ func TestUpdateBurnerStateTracksFlameSecondsAndErrors(t *testing.T) {
 	}
 }
 
-func TestUpdateBurnerStateSchedulesCleaningReminder(t *testing.T) {
-	t.Parallel()
-
-	h := newInternalTestHandlers(t)
-	reminderTime := time.Date(2026, time.January, 3, 7, 10, 0, 0, time.UTC)
-
-	result := h.updateBurnerState(machineDataBody{
-		Flame: testBoolPtr(true),
-		Fan:   testFloat64Ptr(20),
-		Temp:  testFloat64Ptr(70),
-		Err:   testFloat64Ptr(0),
-		Valid: testBoolPtr(true),
-	}, reminderTime)
-	if !result.cleanDue {
-		t.Fatal("expected cleaning reminder to be due during Saturday morning heating season window")
-	}
-	if result.cleanBody == "" {
-		t.Fatal("expected cleaning reminder body to be populated")
-	}
-
-	second := h.updateBurnerState(machineDataBody{
-		Flame: testBoolPtr(true),
-		Fan:   testFloat64Ptr(20),
-		Temp:  testFloat64Ptr(71),
-		Err:   testFloat64Ptr(0),
-		Valid: testBoolPtr(true),
-	}, reminderTime.Add(10*time.Minute))
-	if second.cleanDue {
-		t.Fatal("expected reminder to be debounced within the same week")
-	}
-}
-
-func TestUpdateBurnerStateUsesConfiguredCleaningReminderSchedule(t *testing.T) {
-	t.Parallel()
-
-	cfg := &config.Config{CleaningReminderWeekday: time.Monday, CleaningReminderHour: 8, CleaningReminderMinute: 15}
-	h := newInternalTestHandlersWithConfig(t, cfg)
-	reminderTime := time.Date(2026, time.January, 5, 8, 15, 0, 0, time.UTC)
-
-	result := h.updateBurnerState(machineDataBody{
-		Flame: testBoolPtr(true),
-		Fan:   testFloat64Ptr(20),
-		Temp:  testFloat64Ptr(70),
-		Err:   testFloat64Ptr(0),
-		Valid: testBoolPtr(true),
-	}, reminderTime)
-	if !result.cleanDue {
-		t.Fatal("expected cleaning reminder to honour the configured weekday and time")
-	}
-
-	second := h.updateBurnerState(machineDataBody{
-		Flame: testBoolPtr(true),
-		Fan:   testFloat64Ptr(20),
-		Temp:  testFloat64Ptr(71),
-		Err:   testFloat64Ptr(0),
-		Valid: testBoolPtr(true),
-	}, reminderTime.Add(10*time.Minute))
-	if second.cleanDue {
-		t.Fatal("expected reminder to be debounced within the configured reminder window")
-	}
-}
-
 func TestStateSnapshot(t *testing.T) {
 	t.Parallel()
 

@@ -21,10 +21,8 @@ type Handlers struct {
 // NewHandlers creates a new Handlers instance. cfg may be nil to disable the
 // energy price card (used in tests).
 func NewHandlers(cfg *config.Config) *Handlers {
-	state := &State{}
-	state.setReminderSchedule(cfg)
 	return &Handlers{
-		state:  state,
+		state:  &State{},
 		config: cfg,
 	}
 }
