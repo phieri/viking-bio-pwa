@@ -20,12 +20,23 @@ final class ReminderState
 
     public function shouldSendNow(): bool
     {
+        $now = new \DateTimeImmutable('now');
+
+        if ((int) $now->format('N') !== 6) {
+            return false;
+        }
+
+        if ((int) $now->format('G') < 7) {
+            return false;
+        }
+
         $lastSentAt = $this->lastSentAt();
         if ($lastSentAt === null) {
             return true;
         }
 
-        return (time() - $lastSentAt) >= (7 * 24 * 60 * 60);
+        $thisSaturdayMorning = $this->thisSaturdayMorning($now);
+        return $lastSentAt < $thisSaturdayMorning->getTimestamp();
     }
 
     public function recordSent(): void
@@ -67,5 +78,15 @@ final class ReminderState
 
         $timeValue = (int) $value;
         return $timeValue > 0 ? $timeValue : null;
+    }
+
+    private function thisSaturdayMorning(\DateTimeImmutable $now): \DateTimeImmutable
+    {
+        $dayOfWeek = (int) $now->format('N');
+        $daysUntilSaturday = (6 - $dayOfWeek + 7) % 7;
+
+        return $now
+            ->modify("+{$daysUntilSaturday} days")
+            ->setTime(7, 0, 0);
     }
 }
