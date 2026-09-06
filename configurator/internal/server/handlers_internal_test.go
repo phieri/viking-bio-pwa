@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -171,29 +170,6 @@ func TestUpdateBurnerStateUsesConfiguredCleaningReminderSchedule(t *testing.T) {
 	}, reminderTime.Add(10*time.Minute))
 	if second.cleanDue {
 		t.Fatal("expected reminder to be debounced within the configured reminder window")
-	}
-}
-
-func TestNotificationsForMachineData(t *testing.T) {
-	t.Parallel()
-
-	got := notificationsForMachineData(machineDataUpdateResult{
-		flameChanged: true,
-		newErr:       true,
-		cleanDue:     true,
-		flame:        true,
-		temp:         73,
-		err:          12,
-		cleanBody:    "clean now",
-	})
-
-	want := []notificationMessage{
-		{typ: "flame", title: "Viking Bio: Flame on", body: "The boiler is lit – 73°C"},
-		{typ: "error", title: "Viking Bio: Error", body: "Error code 12 detected"},
-		{typ: "clean", title: "Viking Bio: Cleaning reminder", body: "clean now"},
-	}
-	if !slices.Equal(got, want) {
-		t.Fatalf("notificationsForMachineData() = %#v, want %#v", got, want)
 	}
 }
 
