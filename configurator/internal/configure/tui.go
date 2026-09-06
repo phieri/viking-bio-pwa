@@ -145,7 +145,10 @@ func (t *TUI) showStatus() {
 		fmt.Println("  Telemetry: " + status.Telemetry)
 	}
 	if status.DeviceKey != "" {
-		fmt.Println("  DeviceKey: " + status.DeviceKey)
+		fmt.Println("  DeviceKey: " + normaliseConfiguredValue(status.DeviceKey))
+	}
+	if status.Webhook != "" {
+		fmt.Println("  Webhook:  " + normaliseConfiguredValue(status.Webhook))
 	}
 	fmt.Println()
 }

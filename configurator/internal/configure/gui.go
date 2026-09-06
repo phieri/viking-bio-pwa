@@ -39,17 +39,6 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 	versionLabel := widget.NewLabelWithStyle("Version: "+appversion.String(),
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	maskStatusValue := func(value string) string {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return ""
-		}
-		if len(value) <= 4 {
-			return strings.Repeat("*", len(value))
-		}
-		return strings.Repeat("*", len(value)-4) + value[len(value)-4:]
-	}
-
 	statusLabel := widget.NewLabel("Loading device status...")
 	statusLabel.Wrapping = fyne.TextWrapWord
 	statusLabel.TextStyle = fyne.TextStyle{Monospace: true}
@@ -89,7 +78,10 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 			sb.WriteString("Telemetry: " + status.Telemetry + "\n")
 		}
 		if status.DeviceKey != "" {
-			sb.WriteString("DeviceKey: " + maskStatusValue(status.DeviceKey) + "\n")
+			sb.WriteString("DeviceKey: " + maskSensitiveConfiguredValue(status.DeviceKey) + "\n")
+		}
+		if status.Webhook != "" {
+			sb.WriteString("Webhook:   " + normaliseConfiguredValue(status.Webhook) + "\n")
 		}
 		statusLabel.SetText(strings.TrimRight(sb.String(), "\n"))
 	}
@@ -158,7 +150,10 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				sb.WriteString("  Telemetry: " + status.Telemetry + "\n")
 			}
 			if status.DeviceKey != "" {
-				sb.WriteString("  DeviceKey: " + maskStatusValue(status.DeviceKey) + "\n")
+				sb.WriteString("  DeviceKey: " + maskSensitiveConfiguredValue(status.DeviceKey) + "\n")
+			}
+			if status.Webhook != "" {
+				sb.WriteString("  Webhook:   " + normaliseConfiguredValue(status.Webhook) + "\n")
 			}
 			appendLog(strings.TrimRight(sb.String(), "\n"))
 		}()

@@ -79,21 +79,25 @@ TLS_KEY_PATH=/etc/ssl/private/server.key
 
 ## Device Configurator
 
-Connect the Pico W via USB and launch the local provisioning GUI from the desktop or
-OS launcher. If the environment variable `PICO_SERIAL_PORT` is set, the GUI uses that
-USB serial port automatically; otherwise it prompts to select one.
+Connect the Pico W via USB and start `./viking-bio-configurator` from a local desktop or
+interactive terminal session. If `PICO_SERIAL_PORT` is set, the configurator opens that
+USB serial port automatically. Otherwise it auto-launches the local setup UI only when
+exactly one serial port is available; if multiple ports are present, set `PICO_SERIAL_PORT`
+explicitly.
 
 When a graphical display is available (X11 `DISPLAY` or Wayland `WAYLAND_DISPLAY` on
 Linux; always on Windows and macOS) the configurator opens a **Fyne-based GUI window**.
-On headless systems, the GUI is not supported; run it from a machine with a local
-desktop session or remote X/Wayland display.
+Without a graphical display, it falls back to the interactive terminal UI when started
+from a TTY.
 
 The configurator allows you to:
 
 - View device status (IP, country, server, telemetry state)
+- View whether the bridge-side webhook target is configured
 - Set WiFi SSID + password
 - Set Wi-Fi country code
 - Set server address and port
+- Set the bridge webhook URL for `push-pwa/public/webhook.php`
 - Provision and sync a per-device telemetry key over USB
 - Clear all stored credentials
 

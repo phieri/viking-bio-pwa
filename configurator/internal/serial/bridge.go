@@ -32,6 +32,7 @@ type StatusResult struct {
 	Port      int
 	Telemetry string
 	DeviceKey string
+	Webhook   string
 }
 
 // Bridge communicates with the Pico W over USB serial.
@@ -151,11 +152,18 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 		switch key {
 		case "addr", "address":
 			r.Addresses = append(r.Addresses, value)
+		case "ipv6[0]", "ipv6[1]", "ipv6[2]", "ipv6[3]":
+			r.Addresses = append(r.Addresses, value)
 		case "country":
 			r.Country = value
 		case "device":
 			r.DeviceID = value
 		case "server":
+			if strings.EqualFold(value, "not configured") {
+				r.Server = ""
+				r.Port = 0
+				break
+			}
 			if idx := strings.LastIndex(value, ":"); idx > 0 {
 				r.Server = strings.TrimSpace(value[:idx])
 				n, err := strconv.Atoi(strings.TrimSpace(value[idx+1:]))
@@ -178,6 +186,8 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 			r.Telemetry = value
 		case "device key":
 			r.DeviceKey = value
+		case "webhook":
+			r.Webhook = value
 		}
 	}
 	return r

@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/configure"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/mdns"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
@@ -96,8 +97,23 @@ func runServer() {
 		cancel()
 	}()
 
-	if err := srv.Start(ctx); err != nil {
-		log.Printf("server: %v", err)
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		if err := srv.Start(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("server: %v", err)
+			cancel()
+		}
+	}()
+
+	if configure.ShouldLaunchLocalUI(cfg.PicoSerialPort) {
+		if err := configure.RunLocalUI(cfg.PicoSerialPort, store); err != nil {
+			log.Printf("configure: %v", err)
+		}
+		cancel()
 	}
+
+	<-ctx.Done()
+	<-serverDone
 	log.Println("Viking Bio Configurator stopped.")
 }

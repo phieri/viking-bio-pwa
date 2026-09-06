@@ -7,7 +7,7 @@ The project landing page is published at <https://phieri.github.io/viking-bio-pw
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the configurator
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
 3. **[configurator/](configurator/)** – Go configurator/runtime that receives burner data over signed TCP ingest and manages the local configuration flow for the Pico bridge
-4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions and pushes burner alerts to the operator using VAPID/web-push
+4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions, receives bridge webhooks, and pushes burner alerts to the operator using VAPID/web-push
 
 ## Architecture
 
@@ -66,7 +66,7 @@ Connect via USB serial (115200 baud) to configure:
 | `SERVER=<ip>` | Set configurator server IP/hostname (IPv6 bare address without brackets) |
 | `PORT=<port>` | Set configurator server port (default: 9000) |
 | `DEVICEKEY=<key>` | Set the provisioned telemetry device key |
-| `WEBHOOK=<url>` | Set the bridge-side webhook target for outbound alerts |
+| `WEBHOOK=<url>` | Set the bridge-side webhook target for outbound alerts (for example `https://push-host/webhook.php?token=...`) |
 | `STATUS` | Show WiFi, server, telemetry, and webhook status |
 | `CLEAR` | Erase stored credentials (reboots) |
 
@@ -84,8 +84,9 @@ The Go configurator/runtime:
 The configurator includes an interactive utility for configuring the Pico W bridge over
 USB serial – no separate serial terminal application required.
 
-Launch the local provisioning GUI from the desktop or OS launcher. Set `PICO_SERIAL_PORT`
-if you want it to use a specific USB serial port without prompting.
+Start `./viking-bio-configurator` from a local desktop or interactive terminal session.
+Set `PICO_SERIAL_PORT` if you want it to use a specific USB serial port. Without that
+variable, the UI auto-launches only when exactly one serial port is available.
 
 When a graphical display is available (X11/Wayland on Linux, always on Windows/macOS)
 a **Fyne GUI window** opens. On headless systems, use a local desktop session or a
@@ -99,6 +100,7 @@ The GUI provides:
 | **Configure WiFi** | Sets SSID + password (device reboots to connect) |
 | **Set country code** | Sets the Wi-Fi regulatory domain (e.g. `SE`, `US`, `GB`) |
 | **Set server** | Sets the IP address and port of this configurator computer |
+| **Set webhook** | Sets the bridge webhook URL for the push PWA backend |
 | **Provision telemetry key** | Generates/stores a per-device key on the configurator and sends it to the Pico |
 | **Clear credentials** | Erases all stored credentials and reboots the device |
 
@@ -165,6 +167,9 @@ The webhook payload includes the same alert categories as the old browser-flow n
 |------|---------|
 | `flame` | Flame state changes (on/off) |
 | `error` | Non-zero error code detected |
+
+The `push-pwa/` backend receives those alerts at `public/webhook.php` and translates them
+into VAPID/web-push notifications for matching browser subscriptions.
 
 ## Wiring Diagram
 
