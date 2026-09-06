@@ -66,7 +66,7 @@ TELEMETRY_HISTORY_ENABLED=1
 ```
 
 The bridge owns outbound webhook delivery during runtime; the configurator stays
-responsible for provisioning the Pico and serving the local operational UI.
+responsible for provisioning the Pico and exposing the local API plus USB setup flow.
 
 ## TLS / HTTPS
 
@@ -135,14 +135,14 @@ normal state/update/notification pipeline, and writes overflow traffic to
 `<DATA_DIR>/ingest-fallback.log`.
 
 > **Note:** the default Pico server port for telemetry is now `9000` to match
-> `INGEST_TCP_PORT`. The legacy HTTP webhook has been removed; existing devices
-> still configured for the old dashboard/webhook port (`3000`) must be
+> `INGEST_TCP_PORT`. The legacy HTTP webhook and older service port (`3000`) have
+> been removed; existing devices still configured for that legacy path must be
 > reprovisioned or updated over USB with a server/port change and a per-device
 > telemetry key.
 
 ## HTTP API
 
-The configurator exposes a small JSON API for the dashboard and alert consumers:
+The configurator exposes a small JSON API for local automation and alert consumers:
 
 - `GET /api/data` returns the current burner state snapshot.
 - `GET /api/metrics` returns the last 60 minutes of burner history as JSON samples in memory only when `TELEMETRY_HISTORY_ENABLED=1`.

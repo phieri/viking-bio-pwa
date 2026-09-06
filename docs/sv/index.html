@@ -52,12 +52,12 @@
                 <span class="arrow">→</span>
                 <span>Pico W</span>
                 <span class="arrow">→</span>
-                <span>Lokal konfigurator</span>
+                <span>Headless Go-runtime</span>
               </div>
               <ul>
                 <li>UART-avläsning från brännaren</li>
                 <li>Signerad TCP-ström till lokal runtime</li>
-                <li>Lokal konfigurations- och statusvy</li>
+                <li>Lokalt API + USB-konfigurationsflöde</li>
               </ul>
             </div>
           </div>
@@ -81,7 +81,7 @@
             </article>
             <article class="info-card">
               <h3>Driftsinsikt</h3>
-              <p>Projektet är designat för att visa brännarens tillstånd och fel i ett format som enkelt kan inspekteras via en lokal dashboard eller den lokala konfigurationsvyn.</p>
+              <p>Projektet visar brännarens tillstånd och fel via ett lokalt API och en separat browser-push-app, utan att exponera en dashboard på roten.</p>
             </article>
           </div>
         </div>
@@ -104,8 +104,8 @@
               <p>Bryggkonfiguration kan ske över seriell port med GUI eller terminalbaserad konfigurator, vilket gör installationen enkel.</p>
             </div>
             <div class="feature-item">
-              <h3>Lokal nätverks-first design</h3>
-              <p>Runtime är byggt kring en lokal, enhetscentrerad design i stället för en externt hostad dashboard.</p>
+              <h3>Headless lokal runtime</h3>
+              <p>Runtime är byggt kring en lokal, enhetscentrerad modell: Go-tjänsten exponeras via API och USB-konfiguration, medan browser-notifieringar hanteras av den separata push-pwa-appen.</p>
             </div>
             <div class="feature-item">
               <h3>mDNS-upptäckt</h3>
@@ -128,14 +128,14 @@
           <div>
             <p class="eyebrow">Arkitektur</p>
             <h2>Enkelt lagerflöde, tydlig ansvarsfördelning och lokal-first design</h2>
-            <p>Systemet separerar hårdvarunära bryggan från lokal övervakning och konfiguration. Pico läser brännardata och strömmar signerad telemetri till en Go-process i samma lokala nätverk. Den processen äger användargränssnitt, tjänster och konfigurationsflöde medan bryggan fokuserar på mätning och leverans.</p>
+            <p>Systemet separerar hårdvarunära bryggan från den headless Go-runtimen och den separata browser-push-appen. Pico läser brännardata och strömmar signerad telemetri till en Go-process i samma lokala nätverk. Den processen exponeras via API och USB-konfigurationsflöde medan bryggan fokuserar på mätning, ingest och varningstillförsel.</p>
           </div>
           <div class="stack">
             <div class="stack-item"><span>1</span><span>Seriedata från brännaren</span></div>
             <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W firmware</span></div>
             <div class="stack-item"><span>3</span><span>Signerad TCP-ingest</span></div>
-            <div class="stack-item"><span>4</span><span>Go runtime + lokala API:er</span></div>
-            <div class="stack-item"><span>5</span><span>Operatörspanel / konfigurationsgränssnitt</span></div>
+            <div class="stack-item"><span>4</span><span>Headless Go-runtime + lokala API:er</span></div>
+            <div class="stack-item"><span>5</span><span>push-pwa browser-notifieringar</span></div>
           </div>
         </div>
       </section>
@@ -148,7 +148,7 @@
               <h2 id="project-title">Byggt för ägare, installatörer och skapare som vill ha en praktisk brännarmonitor</h2>
             </div>
             <div class="project-copy">
-              <p>Det här repo:t är ett komplett integrationsprojekt för Viking Bio 20-pelletbrännaren: firmware, protokollanalys, lokal runtime och webb-baserat statusgränssnitt för konfiguration. Det är designat för att vara lätt att förstå, utöka och köra på liten lokal utrustning i hemmet.</p>
+              <p>Det här repo:t är ett komplett integrationsprojekt för Viking Bio 20-pelletbrännaren: firmware, protokollanalys, lokal runtime och en separat browser-push-app för operatörsvarningar. Det är designat för att vara lätt att förstå, utöka och köra på liten lokal utrustning i hemmet.</p>
               <p>Fokus ligger på ärlig driftkontroll: håll data lokalt, verifiera enheten i kanten och erbjuda ett pålitligt konfigurationsflöde utan att vara beroende av en hostad produkt eller molnbackend.</p>
             </div>
           </div>
