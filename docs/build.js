@@ -25,10 +25,10 @@ const pages = {
     sourceAria: 'View source on GitHub (opens in new tab)',
     footerGitHubAria: 'Viking Bio project on GitHub (opens in new tab)',
     panelLabel: 'Telemetry flow',
-    panelConfigurator: 'Local configurator',
+    panelConfigurator: 'Headless Go runtime',
     panelItem1: 'UART capture from burner output',
     panelItem2: 'Signed TCP stream to local runtime',
-    panelItem3: 'Local configuration and status UI',
+    panelItem3: 'Local API + USB provisioning flow',
     overviewEyebrow: 'Overview',
     overviewTitle: 'Built for reliability, visibility, and local ownership',
     cardBridgeTitle: 'Reliable bridge',
@@ -39,7 +39,7 @@ const pages = {
       'The Go configurator manages onboarding, bridge status, and the local runtime without creating a dependency on a remote service or hosted web app.',
     cardInsightTitle: 'Operational insight',
     cardInsightBody:
-      'The project is designed to surface burner state and fault information in a way that is easy to inspect from a local dashboard or on-device configuration flow.',
+      'The project is designed to surface burner state and fault information through a local API and a separate browser push app, without serving a dashboard at the root.',
     featuresEyebrow: 'Features',
     featuresTitle: 'Everything needed to make a burner smarter without losing control',
     featureTelemetryTitle: 'Signed telemetry',
@@ -48,9 +48,9 @@ const pages = {
     featureUSBTitle: 'USB provisioning',
     featureUSBBody:
       'Bridge setup can happen over serial with a GUI or terminal-based configurator, making installation straightforward.',
-    featureNetworkTitle: 'Local network-first design',
+    featureNetworkTitle: 'Headless local runtime',
     featureNetworkBody:
-      'The runtime is built around a local device-first deployment model instead of an externally hosted dashboard.',
+      'The runtime is built around a local device-first model: the Go service exposes APIs and USB setup, while browser notifications are handled by the separate push-pwa app.',
     featureMDNSTitle: 'mDNS discovery',
     featureMDNSBody:
       'The bridge listens for mDNS announcements from the configurator, allowing automatic service discovery on a home network without manual configuration.',
@@ -63,16 +63,16 @@ const pages = {
     architectureEyebrow: 'Architecture',
     architectureTitle: 'Simple layered flow, clear ownership, and a local-first runtime',
     architectureBody:
-      'The system separates the hardware-facing bridge from the local monitoring/configuration runtime. The Pico reads burner data and streams signed telemetry to a Go process on the same trusted local network. That Go process owns the UI, services, and configuration flow while the bridge stays focused on measurement and delivery.',
+      'The system separates the hardware-facing bridge from the headless Go runtime and the separate browser-push app. The Pico reads burner data and streams signed telemetry to a Go process on the same trusted local network. That Go process exposes the API and USB configuration flow while the bridge stays focused on measurement, ingest, and alert delivery.',
     stack1: 'Burner serial data',
     stack2: 'Pico W / Pico 2 W firmware',
     stack3: 'Signed TCP ingest',
-    stack4: 'Go runtime + local APIs',
-    stack5: 'Operator dashboard / config UI',
+    stack4: 'Headless Go runtime + local APIs',
+    stack5: 'push-pwa browser notifications',
     projectEyebrow: 'Project',
     projectTitle: 'Built for owners, integrators, and makers who want a practical burner monitor',
     projectBody1:
-      'This repository is a complete integration project for the Viking Bio 20 pellet burner: firmware, protocol parsing, local runtime, and browser-based status UI and configuration tooling. It is designed to be understandable, extensible, and easy to run on a small local device or home network.',
+      'This repository is a complete integration project for the Viking Bio 20 pellet burner: firmware, protocol parsing, local runtime, and a separate browser push app for operator alerts. It is designed to be understandable, extensible, and easy to run on a small local device or home network.',
     projectBody2:
       'The focus is honest operational control: keep data local, verify the device at the edge, and provide a reliable configuration flow without depending on a hosted product or cloud backend.',
     footerBrand: 'Viking Bio Integration',
@@ -93,10 +93,10 @@ const pages = {
     sourceAria: 'Visa källkod på GitHub (öppnas i ny flik)',
     footerGitHubAria: 'Viking Bio-projekt på GitHub (öppnas i ny flik)',
     panelLabel: 'Telemetriflöde',
-    panelConfigurator: 'Lokal konfigurator',
+    panelConfigurator: 'Headless Go-runtime',
     panelItem1: 'UART-avläsning från brännaren',
     panelItem2: 'Signerad TCP-ström till lokal runtime',
-    panelItem3: 'Lokal konfigurations- och statusvy',
+    panelItem3: 'Lokalt API + USB-konfigurationsflöde',
     overviewEyebrow: 'Översikt',
     overviewTitle: 'Byggt för tillförlitlighet, överblick och lokalt ägarskap',
     cardBridgeTitle: 'Tillförlitlig brygga',
@@ -107,7 +107,7 @@ const pages = {
       'Go-konfiguratorn sköter onboarding, bryggstatus och lokal runtime utan att förlita sig på en extern tjänst eller molnapp.',
     cardInsightTitle: 'Driftsinsikt',
     cardInsightBody:
-      'Projektet är designat för att visa brännarens tillstånd och fel i ett format som enkelt kan inspekteras via en lokal dashboard eller den lokala konfigurationsvyn.',
+      'Projektet visar brännarens tillstånd och fel via ett lokalt API och en separat browser-push-app, utan att exponera en dashboard på roten.',
     featuresEyebrow: 'Funktioner',
     featuresTitle: 'Allt som behövs för att göra en brännare smartare utan att förlora kontrollen',
     featureTelemetryTitle: 'Signerad telemetri',
@@ -116,9 +116,9 @@ const pages = {
     featureUSBTitle: 'USB-installation',
     featureUSBBody:
       'Bryggkonfiguration kan ske över seriell port med GUI eller terminalbaserad konfigurator, vilket gör installationen enkel.',
-    featureNetworkTitle: 'Lokal nätverks-first design',
+    featureNetworkTitle: 'Headless lokal runtime',
     featureNetworkBody:
-      'Runtime är byggt kring en lokal, enhetscentrerad design i stället för en externt hostad dashboard.',
+      'Runtime är byggt kring en lokal, enhetscentrerad modell: Go-tjänsten exponeras via API och USB-konfiguration, medan browser-notifieringar hanteras av den separata push-pwa-appen.',
     featureMDNSTitle: 'mDNS-upptäckt',
     featureMDNSBody:
       'Bryggan lyssnar efter mDNS-meddelanden från konfiguratorn, vilket möjliggör automatisk tjänsteupptäckt i ett hemnät utan manuell konfiguration.',
@@ -131,16 +131,16 @@ const pages = {
     architectureEyebrow: 'Arkitektur',
     architectureTitle: 'Enkelt lagerflöde, tydlig ansvarsfördelning och lokal-first design',
     architectureBody:
-      'Systemet separerar hårdvarunära bryggan från lokal övervakning och konfiguration. Pico läser brännardata och strömmar signerad telemetri till en Go-process i samma lokala nätverk. Den processen äger användargränssnitt, tjänster och konfigurationsflöde medan bryggan fokuserar på mätning och leverans.',
+      'Systemet separerar hårdvarunära bryggan från den headless Go-runtimen och den separata browser-push-appen. Pico läser brännardata och strömmar signerad telemetri till en Go-process i samma lokala nätverk. Den processen exponeras via API och USB-konfigurationsflöde medan bryggan fokuserar på mätning, ingest och varningstillförsel.',
     stack1: 'Seriedata från brännaren',
     stack2: 'Pico W / Pico 2 W firmware',
     stack3: 'Signerad TCP-ingest',
-    stack4: 'Go runtime + lokala API:er',
-    stack5: 'Operatörspanel / konfigurationsgränssnitt',
+    stack4: 'Headless Go-runtime + lokala API:er',
+    stack5: 'push-pwa browser-notifieringar',
     projectEyebrow: 'Projekt',
     projectTitle: 'Byggt för ägare, installatörer och skapare som vill ha en praktisk brännarmonitor',
     projectBody1:
-      'Det här repo:t är ett komplett integrationsprojekt för Viking Bio 20-pelletbrännaren: firmware, protokollanalys, lokal runtime och webb-baserat statusgränssnitt för konfiguration. Det är designat för att vara lätt att förstå, utöka och köra på liten lokal utrustning i hemmet.',
+      'Det här repo:t är ett komplett integrationsprojekt för Viking Bio 20-pelletbrännaren: firmware, protokollanalys, lokal runtime och en separat browser-push-app för operatörsvarningar. Det är designat för att vara lätt att förstå, utöka och köra på liten lokal utrustning i hemmet.',
     projectBody2:
       'Fokus ligger på ärlig driftkontroll: håll data lokalt, verifiera enheten i kanten och erbjuda ett pålitligt konfigurationsflöde utan att vara beroende av en hostad produkt eller molnbackend.',
     footerBrand: 'Viking Bio Integration',

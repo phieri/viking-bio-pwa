@@ -52,12 +52,12 @@
                 <span class="arrow">→</span>
                 <span>Pico W</span>
                 <span class="arrow">→</span>
-                <span>Local configurator</span>
+                <span>Headless Go runtime</span>
               </div>
               <ul>
                 <li>UART capture from burner output</li>
                 <li>Signed TCP stream to local runtime</li>
-                <li>Local configuration and status UI</li>
+                <li>Local API + USB provisioning flow</li>
               </ul>
             </div>
           </div>
@@ -81,7 +81,7 @@
             </article>
             <article class="info-card">
               <h3>Operational insight</h3>
-              <p>The project is designed to surface burner state and fault information in a way that is easy to inspect from a local dashboard or on-device configuration flow.</p>
+              <p>The project is designed to surface burner state and fault information through a local API and a separate browser push app, without serving a dashboard at the root.</p>
             </article>
           </div>
         </div>
@@ -104,8 +104,8 @@
               <p>Bridge setup can happen over serial with a GUI or terminal-based configurator, making installation straightforward.</p>
             </div>
             <div class="feature-item">
-              <h3>Local network-first design</h3>
-              <p>The runtime is built around a local device-first deployment model instead of an externally hosted dashboard.</p>
+              <h3>Headless local runtime</h3>
+              <p>The runtime is built around a local device-first model: the Go service exposes APIs and USB setup, while browser notifications are handled by the separate push-pwa app.</p>
             </div>
             <div class="feature-item">
               <h3>mDNS discovery</h3>
@@ -128,14 +128,14 @@
           <div>
             <p class="eyebrow">Architecture</p>
             <h2>Simple layered flow, clear ownership, and a local-first runtime</h2>
-            <p>The system separates the hardware-facing bridge from the local monitoring/configuration runtime. The Pico reads burner data and streams signed telemetry to a Go process on the same trusted local network. That Go process owns the UI, services, and configuration flow while the bridge stays focused on measurement and delivery.</p>
+            <p>The system separates the hardware-facing bridge from the headless Go runtime and the separate browser-push app. The Pico reads burner data and streams signed telemetry to a Go process on the same trusted local network. That Go process exposes the API and USB configuration flow while the bridge stays focused on measurement, ingest, and alert delivery.</p>
           </div>
           <div class="stack">
             <div class="stack-item"><span>1</span><span>Burner serial data</span></div>
             <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W firmware</span></div>
             <div class="stack-item"><span>3</span><span>Signed TCP ingest</span></div>
-            <div class="stack-item"><span>4</span><span>Go runtime + local APIs</span></div>
-            <div class="stack-item"><span>5</span><span>Operator dashboard / config UI</span></div>
+            <div class="stack-item"><span>4</span><span>Headless Go runtime + local APIs</span></div>
+            <div class="stack-item"><span>5</span><span>push-pwa browser notifications</span></div>
           </div>
         </div>
       </section>
@@ -148,7 +148,7 @@
               <h2 id="project-title">Built for owners, integrators, and makers who want a practical burner monitor</h2>
             </div>
             <div class="project-copy">
-              <p>This repository is a complete integration project for the Viking Bio 20 pellet burner: firmware, protocol parsing, local runtime, and browser-based status UI and configuration tooling. It is designed to be understandable, extensible, and easy to run on a small local device or home network.</p>
+              <p>This repository is a complete integration project for the Viking Bio 20 pellet burner: firmware, protocol parsing, local runtime, and a separate browser push app for operator alerts. It is designed to be understandable, extensible, and easy to run on a small local device or home network.</p>
               <p>The focus is honest operational control: keep data local, verify the device at the edge, and provide a reliable configuration flow without depending on a hosted product or cloud backend.</p>
             </div>
           </div>

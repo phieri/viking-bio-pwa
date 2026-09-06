@@ -6,8 +6,8 @@ The project landing page is published at <https://phieri.github.io/viking-bio-pw
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the configurator
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
-3. **[configurator/](configurator/)** – Go configurator/runtime that receives burner data over signed TCP ingest and manages the local configuration flow for the Pico bridge
-4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions, receives bridge webhooks, and pushes burner alerts to the operator using VAPID/web-push
+3. **[configurator/](configurator/)** – headless Go runtime that receives signed burner telemetry over TCP ingest, exposes the local API, and manages the Pico configuration flow over USB without serving a browser dashboard
+4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions, receives bridge webhook alerts, and sends operator-facing VAPID/web-push notifications
 
 ## Architecture
 
@@ -16,12 +16,14 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                               │
                      Signed TCP ingest on INGEST_TCP_PORT
                               │
-                          Go Configurator
-                          ├── HTTP/HTTPS server (IPv6 [::]:3000)
-                          │   ├── GET /api/data             Burner state (JSON)
-                          │   ├── GET /api/metrics          Optional history samples
-                          │   └── USB provisioning and local config UI
-                          └── Bridge provisioning and runtime state
+                 Headless Go configurator (local API only)
+                 ├── GET /api/data                  Burner state snapshot
+                 ├── GET /api/metrics               Optional history samples
+                 └── USB provisioning + bridge state
+                              │
+                              └── push-pwa
+                                  ├── webhook receiver for Pico alerts
+                                  └── VAPID/web-push delivery to browser clients
 ```
 
 ## pico-bridge
@@ -77,7 +79,7 @@ The Go configurator/runtime:
 - Go net/http server exposes the local operational API and binds to `::` for dual-stack IPv6/IPv4
 - Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
 - Bridge-side alert delivery is configured directly on the Pico; the configurator does not send outbound webhook payloads
-- **Device configurator** for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available; the runtime behaves as the configurator for the bridge and keeps the operational view in the local device UI.
+- **Device configurator** for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available; the runtime otherwise remains a headless local API service rather than a browser dashboard.
 
 ### Device Configurator
 
