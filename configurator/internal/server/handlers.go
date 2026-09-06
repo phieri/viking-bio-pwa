@@ -111,18 +111,12 @@ func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machin
 	return h.state.applyMachineData(body, now)
 }
 
-func (h *Handlers) triggerNotifications(result machineDataUpdateResult) {
-	// The bridge owns outbound webhook delivery. The configurator only ingests
-	// telemetry and maintains the local state used by the UI.
-}
-
 func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {
 	result := h.updateBurnerState(body, now)
 	if h.metricsEnabled() {
 		h.state.appendTelemetrySample(now, result.snapshot)
 	}
 	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
-	h.triggerNotifications(result)
 }
 
 // energyPriceResponse is the JSON payload for GET /api/energy-price.
