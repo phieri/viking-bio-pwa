@@ -226,26 +226,26 @@ func shutdownOnContext(ctx context.Context, servers ...*http.Server) {
 	}()
 }
 
-func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
+func (s *Server) startServer(ctx context.Context, mux http.Handler, addr string, serve func(*http.Server, net.Listener) error, logMsg string) error {
 	srv := &http.Server{Addr: addr, Handler: mux}
 	s.httpSrv = srv
 	ln, err := listen(addr)
 	if err != nil {
 		return err
 	}
-	log.Printf("Viking Bio Configurator listening on http://%s", addr)
+	log.Print(logMsg)
 	shutdownOnContext(ctx, srv)
-	return srv.Serve(ln)
+	return serve(srv, ln)
+}
+
+func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
+	return s.startServer(ctx, mux, addr, func(srv *http.Server, ln net.Listener) error {
+		return srv.Serve(ln)
+	}, fmt.Sprintf("Viking Bio Configurator listening on http://%s", addr))
 }
 
 func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr string) error {
-	srv := &http.Server{Addr: addr, Handler: mux}
-	s.httpSrv = srv
-	ln, err := listen(addr)
-	if err != nil {
-		return err
-	}
-	log.Printf("Viking Bio Configurator listening on https://%s (manual TLS)", addr)
-	shutdownOnContext(ctx, srv)
-	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
+	return s.startServer(ctx, mux, addr, func(srv *http.Server, ln net.Listener) error {
+		return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
+	}, fmt.Sprintf("Viking Bio Configurator listening on https://%s (manual TLS)", addr))
 }
