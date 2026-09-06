@@ -127,11 +127,9 @@ INGEST_TCP_PORT=9000 \
 
 The configurator binds to `http://[::]:3000/` for the local API and returns 404 for browser-root requests.
 
-### Command-Line Flags
+### Version display
 
-| Flag | Description |
-|------|-------------|
-| `--version` | Print version and exit |
+The configurator shows its build version in the header of the interactive TUI and in the header area of the desktop GUI, with automatic metadata such as the current build date and GitHub Actions run number when those values are available.
 
 Defensive validation notes:
 - `HTTP_PORT` and `INGEST_TCP_PORT` must be integers in the range `1..65535`

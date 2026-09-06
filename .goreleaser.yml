@@ -25,7 +25,7 @@ builds:
       - goos: windows
         goarch: arm64
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+      - -s -w -X github.com/phieri/viking-bio-pwa/configurator/internal/version.Version={{.Version}} -X github.com/phieri/viking-bio-pwa/configurator/internal/version.Commit={{.Commit}} -X github.com/phieri/viking-bio-pwa/configurator/internal/version.Date={{.Date}}
     flags:
       - -trimpath
 
