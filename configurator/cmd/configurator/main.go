@@ -110,6 +110,7 @@ func runServer() {
 		if err := configure.RunLocalUI(cfg.PicoSerialPort, store); err != nil {
 			log.Printf("configure: %v", err)
 		}
+		cancel()
 	}
 
 	<-ctx.Done()

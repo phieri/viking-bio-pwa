@@ -41,13 +41,13 @@ The generated YAML snippet is meant to be pasted into `storage/subscriptions.yam
 Set a shared webhook token in `.env`:
 
 ```env
-PUSH_WEBHOOK_TOKEN=change-me
+PUSH_WEBHOOK_TOKEN=your-token
 ```
 
 Then point the Pico bridge webhook URL at:
 
 ```text
-https://change-me@your-push-host/webhook.php
+https://your-token@your-push-host/webhook.php
 ```
 
 The bridge sends JSON payloads containing fields such as `"device"`, `"type"`, `"detail"`, `"flame"`, `"fan"`, `"temp"`, `"err"`, and `"valid"`. The backend maps them to operator-facing push messages and targets subscriptions whose `sender` matches the device ID (or `all`).
