@@ -5,10 +5,10 @@ const installBanner = document.getElementById('install-banner');
 const installButton = document.getElementById('install-button');
 const enablePushButton = document.getElementById('enable-push');
 const sendTestButton = document.getElementById('send-test');
-const copyButton = document.getElementById('copy-json');
+const copyButton = document.getElementById('copy-yaml');
 const prioritySelect = document.getElementById('subscription-priority');
 const senderInput = document.getElementById('subscription-sender');
-const subscriptionJson = document.getElementById('subscription-json');
+const subscriptionYaml = document.getElementById('subscription-yaml');
 const statusBox = document.getElementById('status');
 let installPromptEvent = null;
 
@@ -64,7 +64,7 @@ function urlBase64ToUint8Array(base64String) {
   return output;
 }
 
-function buildSubscriptionJson(subscription) {
+function buildSubscriptionYaml(subscription) {
   const keys = subscription.toJSON ? subscription.toJSON().keys : subscription.keys || {};
   const sender = (senderInput.value || '').trim();
   return {
@@ -111,8 +111,8 @@ async function enableNotifications() {
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     });
 
-    const payload = buildSubscriptionJson(subscription);
-    subscriptionJson.value = JSON.stringify(payload, null, 2);
+    const payload = buildSubscriptionYaml(subscription);
+    subscriptionYaml.value = JSON.stringify(payload, null, 2);
     setStatus('Client subscription generated. Paste it into subscriptions.yaml.', 'success');
   } catch (error) {
     setStatus(error.message, 'error');
@@ -158,13 +158,13 @@ async function sendTestAlert() {
 }
 
 copyButton.addEventListener('click', async () => {
-  if (!subscriptionJson.value.trim()) {
-    setStatus('Generate a client JSON snippet before copying it.', 'error');
+  if (!subscriptionYaml.value.trim()) {
+    setStatus('Generate a client YAML snippet before copying it.', 'error');
     return;
   }
 
-  await navigator.clipboard.writeText(subscriptionJson.value);
-  setStatus('Subscription JSON copied to clipboard.', 'success');
+  await navigator.clipboard.writeText(subscriptionYaml.value);
+  setStatus('Subscription YAML copied to clipboard.', 'success');
 });
 
 if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) {

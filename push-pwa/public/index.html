@@ -16,7 +16,7 @@
       <div class="card">
         <p class="eyebrow">Viking Bio</p>
         <h1>Burner alerts</h1>
-        <p class="lead">Generate a single JSON snippet for a client subscription and paste it into the subscription file manually.</p>
+        <p class="lead">Generate a single YAML snippet for a client subscription and paste it into the subscription file manually.</p>
 
         <div id="install-banner" class="install-banner hidden" aria-live="polite">
           <strong>Install this app</strong>
@@ -35,12 +35,12 @@
         </select>
 
         <div class="actions">
-          <button id="enable-push" type="button" class="primary">Generate client JSON</button>
-          <button id="copy-json" type="button" class="secondary">Copy JSON</button>
+          <button id="enable-push" type="button" class="primary">Generate client YAML</button>
+          <button id="copy-yaml" type="button" class="secondary">Copy YAML</button>
           <button id="send-test" type="button" class="secondary">Send test alert</button>
         </div>
 
-        <textarea id="subscription-json" class="subscription-json" readonly aria-label="Subscription JSON snippet"></textarea>
+        <textarea id="subscription-yaml" class="subscription-yaml" readonly aria-label="Subscription YAML snippet"></textarea>
         <div id="status" class="status" aria-live="polite">Waiting for subscription data.</div>
       </div>
     </main>

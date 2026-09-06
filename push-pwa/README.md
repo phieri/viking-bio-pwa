@@ -1,6 +1,6 @@
 # Viking Bio Push PWA
 
-This small installable PWA is the fourth part of the Viking Bio monorepo. It generates a browser push subscription JSON block for a client, lets the operator copy it manually into a YAML file, and then uses `minishlink/web-push` to send matching alert payloads.
+This small installable PWA is the fourth part of the Viking Bio monorepo. It generates a browser push subscription YAML block for a client, lets the operator copy it manually into the YAML subscriber file, and then uses `minishlink/web-push` to send matching alert payloads.
 
 ## Purpose
 
@@ -19,11 +19,11 @@ composer install
 php -S 0.0.0.0:8000 -t public
 ```
 
-Then open `http://localhost:8000/` in a browser and click “Generate client JSON”.
+Then open `http://localhost:8000/` in a browser and click “Generate client YAML”.
 
 ## Manual subscription file
 
-The generated JSON is meant to be pasted into `storage/subscriptions.yaml` as a YAML list of objects. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
+The generated YAML snippet is meant to be pasted into `storage/subscriptions.yaml` as a YAML list of objects. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
 
 ```yaml
 - endpoint: "https://fcm.googleapis.com/..."
