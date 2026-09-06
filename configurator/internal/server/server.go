@@ -226,26 +226,27 @@ func shutdownOnContext(ctx context.Context, servers ...*http.Server) {
 	}()
 }
 
-func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
+func (s *Server) startServer(ctx context.Context, mux http.Handler, addr string, isTLS bool, certPath, keyPath string) error {
 	srv := &http.Server{Addr: addr, Handler: mux}
 	s.httpSrv = srv
 	ln, err := listen(addr)
 	if err != nil {
 		return err
+	}
+	if isTLS {
+		log.Printf("Viking Bio Configurator listening on https://%s (manual TLS)", addr)
+		shutdownOnContext(ctx, srv)
+		return srv.ServeTLS(ln, certPath, keyPath)
 	}
 	log.Printf("Viking Bio Configurator listening on http://%s", addr)
 	shutdownOnContext(ctx, srv)
 	return srv.Serve(ln)
 }
 
+func (s *Server) startHTTP(ctx context.Context, mux http.Handler, addr string) error {
+	return s.startServer(ctx, mux, addr, false, "", "")
+}
+
 func (s *Server) startManualTLS(ctx context.Context, mux http.Handler, addr string) error {
-	srv := &http.Server{Addr: addr, Handler: mux}
-	s.httpSrv = srv
-	ln, err := listen(addr)
-	if err != nil {
-		return err
-	}
-	log.Printf("Viking Bio Configurator listening on https://%s (manual TLS)", addr)
-	shutdownOnContext(ctx, srv)
-	return srv.ServeTLS(ln, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
+	return s.startServer(ctx, mux, addr, true, s.cfg.TLSCertPath, s.cfg.TLSKeyPath)
 }
