@@ -44,6 +44,12 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		if value == "" {
 			return ""
 		}
+		switch strings.ToLower(value) {
+		case "(set)", "set", "configured":
+			return "configured"
+		case "not set", "not configured":
+			return "not set"
+		}
 		if len(value) <= 4 {
 			return strings.Repeat("*", len(value))
 		}
@@ -90,6 +96,9 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		}
 		if status.DeviceKey != "" {
 			sb.WriteString("DeviceKey: " + maskStatusValue(status.DeviceKey) + "\n")
+		}
+		if status.Webhook != "" {
+			sb.WriteString("Webhook:   " + maskStatusValue(status.Webhook) + "\n")
 		}
 		statusLabel.SetText(strings.TrimRight(sb.String(), "\n"))
 	}
@@ -159,6 +168,9 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 			}
 			if status.DeviceKey != "" {
 				sb.WriteString("  DeviceKey: " + maskStatusValue(status.DeviceKey) + "\n")
+			}
+			if status.Webhook != "" {
+				sb.WriteString("  Webhook:   " + maskStatusValue(status.Webhook) + "\n")
 			}
 			appendLog(strings.TrimRight(sb.String(), "\n"))
 		}()

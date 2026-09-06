@@ -37,6 +37,18 @@ func color(s, c string) string {
 	return c + s + colorReset
 }
 
+func formatConfiguredValue(value string) string {
+	value = strings.TrimSpace(value)
+	switch strings.ToLower(value) {
+	case "(set)", "set", "configured":
+		return "configured"
+	case "not set", "not configured":
+		return "not set"
+	default:
+		return value
+	}
+}
+
 // TUI provides the interactive device configurator menu.
 type TUI struct {
 	bridge  *serial.Bridge
@@ -145,7 +157,10 @@ func (t *TUI) showStatus() {
 		fmt.Println("  Telemetry: " + status.Telemetry)
 	}
 	if status.DeviceKey != "" {
-		fmt.Println("  DeviceKey: " + status.DeviceKey)
+		fmt.Println("  DeviceKey: " + formatConfiguredValue(status.DeviceKey))
+	}
+	if status.Webhook != "" {
+		fmt.Println("  Webhook:  " + formatConfiguredValue(status.Webhook))
 	}
 	fmt.Println()
 }

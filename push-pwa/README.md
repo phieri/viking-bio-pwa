@@ -1,6 +1,6 @@
 # Viking Bio Push PWA
 
-This small installable PWA is the fourth part of the Viking Bio monorepo. It generates a browser push subscription YAML block for a client, lets the operator copy it manually into the YAML subscriber file, and then uses `minishlink/web-push` to send matching alert payloads.
+This small installable PWA is the fourth part of the Viking Bio monorepo. It generates a browser push subscription YAML block for a client, lets the operator copy it manually into the YAML subscriber file, receives bridge webhooks, and then uses `minishlink/web-push` to send matching alert payloads.
 
 ## Purpose
 
@@ -9,6 +9,7 @@ This small installable PWA is the fourth part of the Viking Bio monorepo. It gen
 - Keep the storage layer read-only so subscription records are maintained by operators, not by the PHP app
 - Include a `priority` field for low, normal, and high notifications
 - Support multiple sender subscriptions so each browser client only receives alerts for the burner it is interested in
+- Receive Pico bridge webhook payloads and translate them into browser push notifications
 - Offer an install CTA on iOS Safari via the native Add to Home Screen flow
 
 ## Quick start
@@ -35,10 +36,27 @@ The generated YAML snippet is meant to be pasted into `storage/subscriptions.yam
   uiUrl: "http://localhost:8000"
 ```
 
+## Bridge webhook receiver
+
+Set a shared webhook token in `.env`:
+
+```env
+PUSH_WEBHOOK_TOKEN=change-me
+```
+
+Then point the Pico bridge webhook URL at:
+
+```text
+https://your-push-host/webhook.php?token=change-me
+```
+
+The bridge sends JSON payloads such as `{"device","type","detail","flame","fan","temp","err","valid"}`. The backend maps them to operator-facing push messages and targets subscriptions whose `sender` matches the device ID (or `all`).
+
 ## Notes
 
-- The app exposes `public-key.php`, `config.php`, and `send.php` for the VAPID registration flow and test send path.
+- The app exposes `public-key.php`, `config.php`, `send.php`, and `webhook.php` for the VAPID registration flow, test send path, and Pico bridge webhook receiver.
 - `send.php` validates a per-session bearer token issued by `/config.php` so the browser can trigger test messages without embedding a secret in the frontend source.
+- `webhook.php` validates `PUSH_WEBHOOK_TOKEN` from a bearer header, `X-Webhook-Token`, or `?token=` query string before sending push notifications.
 - `public/reminder.php` is the backend-owned weekly cleaning reminder trigger. It checks `storage/reminder-state.json` and only sends once every seven days using the server's current time, so the Pico bridge does not need to acquire the current time itself.
 - `subscribe.php` is intentionally not used; operators add client entries directly to `storage/subscriptions.yaml`.
 - The `storage/` directory is intentionally blocked from direct web access via `.htaccess`, so `subscriptions.yaml` and `vapid.json` cannot be exposed on the public internet.

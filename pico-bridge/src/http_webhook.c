@@ -13,6 +13,7 @@
 
 #define WEBHOOK_RETRY_MS 30000
 #define WEBHOOK_TIMEOUT_MS 10000
+#define WEBHOOK_QUEUE_LEN 4
 #define WEBHOOK_JSON_MAX 384
 #define WEBHOOK_BODY_MAX 512
 
@@ -36,8 +37,9 @@ static ip_addr_t s_server_addr;
 static absolute_time_t s_timeout;
 static absolute_time_t s_retry_time;
 
-static bool s_pending = false;
-static char s_pending_json[WEBHOOK_BODY_MAX];
+static char s_queue[WEBHOOK_QUEUE_LEN][WEBHOOK_BODY_MAX];
+static size_t s_queue_head = 0;
+static size_t s_queue_count = 0;
 
 static void abort_connection(void) {
 	if (s_pcb != NULL) {
@@ -46,9 +48,41 @@ static void abort_connection(void) {
 	}
 }
 
-static void clear_pending(void) {
-	s_pending = false;
-	s_pending_json[0] = '\0';
+static void clear_queue(void) {
+	s_queue_head = 0;
+	s_queue_count = 0;
+}
+
+static bool queue_push(const char *json) {
+	if (json == NULL || json[0] == '\0') {
+		return false;
+	}
+	if (s_queue_count >= WEBHOOK_QUEUE_LEN) {
+		printf("webhook: queue full, dropping oldest alert\n");
+		s_queue_head = (s_queue_head + 1) % WEBHOOK_QUEUE_LEN;
+		s_queue_count--;
+	}
+
+	size_t slot = (s_queue_head + s_queue_count) % WEBHOOK_QUEUE_LEN;
+	snprintf(s_queue[slot], sizeof(s_queue[slot]), "%s", json);
+	s_queue_count++;
+	return true;
+}
+
+static const char *queue_peek(void) {
+	if (s_queue_count == 0) {
+		return NULL;
+	}
+	return s_queue[s_queue_head];
+}
+
+static void queue_pop(void) {
+	if (s_queue_count == 0) {
+		return;
+	}
+	s_queue[s_queue_head][0] = '\0';
+	s_queue_head = (s_queue_head + 1) % WEBHOOK_QUEUE_LEN;
+	s_queue_count--;
 }
 
 static void set_retry_wait(void) {
@@ -290,19 +324,20 @@ static void do_connect(void) {
 }
 
 static void start_connection(void) {
-	if (s_pcb != NULL || !s_pending || s_host[0] == '\0') {
+	if (s_pcb != NULL || s_queue_count == 0 || s_host[0] == '\0') {
 		return;
 	}
 	do_connect();
 }
 
 static void send_http_request(void) {
-	if (s_pcb == NULL || !s_pending || s_pending_json[0] == '\0') {
+	const char *pending_json = queue_peek();
+	if (s_pcb == NULL || pending_json == NULL || pending_json[0] == '\0') {
 		return;
 	}
 
 	char request[WEBHOOK_BODY_MAX + 256];
-	size_t body_len = strlen(s_pending_json);
+	size_t body_len = strlen(pending_json);
 	int len = snprintf(request, sizeof(request),
 			"POST %s HTTP/1.1\r\n"
 			"Host: %s\r\n"
@@ -311,10 +346,10 @@ static void send_http_request(void) {
 			"Connection: close\r\n"
 			"\r\n"
 			"%s",
-			s_path, s_host, body_len, s_pending_json);
+			s_path, s_host, body_len, pending_json);
 	if (len <= 0 || (size_t)len >= sizeof(request)) {
 		printf("webhook: request too large\n");
-		clear_pending();
+		queue_pop();
 		set_retry_wait();
 		return;
 	}
@@ -323,13 +358,12 @@ static void send_http_request(void) {
 	if (err == ERR_OK) {
 		tcp_output(s_pcb);
 		printf("webhook: sent alert payload to %s\n", s_url);
-		clear_pending();
+		queue_pop();
 		abort_connection();
 		s_state = WEBHOOK_STATE_IDLE;
 		return;
 	}
 	printf("webhook: tcp_write failed (%d)\n", (int)err);
-	clear_pending();
 	set_retry_wait();
 }
 
@@ -341,7 +375,7 @@ void http_webhook_init(void) {
 	s_path[1] = '\0';
 	s_state = WEBHOOK_STATE_IDLE;
 	abort_connection();
-	clear_pending();
+	clear_queue();
 	if (!wifi_config_load_webhook_url(url, sizeof(url))) {
 		return;
 	}
@@ -356,7 +390,7 @@ void http_webhook_set_url(const char *url) {
 		printf("webhook: invalid URL '%s'\n", url);
 		return;
 	}
-	clear_pending();
+	clear_queue();
 	abort_connection();
 	s_state = WEBHOOK_STATE_IDLE;
 	printf("webhook: configured %s\n", s_url);
@@ -370,11 +404,15 @@ void http_webhook_send_alert(const vikingbio_data_t *data, const char *type, con
 	if (data == NULL || type == NULL || s_host[0] == '\0') {
 		return;
 	}
-	if (!build_payload(data, type, detail, s_pending_json, sizeof(s_pending_json))) {
+	char payload[WEBHOOK_BODY_MAX];
+	if (!build_payload(data, type, detail, payload, sizeof(payload))) {
 		printf("webhook: failed to build alert payload\n");
 		return;
 	}
-	s_pending = true;
+	if (!queue_push(payload)) {
+		printf("webhook: failed to queue alert payload\n");
+		return;
+	}
 	if (s_state == WEBHOOK_STATE_IDLE) {
 		start_connection();
 	}
@@ -385,7 +423,7 @@ void http_webhook_poll(void) {
 		s_state = WEBHOOK_STATE_IDLE;
 	}
 
-	if (s_state == WEBHOOK_STATE_IDLE && s_pending && s_host[0] != '\0') {
+	if (s_state == WEBHOOK_STATE_IDLE && s_queue_count > 0 && s_host[0] != '\0') {
 		start_connection();
 		return;
 	}
@@ -396,7 +434,7 @@ void http_webhook_poll(void) {
 		return;
 	}
 
-	if (s_state == WEBHOOK_STATE_CONNECTED && s_pcb != NULL && s_pending) {
+	if (s_state == WEBHOOK_STATE_CONNECTED && s_pcb != NULL && s_queue_count > 0) {
 		send_http_request();
 	}
 }
