@@ -10,6 +10,7 @@
 #include "serial_handler.h"
 #include "vikingbio.h"
 #include "http_client.h"
+#include "http_webhook.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
 #include "dns_sd_browser.h"
@@ -55,6 +56,8 @@ static absolute_time_t s_led_blink_time;
 static absolute_time_t s_serial_blink_end;
 static bool s_led_blink_on = false;
 static bool s_status_led_available = false;
+static bool s_last_webhook_flame = false;
+static uint8_t s_last_webhook_error = 0;
 
 static void bridge_status_led_set_state(bool enabled) {
 	if (s_status_led_available) {
@@ -408,6 +411,7 @@ static void init_bridge_components(void) {
 	}
 
 	wifi_config_init();
+	http_webhook_init();
 }
 
 static bool init_wifi_stack(void) {
@@ -499,6 +503,19 @@ static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up
 
 	*timeout_triggered = false;
 	*flame_on = new_data.flame_detected;
+	if (wifi_up && http_webhook_is_configured()) {
+		if (new_data.flame_detected != s_last_webhook_flame) {
+			http_webhook_send_alert(&new_data, "flame",
+							new_data.flame_detected ? "on" : "off");
+			s_last_webhook_flame = new_data.flame_detected;
+		}
+		if (new_data.error_code != 0U && new_data.error_code != s_last_webhook_error) {
+			http_webhook_send_alert(&new_data, "error", "detected");
+			s_last_webhook_error = new_data.error_code;
+		} else if (new_data.error_code == 0U) {
+			s_last_webhook_error = 0U;
+		}
+	}
 	if (wifi_up) {
 		http_client_send_data(&new_data);
 	}
@@ -515,7 +532,10 @@ static void handle_timeout_event(bool wifi_up, bool *timeout_triggered, bool *fl
 		*flame_on = false;
 		printf("Viking Bio: no data for 30s – burner may be off\n");
 		if (wifi_up) {
-			vikingbio_data_t stale = {.valid = false};
+			vikingbio_data_t stale = {.valid = false, .flame_detected = false};
+			if (http_webhook_is_configured()) {
+				http_webhook_send_alert(&stale, "error", "stale");
+			}
 			http_client_send_data(&stale);
 		}
 	}
@@ -529,6 +549,7 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 	if (wifi_up) {
 		cyw43_arch_lwip_begin();
 		http_client_poll();
+		http_webhook_poll();
 		cyw43_arch_lwip_end();
 	}
 }
