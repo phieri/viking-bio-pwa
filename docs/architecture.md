@@ -56,6 +56,6 @@ state/update/notification pipeline.
 
 ## Notification delivery ownership
 
-- The configurator derives flame, error, and cleaning reminder events from telemetry ingest frames.
+- The configurator derives flame and error events from telemetry ingest frames.
 - The active browser notification flow is the `push-pwa/` app, which maintains VAPID subscriptions and delivers operator-facing alerts.
 - The configurator or external services may still forward JSON payloads to configured endpoints when that delivery model is required.

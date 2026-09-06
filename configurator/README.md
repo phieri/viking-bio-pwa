@@ -43,8 +43,6 @@ make run
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
 | `TELEMETRY_HISTORY_ENABLED` | `false` | Enable in-memory metrics history for `GET /api/metrics` (`1` or `true`) |
-| `CLEANING_REMINDER_WEEKDAY` | `Saturday` | Weekday for cleaning reminders (e.g. `Monday`, `Saturday`) |
-| `CLEANING_REMINDER_TIME` | `07:00` | Start time (UTC) for the cleaning reminder window (`HH:MM`) |
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for the local provisioning GUI |
 | `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for device registry, logs, and local config |
 
@@ -65,8 +63,6 @@ HTTP_PORT=3000
 INGEST_TCP_PORT=9000
 MDNS_NAME=Viking Bio
 TELEMETRY_HISTORY_ENABLED=1
-CLEANING_REMINDER_WEEKDAY=Saturday
-CLEANING_REMINDER_TIME=07:00
 ```
 
 The bridge owns outbound webhook delivery during runtime; the configurator stays
