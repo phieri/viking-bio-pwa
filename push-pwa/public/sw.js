@@ -9,13 +9,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   const payload = event.data && event.data.json ? event.data.json() : { title: 'Viking Bio', body: 'A new burner update is available.' };
 
+  const sentAt = Date.now();
   const options = {
     body: payload.body || 'New burner update',
     icon: payload.icon || '/icon.svg',
     badge: payload.icon || '/icon.svg',
     tag: payload.tag || 'viking-bio-alert',
     vibrate: [100, 50, 100],
-    data: { url: payload.url || payload.uiUrl || '/' },
+    timestamp: sentAt,
+    data: { url: payload.url || payload.uiUrl || '/', sentAt },
   };
 
   event.waitUntil(self.registration.showNotification(payload.title || 'Viking Bio', options));
