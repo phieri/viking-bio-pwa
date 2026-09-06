@@ -73,7 +73,7 @@ h1 {
 }
 
 .priority-select,
-.subscription-json {
+.subscription-yaml {
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 0.9rem;
@@ -83,7 +83,7 @@ h1 {
   font: inherit;
 }
 
-.subscription-json {
+.subscription-yaml {
   min-height: 12rem;
   margin-top: 1rem;
   resize: vertical;
