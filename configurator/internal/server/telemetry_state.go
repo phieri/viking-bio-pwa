@@ -49,6 +49,29 @@ type telemetryHistorySample struct {
 	FlameSecs int64   `json:"flame_secs"`
 }
 
+func newMachineDataSnapshot(flame bool, fan, temp, err float64, valid bool, flameSecs int64) machineDataSnapshot {
+	return machineDataSnapshot{
+		Flame:     flame,
+		Fan:       fan,
+		Temp:      temp,
+		Err:       err,
+		Valid:     valid,
+		FlameSecs: flameSecs,
+	}
+}
+
+func newTelemetryHistorySample(entry telemetryHistoryEntry) telemetryHistorySample {
+	return telemetryHistorySample{
+		Timestamp: entry.Timestamp,
+		Flame:     entry.Snapshot.Flame,
+		Fan:       entry.Snapshot.Fan,
+		Temp:      entry.Snapshot.Temp,
+		Err:       entry.Snapshot.Err,
+		Valid:     entry.Snapshot.Valid,
+		FlameSecs: entry.Snapshot.FlameSecs,
+	}
+}
+
 const (
 	telemetryHistoryWindow              = 60 * time.Minute
 	telemetryHistoryCompactionThreshold = 100
@@ -80,14 +103,7 @@ func (s *State) snapshot() machineDataSnapshot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return machineDataSnapshot{
-		Flame:     s.Flame,
-		Fan:       s.Fan,
-		Temp:      s.Temp,
-		Err:       s.Err,
-		Valid:     s.Valid,
-		FlameSecs: s.FlameSecs,
-	}
+	return newMachineDataSnapshot(s.Flame, s.Fan, s.Temp, s.Err, s.Valid, s.FlameSecs)
 }
 
 func (s *State) appendTelemetrySample(now time.Time, snapshot machineDataSnapshot) {
@@ -130,15 +146,7 @@ func (s *State) telemetryHistoryWindow() []telemetryHistorySample {
 	start := s.telemetryHistoryStart
 	out := make([]telemetryHistorySample, 0, len(s.telemetryHistory)-start)
 	for _, entry := range s.telemetryHistory[start:] {
-		out = append(out, telemetryHistorySample{
-			Timestamp: entry.Timestamp,
-			Flame:     entry.Snapshot.Flame,
-			Fan:       entry.Snapshot.Fan,
-			Temp:      entry.Snapshot.Temp,
-			Err:       entry.Snapshot.Err,
-			Valid:     entry.Snapshot.Valid,
-			FlameSecs: entry.Snapshot.FlameSecs,
-		})
+		out = append(out, newTelemetryHistorySample(entry))
 	}
 	return out
 }
@@ -191,14 +199,7 @@ func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDat
 		flame:        s.Flame,
 		temp:         s.Temp,
 		err:          s.Err,
-		snapshot: machineDataSnapshot{
-			Flame:     s.Flame,
-			Fan:       s.Fan,
-			Temp:      s.Temp,
-			Err:       s.Err,
-			Valid:     s.Valid,
-			FlameSecs: s.FlameSecs,
-		},
+		snapshot:     newMachineDataSnapshot(s.Flame, s.Fan, s.Temp, s.Err, s.Valid, s.FlameSecs),
 	}
 	if result.newErr {
 		s.errorNotified = true
