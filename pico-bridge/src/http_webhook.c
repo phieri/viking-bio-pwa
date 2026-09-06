@@ -5,7 +5,6 @@
 #include "pico/stdlib.h"
 #include "lwip/dns.h"
 #include "lwip/ip_addr.h"
-#include "lwip/ip6_addr.h"
 #include "lwip/tcp.h"
 
 #include "http_webhook.h"
@@ -27,6 +26,8 @@ typedef enum {
 
 static struct tcp_pcb *s_pcb = NULL;
 static http_webhook_state_t s_state = WEBHOOK_STATE_IDLE;
+
+static void send_http_request(void);
 
 static char s_url[WIFI_WEBHOOK_URL_MAX_LEN + 1];
 static char s_host[WIFI_SERVER_IP_MAX_LEN + 1];
@@ -309,10 +310,8 @@ static void do_connect(void) {
 	}
 
 	memset(&s_server_addr, 0, sizeof(s_server_addr));
-	if (ip6addr_aton(s_host, &s_server_addr.u_addr.ip6)) {
-		s_server_addr.type = IPADDR_TYPE_V6;
-	} else if (ipaddr_aton(s_host, &s_server_addr)) {
-		s_server_addr.type = IPADDR_TYPE_V4;
+	if (ipaddr_aton(s_host, &s_server_addr)) {
+		/* ipaddr_aton accepts both IPv4 and IPv6 literals in lwIP builds that support IPv6. */
 	} else {
 		s_state = WEBHOOK_STATE_RESOLVING;
 		s_timeout = make_timeout_time_ms(WEBHOOK_TIMEOUT_MS);
