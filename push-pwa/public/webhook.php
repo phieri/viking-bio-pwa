@@ -28,7 +28,7 @@ if (preg_match('/^Bearer\s+(.+)$/', $authHeader, $matches) === 1) {
     $providedToken = trim($matches[1]);
 }
 if ($providedToken === '') {
-    $providedToken = trim((string) ($_SERVER['HTTP_X_WEBHOOK_TOKEN'] ?? ($_GET['token'] ?? '')));
+    $providedToken = trim((string) ($_SERVER['HTTP_X_WEBHOOK_TOKEN'] ?? ''));
 }
 if (!hash_equals($expectedToken, $providedToken)) {
     http_response_code(401);

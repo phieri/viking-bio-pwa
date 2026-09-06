@@ -47,16 +47,16 @@ PUSH_WEBHOOK_TOKEN=change-me
 Then point the Pico bridge webhook URL at:
 
 ```text
-https://your-push-host/webhook.php?token=change-me
+https://change-me@your-push-host/webhook.php
 ```
 
-The bridge sends JSON payloads such as `{"device","type","detail","flame","fan","temp","err","valid"}`. The backend maps them to operator-facing push messages and targets subscriptions whose `sender` matches the device ID (or `all`).
+The bridge sends JSON payloads containing fields such as `"device"`, `"type"`, `"detail"`, `"flame"`, `"fan"`, `"temp"`, `"err"`, and `"valid"`. The backend maps them to operator-facing push messages and targets subscriptions whose `sender` matches the device ID (or `all`).
 
 ## Notes
 
 - The app exposes `public-key.php`, `config.php`, `send.php`, and `webhook.php` for the VAPID registration flow, test send path, and Pico bridge webhook receiver.
 - `send.php` validates a per-session bearer token issued by `/config.php` so the browser can trigger test messages without embedding a secret in the frontend source.
-- `webhook.php` validates `PUSH_WEBHOOK_TOKEN` from a bearer header, `X-Webhook-Token`, or `?token=` query string before sending push notifications.
+- `webhook.php` validates `PUSH_WEBHOOK_TOKEN` from a bearer header or `X-Webhook-Token` before sending push notifications. The Pico bridge can supply that token by embedding it in the webhook URL user-info section, for example `https://token@host/webhook.php`.
 - `public/reminder.php` is the backend-owned weekly cleaning reminder trigger. It checks `storage/reminder-state.json` and only sends once every seven days using the server's current time, so the Pico bridge does not need to acquire the current time itself.
 - `subscribe.php` is intentionally not used; operators add client entries directly to `storage/subscriptions.yaml`.
 - The `storage/` directory is intentionally blocked from direct web access via `.htaccess`, so `subscriptions.yaml` and `vapid.json` cannot be exposed on the public internet.

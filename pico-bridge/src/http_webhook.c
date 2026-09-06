@@ -31,6 +31,7 @@ static http_webhook_state_t s_state = WEBHOOK_STATE_IDLE;
 static char s_url[WIFI_WEBHOOK_URL_MAX_LEN + 1];
 static char s_host[WIFI_SERVER_IP_MAX_LEN + 1];
 static char s_path[128];
+static char s_auth_token[129];
 static uint16_t s_port = 80;
 
 static ip_addr_t s_server_addr;
@@ -168,6 +169,7 @@ static bool parse_url(const char *url) {
 	s_host[0] = '\0';
 	s_path[0] = '/';
 	s_path[1] = '\0';
+	s_auth_token[0] = '\0';
 	s_port = 80;
 
 	const char *cursor = url;
@@ -182,7 +184,25 @@ static bool parse_url(const char *url) {
 	}
 
 	const char *path_start = strchr(cursor, '/');
-	const char *host_end = path_start ? path_start : cursor + strlen(cursor);
+	const char *authority_end = path_start ? path_start : cursor + strlen(cursor);
+	const char *at_sign = NULL;
+	for (const char *p = cursor; p < authority_end; p++) {
+		if (*p == '@') {
+			at_sign = p;
+		}
+	}
+	if (at_sign != NULL) {
+		size_t token_len = (size_t)(at_sign - cursor);
+		if (token_len == 0 || token_len >= sizeof(s_auth_token)) {
+			return false;
+		}
+		memcpy(s_auth_token, cursor, token_len);
+		s_auth_token[token_len] = '\0';
+		cursor = at_sign + 1;
+		path_start = strchr(cursor, '/');
+		authority_end = path_start ? path_start : cursor + strlen(cursor);
+	}
+	const char *host_end = authority_end;
 	if (cursor[0] == '[') {
 		const char *end_bracket = strchr(cursor, ']');
 		if (end_bracket == NULL || end_bracket > host_end) {
@@ -338,15 +358,29 @@ static void send_http_request(void) {
 
 	char request[WEBHOOK_BODY_MAX + 256];
 	size_t body_len = strlen(pending_json);
-	int len = snprintf(request, sizeof(request),
-			"POST %s HTTP/1.1\r\n"
-			"Host: %s\r\n"
-			"Content-Type: application/json\r\n"
-			"Content-Length: %zu\r\n"
-			"Connection: close\r\n"
-			"\r\n"
-			"%s",
-			s_path, s_host, body_len, pending_json);
+	int len;
+	if (s_auth_token[0] != '\0') {
+		len = snprintf(request, sizeof(request),
+				"POST %s HTTP/1.1\r\n"
+				"Host: %s\r\n"
+				"X-Webhook-Token: %s\r\n"
+				"Content-Type: application/json\r\n"
+				"Content-Length: %zu\r\n"
+				"Connection: close\r\n"
+				"\r\n"
+				"%s",
+				s_path, s_host, s_auth_token, body_len, pending_json);
+	} else {
+		len = snprintf(request, sizeof(request),
+				"POST %s HTTP/1.1\r\n"
+				"Host: %s\r\n"
+				"Content-Type: application/json\r\n"
+				"Content-Length: %zu\r\n"
+				"Connection: close\r\n"
+				"\r\n"
+				"%s",
+				s_path, s_host, body_len, pending_json);
+	}
 	if (len <= 0 || (size_t)len >= sizeof(request)) {
 		printf("webhook: request too large\n");
 		queue_pop();
@@ -373,6 +407,7 @@ void http_webhook_init(void) {
 	s_host[0] = '\0';
 	s_path[0] = '/';
 	s_path[1] = '\0';
+	s_auth_token[0] = '\0';
 	s_state = WEBHOOK_STATE_IDLE;
 	abort_connection();
 	clear_queue();
