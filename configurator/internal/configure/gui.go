@@ -19,6 +19,7 @@ import (
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
+	appversion "github.com/phieri/viking-bio-pwa/configurator/internal/version"
 )
 
 // RunGUI starts the Fyne-based device configurator GUI and blocks until the
@@ -30,8 +31,13 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 	defer runtime.UnlockOSThread()
 
 	a := fyneapp.New()
-	w := a.NewWindow("Viking Bio – Device Configurator")
+	w := a.NewWindow("Viking Bio – Device Configurator " + appversion.String())
 	w.Resize(fyne.NewSize(680, 480))
+
+	titleLabel := widget.NewLabelWithStyle("Viking Bio – Device Configurator",
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	versionLabel := widget.NewLabelWithStyle("Version: "+appversion.String(),
+		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	maskStatusValue := func(value string) string {
 		value = strings.TrimSpace(value)
@@ -421,8 +427,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 	)
 
 	content := container.NewBorder(
-		widget.NewLabelWithStyle("Viking Bio – Device Configurator",
-			fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		container.NewVBox(titleLabel, versionLabel),
 		container.NewHBox(layout.NewSpacer(), btnClose),
 		nil,
 		nil,

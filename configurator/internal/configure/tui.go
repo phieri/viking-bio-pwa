@@ -10,6 +10,7 @@ import (
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
+	appversion "github.com/phieri/viking-bio-pwa/configurator/internal/version"
 )
 
 const (
@@ -60,11 +61,22 @@ func (t *TUI) readLine(prompt string) string {
 	return ""
 }
 
+func formatHeaderLine(content string) string {
+	const width = 34
+	runes := []rune(content)
+	if len(runes) > width {
+		content = string([]rune(content)[:width-1]) + "…"
+		runes = []rune(content)
+	}
+	return color("║ "+content+strings.Repeat(" ", width-len(runes))+" ║", colorCyan)
+}
+
 func (t *TUI) printHeader() {
 	fmt.Println()
-	fmt.Println(color("╔══════════════════════════════════════╗", colorCyan))
-	fmt.Println(color("║  Viking Bio – Device Configurator    ║", colorCyan))
-	fmt.Println(color("╚══════════════════════════════════════╝", colorCyan))
+	fmt.Println(color("╔"+strings.Repeat("═", 36)+"╗", colorCyan))
+	fmt.Println(formatHeaderLine("Viking Bio – Device Configurator"))
+	fmt.Println(formatHeaderLine("Version: " + appversion.String()))
+	fmt.Println(color("╚"+strings.Repeat("═", 36)+"╝", colorCyan))
 	fmt.Println()
 }
 
