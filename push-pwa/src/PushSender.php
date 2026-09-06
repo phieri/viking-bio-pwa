@@ -17,6 +17,28 @@ final class PushSender
     /**
      * @return array{sent:int, failed:int}
      */
+    public function sendWeeklyCleaningReminder(?string $sender = null): array
+    {
+        $sentAt = (int) floor(microtime(true) * 1000);
+
+        return $this->send(
+            'Weekly cleaning reminder',
+            'Time for your weekly burner cleaning reminder.',
+            '/icon.svg',
+            [
+                'tag' => 'viking-bio-cleaning-reminder',
+                'url' => getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: '/'),
+                'timestamp' => $sentAt,
+                'priority' => 'low',
+            ],
+            'low',
+            $sender
+        );
+    }
+
+    /**
+     * @return array{sent:int, failed:int}
+     */
     public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
     {
         $normalizedPriority = $priority !== null ? strtolower($priority) : null;
