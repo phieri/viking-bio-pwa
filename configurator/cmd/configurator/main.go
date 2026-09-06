@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -18,21 +16,7 @@ import (
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
-const version = "1.0.0"
-
 func main() {
-	showVersion := flag.Bool("version", false, "print version and exit")
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Viking Bio Configurator v%s\n\nUsage: %s [options]\n\nOptions:\n", version, os.Args[0])
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-
-	if *showVersion {
-		fmt.Printf("viking-bio-configurator v%s\n", version)
-		return
-	}
-
 	// Load .env file if present (best-effort)
 	loadDotEnv(".env")
 	// Also load config from the data directory (created on first run by storage.NewStore).
