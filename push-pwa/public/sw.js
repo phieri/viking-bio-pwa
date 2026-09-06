@@ -9,14 +9,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   const payload = event.data && event.data.json ? event.data.json() : { title: 'Viking Bio', body: 'A new burner update is available.' };
   const rawTimestamp = payload.timestamp;
+  const priority = String(payload.priority || 'normal').toLowerCase();
   const options = {
     body: payload.body || 'New burner update',
     icon: payload.icon || '/icon.svg',
     badge: payload.icon || '/icon.svg',
     tag: payload.tag || 'viking-bio-alert',
-    vibrate: [100, 50, 100],
     data: { url: payload.url || payload.uiUrl || '/' },
   };
+
+  if (priority === 'high') {
+    options.vibrate = [100, 50, 100];
+  }
 
   if (rawTimestamp != null && Number.isFinite(Number(rawTimestamp))) {
     options.timestamp = Number(rawTimestamp);
