@@ -115,6 +115,7 @@ set(SOURCES
     src/serial_handler.c
     src/viking_bio_protocol.c
     src/http_client.c
+    src/http_webhook.c
     src/wifi_config.c
     src/lfs_hal.c
     src/dns_sd_browser.c
