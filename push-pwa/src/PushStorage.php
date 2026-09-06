@@ -74,6 +74,49 @@ final class PushStorage
         return array_values(array_filter($decoded, static fn ($row) => is_array($row)));
     }
 
+    public function removeEndpoint(string $endpoint): bool
+    {
+        $contents = file_get_contents($this->path);
+        if ($contents === false || trim($contents) === '') {
+            return false;
+        }
+
+        $decoded = self::decode($contents);
+        if (!is_array($decoded)) {
+            return false;
+        }
+
+        $filtered = [];
+        $removed = false;
+        foreach ($decoded as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $rowEndpoint = $row['endpoint'] ?? null;
+            if (is_string($rowEndpoint) && $rowEndpoint === $endpoint) {
+                $removed = true;
+                continue;
+            }
+
+            $filtered[] = $row;
+        }
+
+        if (!$removed) {
+            return false;
+        }
+
+        $yaml = self::yamlEncode($filtered);
+        $written = file_put_contents($this->path, $yaml === '' ? '' : $yaml . "\n");
+        if ($written === false) {
+            return false;
+        }
+
+        chmod($this->path, 0600);
+
+        return true;
+    }
+
     /**
      * @param array<int, array<string, mixed>> $subscriptions
      */

@@ -58,6 +58,7 @@ final class PushSender
 
         $sent = 0;
         $failed = 0;
+        $pendingReports = [];
 
         foreach ($subscriptions as $subscription) {
             $priorityValue = is_string($subscription['priority'] ?? null) ? strtolower($subscription['priority']) : 'normal';
@@ -91,16 +92,30 @@ final class PushSender
                 continue;
             }
 
+            $pendingReports[] = $endpoint;
+
             try {
                 $webPush->sendNotification($endpoint, $payload, $userPublicKey, $userAuth, ['TTL' => 2419200]);
             } catch (\Throwable $throwable) {
+                if ($this->isPermanentThrowableError($throwable)) {
+                    $storage->removeEndpoint($endpoint);
+                }
                 continue;
             }
         }
 
         $reports = $webPush->flush();
         if (is_array($reports)) {
-            foreach ($reports as $report) {
+            foreach ($reports as $index => $report) {
+                $reportEndpoint = $pendingReports[$index] ?? null;
+                if ($this->isPermanentError($report)) {
+                    if (is_string($reportEndpoint)) {
+                        $storage->removeEndpoint($reportEndpoint);
+                    }
+                    $failed++;
+                    continue;
+                }
+
                 if (is_object($report) && method_exists($report, 'isSuccess')) {
                     if ($report->isSuccess()) {
                         $sent++;
@@ -115,5 +130,55 @@ final class PushSender
         }
 
         return ['sent' => $sent, 'failed' => $failed];
+    }
+
+    private function isPermanentThrowableError(\Throwable $throwable): bool
+    {
+        $message = strtolower($throwable->getMessage());
+
+        return str_contains($message, '410')
+            || str_contains($message, '404')
+            || str_contains($message, 'gone')
+            || str_contains($message, 'not found')
+            || str_contains($message, 'invalid subscription')
+            || str_contains($message, 'subscription expired');
+    }
+
+    private function isPermanentError(mixed $report): bool
+    {
+        if (!is_object($report)) {
+            return false;
+        }
+
+        foreach (['isSubscriptionExpired', 'isSubscriptionInvalid', 'isExpired', 'isInvalidSubscription'] as $method) {
+            if (method_exists($report, $method) && $report->$method() === true) {
+                return true;
+            }
+        }
+
+        if (method_exists($report, 'getStatusCode')) {
+            $statusCode = $report->getStatusCode();
+            if (is_int($statusCode) && in_array($statusCode, [400, 404, 410], true)) {
+                return true;
+            }
+            if (is_string($statusCode) && in_array((int) $statusCode, [400, 404, 410], true)) {
+                return true;
+            }
+        }
+
+        if (method_exists($report, 'getError')) {
+            $error = $report->getError();
+            if (!is_string($error)) {
+                return false;
+            }
+
+            $normalized = strtolower($error);
+            return str_contains($normalized, 'not found')
+                || str_contains($normalized, 'gone')
+                || str_contains($normalized, 'invalid subscription')
+                || str_contains($normalized, 'subscription expired');
+        }
+
+        return false;
     }
 }
