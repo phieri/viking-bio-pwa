@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
@@ -27,6 +28,12 @@ func New(cfg *config.Config, store *storage.Store) *Server {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	if s == nil {
+		return fmt.Errorf("server is nil")
+	}
+	if s.ingestSrv == nil {
+		return fmt.Errorf("ingest server is not configured")
+	}
 	go func() {
 		if err := s.ingestSrv.Start(ctx); err != nil && ctx.Err() == nil {
 			log.Printf("ingest: %v", err)
@@ -38,6 +45,9 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 func listen(addr string) (net.Listener, error) {
+	if strings.TrimSpace(addr) == "" {
+		return nil, fmt.Errorf("listen address is empty")
+	}
 	ln, err := net.Listen("tcp6", addr)
 	if err == nil {
 		return ln, nil

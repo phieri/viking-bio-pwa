@@ -59,12 +59,21 @@ func newTelemetryPipeline(handler *Handlers) *telemetryPipeline {
 }
 
 func (p *telemetryPipeline) run() {
+	if p == nil || p.queue == nil {
+		return
+	}
 	for env := range p.queue {
+		if p.handler == nil {
+			continue
+		}
 		p.handler.processMachineData(telemetryDataToMachineDataBody(env.Payload.Data), "ingest", env.ReceivedAt)
 	}
 }
 
 func (p *telemetryPipeline) enqueue(env telemetryEnvelope) bool {
+	if p == nil || p.queue == nil {
+		return false
+	}
 	select {
 	case p.queue <- env:
 		return true
@@ -154,6 +163,12 @@ func newTCPIngestServer(cfg *config.Config, store *storage.Store, handler *Handl
 }
 
 func (s *tcpIngestServer) Start(ctx context.Context) error {
+	if s == nil {
+		return fmt.Errorf("ingest server is nil")
+	}
+	if s.cfg == nil {
+		return fmt.Errorf("ingest config is nil")
+	}
 	addr := fmt.Sprintf("[::]:%d", s.cfg.IngestTCPPort)
 	ln, err := listen(addr)
 	if err != nil {
@@ -195,9 +210,16 @@ func (s *tcpIngestServer) Start(ctx context.Context) error {
 }
 
 func (s *tcpIngestServer) handleConn(conn net.Conn) {
+	if s == nil || conn == nil {
+		return
+	}
 	defer conn.Close()
 	remote := conn.RemoteAddr().String()
 	now := time.Now()
+	if s.failures == nil {
+		log.Printf("ingest: no failure tracker available for %s", remote)
+		return
+	}
 	if s.failures.blocked(remote, now) {
 		log.Printf("ingest: dropping blocked client %s", remote)
 		return
@@ -240,6 +262,15 @@ func isConnectionClose(err error) bool {
 }
 
 func (s *tcpIngestServer) processPayload(payload ingestcodec.Payload, remote string, receivedAt time.Time) error {
+	if s == nil {
+		return fmt.Errorf("ingest server is nil")
+	}
+	if s.store == nil {
+		return fmt.Errorf("ingest store is nil")
+	}
+	if payload.Device == "" {
+		return fmt.Errorf("missing device identifier")
+	}
 	record, ok := s.store.Device(payload.Device)
 	if !ok {
 		return fmt.Errorf("unknown device %q", payload.Device)
@@ -255,7 +286,7 @@ func (s *tcpIngestServer) processPayload(payload ingestcodec.Payload, remote str
 		RemoteAddr: remote,
 		ReceivedAt: receivedAt,
 	}
-	if s.pipeline.enqueue(env) {
+	if s.pipeline != nil && s.pipeline.enqueue(env) {
 		return nil
 	}
 	fallbackRecord := map[string]any{

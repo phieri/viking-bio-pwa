@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -16,6 +17,9 @@ type DeviceRecord struct {
 }
 
 func (s *Store) loadDevices() {
+	if s == nil || s.devicesPath == "" {
+		return
+	}
 	data, err := os.ReadFile(s.devicesPath)
 	if os.IsNotExist(err) {
 		return
@@ -34,6 +38,9 @@ func (s *Store) loadDevices() {
 }
 
 func (s *Store) saveDevicesLocked() error {
+	if s == nil {
+		return fmt.Errorf("storage is nil")
+	}
 	if err := writeAtomicJSON(s.devicesPath, s.devices, 0o600); err != nil {
 		return err
 	}
@@ -42,6 +49,9 @@ func (s *Store) saveDevicesLocked() error {
 
 // ProvisionDevice inserts or replaces the secret for a device and resets replay state.
 func (s *Store) ProvisionDevice(device, key string) error {
+	if s == nil {
+		return fmt.Errorf("storage is nil")
+	}
 	if device == "" || key == "" {
 		return fmt.Errorf("device and key are required")
 	}
@@ -61,6 +71,9 @@ func (s *Store) ProvisionDevice(device, key string) error {
 
 // Device returns the stored device record, if any.
 func (s *Store) Device(device string) (DeviceRecord, bool) {
+	if s == nil {
+		return DeviceRecord{}, false
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	record, ok := s.devices[device]
@@ -69,6 +82,9 @@ func (s *Store) Device(device string) (DeviceRecord, bool) {
 
 // AcceptSequence atomically verifies anti-replay ordering and persists the new sequence.
 func (s *Store) AcceptSequence(device string, seq uint64) error {
+	if s == nil {
+		return fmt.Errorf("storage is nil")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	record, ok := s.devices[device]
@@ -89,11 +105,20 @@ func (s *Store) AcceptSequence(device string, seq uint64) error {
 
 // AppendIngestFallback stores a JSONL record when the ingest queue overflows.
 func (s *Store) AppendIngestFallback(record any) error {
+	if s == nil {
+		return fmt.Errorf("storage is nil")
+	}
+	if s.fallbackPath == "" {
+		return fmt.Errorf("fallback log path is empty")
+	}
 	data, err := json.Marshal(record)
 	if err != nil {
 		return fmt.Errorf("marshal fallback record: %w", err)
 	}
 	line := append(data, '\n')
+	if err := os.MkdirAll(filepath.Dir(s.fallbackPath), 0o755); err != nil {
+		return fmt.Errorf("create fallback log directory: %w", err)
+	}
 	f, err := os.OpenFile(s.fallbackPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("open fallback log: %w", err)

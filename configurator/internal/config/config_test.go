@@ -127,6 +127,30 @@ func TestLoadOverrides(t *testing.T) {
 	}
 }
 
+func TestLoadTrimsWhitespace(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("INGEST_TCP_PORT", " 9443 ")
+	t.Setenv("MDNS_NAME", "  Custom Name  ")
+	t.Setenv("TLS_CERT_PATH", "  /cert.pem  ")
+	t.Setenv("TLS_KEY_PATH", "  /key.pem  ")
+	t.Setenv("PICO_SERIAL_PORT", "  /dev/ttyACM0  ")
+	t.Setenv("DATA_DIR", "  /data  ")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.IngestTCPPort != 9443 {
+		t.Fatalf("expected trimmed port value to be parsed, got %d", cfg.IngestTCPPort)
+	}
+	if cfg.DataDir != "/data" || cfg.TLSCertPath != "/cert.pem" || cfg.TLSKeyPath != "/key.pem" || cfg.PicoSerialPort != "/dev/ttyACM0" {
+		t.Fatalf("expected trimmed path values, got %+v", cfg)
+	}
+	if cfg.MDNSName != "Custom Name" {
+		t.Fatalf("expected trimmed MDNS name, got %q", cfg.MDNSName)
+	}
+}
+
 func TestLoadRejectsInvalidValues(t *testing.T) {
 	clearConfigEnv(t)
 	t.Setenv("INGEST_TCP_PORT", "0")
