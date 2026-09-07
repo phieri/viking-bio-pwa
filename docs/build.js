@@ -20,6 +20,14 @@ const pages = {
     heroTitle: 'Turn a Viking Bio 20 into a connected, observable heating system',
     heroLead:
       'This project brings together a Raspberry Pi Pico bridge, signed telemetry, and a local Go configurator to monitor burner health, track operational state, and simplify setup on a home or property network.',
+    showcaseTitle: 'Local setup, from the desktop',
+    showcaseConfiguratorAlt:
+      'Viking Bio configurator GUI showing device status, Wi‑Fi configuration, and local setup actions.',
+    showcaseConfiguratorCaption:
+      'The local configurator GUI keeps burner setup, provisioning, and status checks in one desktop workflow.',
+    showcasePicoAlt: 'Raspberry Pi Pico 2 W board illustration for the local burner bridge.',
+    showcasePicoCaption:
+      'The Pico 2 W acts as the small, low-power bridge between the burner and the local runtime.',
     ctaExplore: 'Explore the project',
     ctaSource: 'View source',
     sourceAria: 'View source on GitHub (opens in new tab)',
@@ -88,6 +96,14 @@ const pages = {
     heroTitle: 'Gör en Viking Bio 20 till ett uppkopplat, observerbart värmesystem',
     heroLead:
       'Det här projektet kombinerar en Raspberry Pi Pico-brygga, signerad telemetri och en lokal Go-konfigurator för att övervaka brännarens hälsa, följa driftstatus och förenkla installation i hemmet eller på fastigheten.',
+    showcaseTitle: 'Lokal installation från skrivbordet',
+    showcaseConfiguratorAlt:
+      'Viking Bio-konfigurationsgränssnitt som visar enhetsstatus, Wi‑Fi-konfiguration och lokala inställningar.',
+    showcaseConfiguratorCaption:
+      'Det lokala konfigurationsgränssnittet samlar uppstart, provisionering och statuskontroll i ett skrivbordsflöde.',
+    showcasePicoAlt: 'Illustration av Raspberry Pi Pico 2 W för den lokala brännar-bryggan.',
+    showcasePicoCaption:
+      'Pico 2 W fungerar som den lilla, energieffektiva bryggan mellan brännaren och den lokala runtime:n.',
     ctaExplore: 'Utforska projektet',
     ctaSource: 'Visa källkod',
     sourceAria: 'Visa källkod på GitHub (öppnas i ny flik)',
@@ -227,7 +243,20 @@ function renderPage(data) {
           </div>
         </div>
       </section>
-
+ 
+      <section class="section showcase" aria-label="Configurator and hardware overview">
+        <div class="container showcase-grid">
+          <figure class="media-card">
+            <img src="../assets/configurator-gui.png" alt="${escapeHtml(data.showcaseConfiguratorAlt)}" />
+            <figcaption>${escapeHtml(data.showcaseConfiguratorCaption)}</figcaption>
+          </figure>
+          <figure class="media-card">
+            <img src="../assets/pico-2w-board.svg" alt="${escapeHtml(data.showcasePicoAlt)}" />
+            <figcaption>${escapeHtml(data.showcasePicoCaption)}</figcaption>
+          </figure>
+        </div>
+      </section>
+ 
       <section id="overview" class="section">
         <div class="container">
           <div class="section-heading">

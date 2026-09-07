@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Raspberry Pi Pico 2 W board</title>
+  <desc id="desc">A stylised illustration of a Raspberry Pi Pico 2 W development board with wireless connectivity and GPIO pins.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#0b1320"/>
+      <stop offset="100%" stop-color="#102235"/>
+    </linearGradient>
+    <linearGradient id="board" x1="0" x2="1">
+      <stop offset="0%" stop-color="#171f2d"/>
+      <stop offset="100%" stop-color="#0d1726"/>
+    </linearGradient>
+    <linearGradient id="chip" x1="0" x2="1">
+      <stop offset="0%" stop-color="#2b4f72"/>
+      <stop offset="100%" stop-color="#1a3554"/>
+    </linearGradient>
+    <linearGradient id="led" x1="0" x2="0">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="700" fill="url(#bg)"/>
+  <circle cx="980" cy="180" r="140" fill="#1b3b5c" opacity="0.55"/>
+  <circle cx="1010" cy="170" r="82" fill="#13293d" opacity="0.8"/>
+
+  <g transform="translate(170 112)">
+    <rect x="0" y="0" width="860" height="430" rx="34" fill="url(#board)" stroke="#7dd3fc" stroke-width="6"/>
+
+    <g opacity="0.95">
+      <rect x="80" y="58" width="240" height="320" rx="18" fill="#111d2d" stroke="#394d67" stroke-width="4"/>
+      <rect x="104" y="82" width="192" height="272" rx="14" fill="#0a1422"/>
+      <rect x="124" y="108" width="154" height="96" rx="12" fill="#0d2134" stroke="#83c5ff" stroke-width="4"/>
+      <rect x="128" y="218" width="146" height="114" rx="14" fill="url(#chip)" stroke="#7dd3fc" stroke-width="4"/>
+      <circle cx="196" cy="278" r="28" fill="#1c3b57" stroke="#7dd3fc" stroke-width="3"/>
+      <circle cx="196" cy="278" r="12" fill="url(#led)"/>
+      <rect x="146" y="348" width="100" height="8" rx="4" fill="#7dd3fc" opacity="0.8"/>
+    </g>
+
+    <g>
+      <rect x="372" y="68" width="392" height="292" rx="22" fill="#16283d" stroke="#7dd3fc" stroke-width="4"/>
+      <rect x="404" y="104" width="330" height="64" rx="12" fill="#1c3350" stroke="#8cc9ff" stroke-width="2"/>
+      <path d="M510 168l120 0l92-38 0 20 76 0 0 54 -76 0 0 20 -92-38 -120 0z" fill="#0c1e31" stroke="#7dd3fc" stroke-width="2" opacity="0.9"/>
+      <rect x="404" y="190" width="330" height="116" rx="12" fill="#0f1d2b" stroke="#7dd3fc" stroke-width="2"/>
+      <circle cx="430" cy="260" r="18" fill="#7dd3fc" opacity="0.9"/>
+      <circle cx="720" cy="260" r="18" fill="#7dd3fc" opacity="0.9"/>
+      <path d="M474 260 h208" stroke="#7dd3fc" stroke-width="4" stroke-linecap="round"/>
+      <path d="M466 240 v40" stroke="#7dd3fc" stroke-width="4" stroke-linecap="round"/>
+      <path d="M686 240 v40" stroke="#7dd3fc" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="540" cy="188" r="10" fill="#34d399"/>
+      <circle cx="622" cy="188" r="10" fill="#fbbf24"/>
+      <circle cx="704" cy="188" r="10" fill="#f87171"/>
+    </g>
+
+    <g fill="#dfeaf5">
+      <rect x="86" y="430" width="78" height="8" rx="4"/>
+      <rect x="198" y="430" width="78" height="8" rx="4"/>
+      <rect x="310" y="430" width="78" height="8" rx="4"/>
+      <rect x="422" y="430" width="78" height="8" rx="4"/>
+      <rect x="534" y="430" width="78" height="8" rx="4"/>
+      <rect x="646" y="430" width="78" height="8" rx="4"/>
+    </g>
+
+    <g>
+      <rect x="772" y="86" width="32" height="64" rx="12" fill="#0d1a2a" stroke="#5dd0ff" stroke-width="3"/>
+      <rect x="772" y="162" width="32" height="64" rx="12" fill="#0d1a2a" stroke="#5dd0ff" stroke-width="3"/>
+      <rect x="772" y="238" width="32" height="64" rx="12" fill="#0d1a2a" stroke="#5dd0ff" stroke-width="3"/>
+      <rect x="772" y="314" width="32" height="64" rx="12" fill="#0d1a2a" stroke="#5dd0ff" stroke-width="3"/>
+      <circle cx="788" cy="118" r="8" fill="#60a5fa"/>
+      <circle cx="788" cy="194" r="8" fill="#60a5fa"/>
+      <circle cx="788" cy="270" r="8" fill="#60a5fa"/>
+      <circle cx="788" cy="346" r="8" fill="#60a5fa"/>
+    </g>
+
+    <g transform="translate(88 92)" fill="#8dc8ff" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">
+      <text x="0" y="0">PICO 2 W</text>
+    </g>
+  </g>
+</svg>
