@@ -67,13 +67,24 @@ func ShouldLaunchLocalUI(explicitPort string) bool {
 		return false
 	}
 
-	ports, err := serial.New("").ListPorts()
-	return err == nil && len(ports) == 1
+	// The local configurator may be started purely to inspect runtime/network state,
+	// even when no Pico is currently connected over USB. In that case, the GUI/TUI
+	// still opens in offline mode instead of exiting early.
+	return true
 }
 
 func RunLocalUI(explicitPort string, store *storage.Store) error {
 	port, err := resolvePort(explicitPort)
 	if err != nil {
+		if strings.TrimSpace(explicitPort) == "" && (displayAvailable() || interactiveSession()) {
+			bridge := serial.New("")
+			if displayAvailable() {
+				RunGUI(bridge, store)
+				return nil
+			}
+			NewTUI(bridge, store).Run()
+			return nil
+		}
 		return err
 	}
 

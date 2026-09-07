@@ -46,6 +46,14 @@ func New(portName string) *Bridge {
 	return &Bridge{portName: portName}
 }
 
+// PortName returns the configured serial port name.
+func (b *Bridge) PortName() string {
+	if b == nil {
+		return ""
+	}
+	return b.portName
+}
+
 // Connect opens the serial port.
 func (b *Bridge) Connect() error {
 	mode := &goserial.Mode{BaudRate: baudRate}
