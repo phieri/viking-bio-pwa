@@ -2,7 +2,7 @@
 #include "version.h"
 
 void version_print_info(void) {
-	printf("Viking Bio PWA Firmware\n");
+	printf("Viking Bio Networking Firmware\n");
 	printf("Version:   %s\n", FIRMWARE_VERSION);
 	printf("Built:     %s\n", BUILD_TIMESTAMP);
 	printf("Commit:    %s\n", GIT_COMMIT_HASH);

@@ -2,7 +2,7 @@
 
 ## Project overview
 
-This repository is a monorepo for the Viking Bio 20 pellet burner integration system.
+This repository contains the Viking Bio Networking stack for the Viking Bio 20 pellet burner integration system.
 There are four active components:
 
 1. **`pico-bridge/`** - Raspberry Pi Pico W / Pico 2 W firmware in C. It reads burner data
@@ -84,7 +84,7 @@ that proves the relevant behaviour:
 │   └── ...
 ├── docs/
 │   └── architecture.md              # Current runtime architecture overview
-├── README.md                        # Top-level monorepo overview
+├── README.md                        # Top-level project overview
 ├── .editorconfig                    # Repo code style defaults
 ├── .gitignore                       # Ignore rules
 ├── .goreleaser.yml                  # Release config

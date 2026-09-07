@@ -1,4 +1,4 @@
-# Architecture
+# Viking Bio Networking Architecture
 
 ## Runtime boundary
 
