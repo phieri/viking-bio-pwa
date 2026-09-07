@@ -168,23 +168,7 @@ final class PushSender
             return true;
         }
 
-        if (!is_array($configuredLevel)) {
-            return false;
-        }
-
-        $levels = ['low' => false, 'normal' => false, 'high' => false];
-        foreach (['low', 'normal', 'high'] as $level) {
-            $rawValue = $configuredLevel[$level] ?? false;
-            if (is_bool($rawValue)) {
-                $levels[$level] = $rawValue;
-                continue;
-            }
-            if (is_string($rawValue)) {
-                $levels[$level] = filter_var(strtolower(trim($rawValue)), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
-                continue;
-            }
-            $levels[$level] = (bool) $rawValue;
-        }
+        $levels = PushStorage::normalizeNotificationLevels($configuredLevel);
 
         return $levels[$requestedPriority] ?? false;
     }

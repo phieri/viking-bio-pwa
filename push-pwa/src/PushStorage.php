@@ -163,21 +163,37 @@ final class PushStorage
         return implode("\n", $lines);
     }
 
+    /**
+     * @return array{low:bool, normal:bool, high:bool}
+     */
+    public static function normalizeNotificationLevels(mixed $value): array
+    {
+        $levels = ['low' => false, 'normal' => false, 'high' => false];
+        if (!is_array($value)) {
+            return $levels;
+        }
+
+        foreach (array_keys($levels) as $level) {
+            $rawValue = $value[$level] ?? false;
+            if (is_bool($rawValue)) {
+                $levels[$level] = $rawValue;
+                continue;
+            }
+            if (is_string($rawValue)) {
+                $levels[$level] = filter_var(strtolower(trim($rawValue)), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+                continue;
+            }
+            $levels[$level] = (bool) $rawValue;
+        }
+
+        return $levels;
+    }
+
     private static function notificationLevelEnabled(mixed $value, string $level): bool
     {
-        if (!is_array($value)) {
-            return false;
-        }
+        $levels = self::normalizeNotificationLevels($value);
 
-        $rawValue = $value[$level] ?? false;
-        if (is_bool($rawValue)) {
-            return $rawValue;
-        }
-        if (is_string($rawValue)) {
-            return filter_var(strtolower(trim($rawValue)), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
-        }
-
-        return (bool) $rawValue;
+        return $levels[$level] ?? false;
     }
 
     private static function yamlString(string $value): string
