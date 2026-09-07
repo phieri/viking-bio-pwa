@@ -83,8 +83,8 @@ final class PushSender
         $pendingReports = [];
 
         foreach ($subscriptions as $subscription) {
-            $priorityValue = is_string($subscription['priority'] ?? null) ? strtolower($subscription['priority']) : 'normal';
-            if ($normalizedPriority !== null && $priorityValue !== $normalizedPriority) {
+            $notificationLevel = $subscription['notificationLevel'] ?? null;
+            if ($normalizedPriority !== null && !$this->matchesNotificationLevel($notificationLevel, $normalizedPriority)) {
                 continue;
             }
 
@@ -152,6 +152,37 @@ final class PushSender
         }
 
         return ['sent' => $sent, 'failed' => $failed];
+    }
+
+    private function matchesNotificationLevel(mixed $configuredLevel, ?string $requestedPriority): bool
+    {
+        if ($requestedPriority === null) {
+            return true;
+        }
+
+        if ($configuredLevel === null) {
+            return true;
+        }
+
+        if (!is_array($configuredLevel)) {
+            return false;
+        }
+
+        $levels = ['low' => false, 'normal' => false, 'high' => false];
+        foreach (['low', 'normal', 'high'] as $level) {
+            $rawValue = $configuredLevel[$level] ?? false;
+            if (is_bool($rawValue)) {
+                $levels[$level] = $rawValue;
+                continue;
+            }
+            if (is_string($rawValue)) {
+                $levels[$level] = filter_var(strtolower(trim($rawValue)), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+                continue;
+            }
+            $levels[$level] = (bool) $rawValue;
+        }
+
+        return $levels[$requestedPriority] ?? false;
     }
 
     private function isPermanentThrowableError(\Throwable $throwable): bool

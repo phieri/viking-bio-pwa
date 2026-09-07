@@ -7,7 +7,7 @@ This small installable PWA is the fourth part of the Viking Bio monorepo. It gen
 - Build a browser subscription payload with a VAPID keypair
 - Add subscribers manually to a YAML file rather than through a server-side save endpoint
 - Keep the storage layer read-only so subscription records are maintained by operators, not by the PHP app
-- Include a `priority` field for low, normal, and high notifications
+- Include a `notificationLevel` field for low, normal, and high notifications
 - Support multiple sender subscriptions so each browser client only receives alerts for the burner it is interested in
 - Receive Pico bridge webhook payloads and translate them into browser push notifications
 - Offer an install CTA on iOS Safari via the native Add to Home Screen flow
@@ -24,16 +24,20 @@ Then open `http://localhost:8000/` in a browser and click “Generate client YAM
 
 ## Manual subscription file
 
-The generated YAML snippet is meant to be pasted into `storage/subscriptions.yaml` as a YAML list of objects. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
+The generated YAML snippet is meant to be pasted into `storage/subscriptions.yaml` under a `subscriptions` list. Each `notificationLevel` entry can be toggled independently so low, normal, and high alerts can be enabled or disabled per browser client. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
 
 ```yaml
-- endpoint: "https://fcm.googleapis.com/..."
-  keys:
-    p256dh: "..."
-    auth: "..."
-  sender: "viking-bio-01"
-  priority: "normal"
-  uiUrl: "http://localhost:8000"
+subscriptions:
+  - endpoint: "https://fcm.googleapis.com/..."
+    keys:
+      p256dh: "..."
+      auth: "..."
+    sender: "viking-bio-01"
+    notificationLevel:
+      low: true
+      normal: true
+      high: false
+    uiUrl: "http://localhost:8000"
 ```
 
 ## Bridge webhook receiver

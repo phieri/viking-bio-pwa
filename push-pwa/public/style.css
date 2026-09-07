@@ -72,6 +72,31 @@ h1 {
   font-weight: 600;
 }
 
+.notification-level-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.8rem;
+  background: rgba(15, 23, 42, 0.7);
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.checkbox-option input {
+  accent-color: var(--primary);
+  width: 1rem;
+  height: 1rem;
+}
+
 .priority-select,
 .subscription-yaml {
   width: 100%;

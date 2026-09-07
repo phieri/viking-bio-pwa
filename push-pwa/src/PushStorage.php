@@ -31,7 +31,11 @@ final class PushStorage
                         'auth' => 'replace-with-browser-auth',
                     ],
                     'sender' => 'viking-bio-01',
-                    'priority' => 'normal',
+                    'notificationLevel' => [
+                        'low' => true,
+                        'normal' => true,
+                        'high' => true,
+                    ],
                     'uiUrl' => 'https://example.com/replace-me',
                 ],
             ];
@@ -122,19 +126,19 @@ final class PushStorage
      */
     private static function yamlEncode(array $subscriptions): string
     {
-        $lines = [];
+        $lines = ['subscriptions:'];
         foreach ($subscriptions as $subscription) {
             if (!is_array($subscription)) {
                 continue;
             }
 
-            $lines[] = '- endpoint: ' . self::yamlString((string) ($subscription['endpoint'] ?? ''));
+            $lines[] = '  - endpoint: ' . self::yamlString((string) ($subscription['endpoint'] ?? ''));
 
             $keys = $subscription['keys'] ?? [];
             if (is_array($keys) && $keys !== []) {
-                $lines[] = '  keys:';
+                $lines[] = '    keys:';
                 foreach ($keys as $key => $value) {
-                    $lines[] = '    ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
+                    $lines[] = '      ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
                 }
             }
 
@@ -143,11 +147,37 @@ final class PushStorage
                     continue;
                 }
 
-                $lines[] = '  ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
+                if ($key === 'notificationLevel') {
+                    $lines[] = '    notificationLevel:';
+                    foreach (['low', 'normal', 'high'] as $level) {
+                        $enabled = self::notificationLevelEnabled($value, $level);
+                        $lines[] = '      ' . $level . ': ' . ($enabled ? 'true' : 'false');
+                    }
+                    continue;
+                }
+
+                $lines[] = '    ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
             }
         }
 
         return implode("\n", $lines);
+    }
+
+    private static function notificationLevelEnabled(mixed $value, string $level): bool
+    {
+        if (!is_array($value)) {
+            return false;
+        }
+
+        $rawValue = $value[$level] ?? false;
+        if (is_bool($rawValue)) {
+            return $rawValue;
+        }
+        if (is_string($rawValue)) {
+            return filter_var(strtolower(trim($rawValue)), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+        }
+
+        return (bool) $rawValue;
     }
 
     private static function yamlString(string $value): string
@@ -181,6 +211,37 @@ final class PushStorage
         $yaml = self::parseSimpleYaml($trimmed);
         if (is_array($yaml)) {
             return $yaml;
+        }
+
+        $lines = preg_split('/\R/', $trimmed);
+        if ($lines === false || $lines === []) {
+            return null;
+        }
+
+        $firstLine = trim($lines[0]);
+        if (preg_match('/^subscriptions\s*:\s*$/', $firstLine) === 1) {
+            $wrapped = [];
+            $validWrapped = true;
+            foreach (array_slice($lines, 1) as $line) {
+                $trimmedLine = trim($line);
+                if ($trimmedLine === '') {
+                    continue;
+                }
+
+                if (!str_starts_with($line, '  ')) {
+                    $validWrapped = false;
+                    break;
+                }
+
+                $wrapped[] = substr($line, 2);
+            }
+
+            if ($validWrapped) {
+                $yaml = self::parseSimpleYaml(implode("\n", $wrapped));
+                if (is_array($yaml)) {
+                    return $yaml;
+                }
+            }
         }
 
         return null;

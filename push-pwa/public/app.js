@@ -64,18 +64,30 @@ function urlBase64ToUint8Array(base64String) {
   return output;
 }
 
+function getNotificationLevels() {
+  return {
+    low: document.getElementById('notification-level-low').checked,
+    normal: document.getElementById('notification-level-normal').checked,
+    high: document.getElementById('notification-level-high').checked,
+  };
+}
+
+// This clipboard payload is intentionally wrapped under a `subscriptions` list so the
+// generated YAML reads like a subscription collection, not a single user-facing priority.
 function buildSubscriptionYaml(subscription) {
   const keys = subscription.toJSON ? subscription.toJSON().keys : subscription.keys || {};
   const sender = (senderInput.value || '').trim();
   return {
-    endpoint: subscription.endpoint,
-    keys: {
-      p256dh: keys.p256dh || '',
-      auth: keys.auth || '',
-    },
-    sender,
-    priority: prioritySelect.value,
-    uiUrl,
+    subscriptions: [{
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: keys.p256dh || '',
+        auth: keys.auth || '',
+      },
+      sender,
+      notificationLevel: getNotificationLevels(),
+      uiUrl,
+    }],
   };
 }
 
