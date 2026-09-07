@@ -10,7 +10,7 @@ There are four active components:
    streams signed telemetry over a persistent TCP ingest connection.
 2. **`pico-bridge/libvikingbio/`** - shared protocol parser library used by the bridge firmware.
 3. **`configurator/`** - Go configurator/runtime. It receives signed telemetry, manages the Pico
-   configuration flow, and exposes the local HTTP API used by automation and local tooling.
+   configuration flow, and listens for the local TCP ingest stream used by the Pico bridge.
    It does not serve a dashboard anymore.
 4. **`push-pwa/`** - browser push notification frontend. It registers browser subscriptions,
    keeps VAPID metadata, and sends operator-facing push notifications.
@@ -117,12 +117,10 @@ Browser push app (push-pwa)
 ### Proxy details
 
 - Main entry point is `configurator/cmd/configurator/main.go`.
-- HTTP routes are registered in `configurator/internal/server/server.go`.
-- Request handling and shared runtime state live in `configurator/internal/server/handlers.go`.
-- The proxy intentionally does not serve a dashboard at `/`; the root route returns `404`.
-- The configurator is a headless service by default and does not expose dashboard-style routes.
-- The mDNS advertises the proxy as `_viking-bio._tcp` with TXT `path=/api/data` from the
-  `mdns` package.
+- The ingest listener and runtime state live in `configurator/internal/server/ingest.go` and `handlers.go`.
+- The configurator does not serve a browser dashboard or legacy HTTP API routes.
+- The mDNS advertises the proxy as `_viking-bio._tcp` on the ingest port from the
+  `mdns` package; there is no browser-facing HTTP API in the configurator.
 - `MDNS_DISABLE=1` disables mDNS advertisement and is used in CI smoke-test runs.
 - The proxy no longer owns browser push delivery; browser notifications are handled by the
   separate `push-pwa/` app.
@@ -181,8 +179,8 @@ make run
 make test        # runs go test ./...
 ```
 
-The current smoke test starts the proxy, provisions a device record, sends a signed framed TCP
-payload to `::1:9000`, and verifies the ingest path and API behaviour:
+The current smoke test starts the proxy, provisions a device record, and verifies that a signed
+framed TCP payload is accepted on `::1:9000` without requiring any legacy HTTP route:
 
 ```bash
 mkdir -p /tmp/proxy-data
@@ -194,7 +192,6 @@ JSON
 DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-configurator &
 SERVER_PID=$!
 sleep 2
-curl -sf http://localhost:3000/api/data
 python - <<'PY'
 import base64
 import hmac
@@ -231,8 +228,6 @@ with open("/tmp/proxy-data/devices.json", "r", encoding="utf-8") as f:
     devices = json.load(f)
 assert devices["ci-device"]["last_seq"] == 1, devices
 PY
-test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/machine-data)" = "404"
-curl -sf http://localhost:3000/api/data | grep -q '"valid":true'
 kill "$SERVER_PID" || true
 ```
 

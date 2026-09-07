@@ -1,9 +1,6 @@
 package server
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -25,12 +22,6 @@ func testBoolPtr(v bool) *bool { return &v }
 
 func testFloat64Ptr(v float64) *float64 { return &v }
 
-type fakeEndpointBody struct {
-	Endpoint string `json:"endpoint"`
-}
-
-func (b *fakeEndpointBody) endpoint() string { return b.Endpoint }
-
 func TestDecodeMachineData(t *testing.T) {
 	t.Parallel()
 
@@ -44,25 +35,6 @@ func TestDecodeMachineData(t *testing.T) {
 
 	if _, err := decodeMachineData(strings.NewReader(`{"flame":true}`)); err == nil {
 		t.Fatal("expected missing fields to fail")
-	}
-}
-
-func TestDecodeJSONBodyWithEndpointRejectsEmptyEndpoint(t *testing.T) {
-	t.Parallel()
-
-	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"endpoint":""}`))
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	var body fakeEndpointBody
-	if decodeJSONBodyWithEndpoint(rr, req, &body) {
-		t.Fatal("expected empty endpoint to be rejected")
-	}
-	if rr.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", rr.Code)
-	}
-	if !strings.Contains(rr.Body.String(), `"error":"bad request"`) {
-		t.Fatalf("expected bad request error, got %s", rr.Body.String())
 	}
 }
 
@@ -128,99 +100,5 @@ func TestStateSnapshot(t *testing.T) {
 	if got.Flame != state.Flame || got.Fan != state.Fan || got.Temp != state.Temp ||
 		got.Err != state.Err || got.Valid != state.Valid || got.FlameSecs != state.FlameSecs {
 		t.Fatalf("snapshot() = %#v, state = %#v", got, state)
-	}
-}
-
-func TestHandleGetDataReturnsStateSnapshot(t *testing.T) {
-	t.Parallel()
-
-	h := newInternalTestHandlers(t)
-	h.state.Flame = true
-	h.state.Fan = 55
-	h.state.Temp = 74
-	h.state.Err = 3
-	h.state.Valid = true
-	h.state.FlameSecs = 456
-
-	req := httptest.NewRequest(http.MethodGet, "/api/data", nil)
-	rr := httptest.NewRecorder()
-	h.HandleGetData(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rr.Code)
-	}
-	body := rr.Body.String()
-	for _, needle := range []string{
-		`"flame":true`,
-		`"fan":55`,
-		`"temp":74`,
-		`"err":3`,
-		`"valid":true`,
-		`"flame_secs":456`,
-	} {
-		if !strings.Contains(body, needle) {
-			t.Fatalf("expected response body %q to contain %q", body, needle)
-		}
-	}
-}
-
-func TestHandleGetMetrics_Disabled(t *testing.T) {
-	t.Parallel()
-
-	h := newInternalTestHandlers(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/metrics", nil)
-	rr := httptest.NewRecorder()
-	h.HandleGetMetrics(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("expected 404, got %d", rr.Code)
-	}
-	if !strings.Contains(rr.Body.String(), `"error":"metrics history disabled"`) {
-		t.Fatalf("expected disabled error, got %s", rr.Body.String())
-	}
-}
-
-func TestHandleGetMetrics_Enabled(t *testing.T) {
-	t.Parallel()
-
-	cfg := &config.Config{TelemetryHistoryEnabled: true}
-	h := newInternalTestHandlersWithConfig(t, cfg)
-	start := time.Now().Add(-5 * time.Minute)
-
-	h.processMachineData(machineDataBody{
-		Flame: testBoolPtr(true),
-		Fan:   testFloat64Ptr(15),
-		Temp:  testFloat64Ptr(70),
-		Err:   testFloat64Ptr(0),
-		Valid: testBoolPtr(true),
-	}, "test", start)
-	h.processMachineData(machineDataBody{
-		Flame: testBoolPtr(false),
-		Fan:   testFloat64Ptr(0),
-		Temp:  testFloat64Ptr(65),
-		Err:   testFloat64Ptr(3),
-		Valid: testBoolPtr(true),
-	}, "test", start.Add(30*time.Second))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/metrics", nil)
-	rr := httptest.NewRecorder()
-	h.HandleGetMetrics(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rr.Code)
-	}
-
-	var samples []map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &samples); err != nil {
-		t.Fatalf("decode metrics response: %v", err)
-	}
-	if len(samples) != 2 {
-		t.Fatalf("expected 2 samples, got %d", len(samples))
-	}
-	if samples[0]["flame"] != true {
-		t.Fatalf("expected first sample flame=true, got %v", samples[0]["flame"])
-	}
-	if samples[1]["err"] != float64(3) {
-		t.Fatalf("expected second sample err=3, got %v", samples[1]["err"])
 	}
 }

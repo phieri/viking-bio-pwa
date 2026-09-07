@@ -106,7 +106,7 @@ func (a *Advertiser) Start(port int, name string) {
 			port,
 			hostname,
 			localAddrs,
-			[]string{"path=/api/data"},
+			nil,
 			nil,
 		)
 	} else {
@@ -117,7 +117,7 @@ func (a *Advertiser) Start(port int, name string) {
 			serviceType,
 			"local.",
 			port,
-			[]string{"path=/api/data"},
+			nil,
 			nil,
 		)
 	}

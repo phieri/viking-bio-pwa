@@ -6,7 +6,7 @@ The project landing page is published at <https://phieri.github.io/viking-bio-pw
 
 1. **[pico-bridge/](pico-bridge/)** – Raspberry Pi Pico W / Pico 2 W firmware that reads serial data from the burner and forwards it over a signed persistent TCP telemetry connection to the configurator
 2. **[pico-bridge/libvikingbio/](pico-bridge/libvikingbio/)** – shared Viking Bio protocol parser used by the bridge firmware
-3. **[configurator/](configurator/)** – headless Go runtime that receives signed burner telemetry over TCP ingest, exposes the local API, and manages the Pico configuration flow over USB without serving a browser dashboard
+3. **[configurator/](configurator/)** – headless Go runtime that receives signed burner telemetry over TCP ingest and manages the Pico configuration flow over USB without serving a browser dashboard
 4. **[push-pwa/](push-pwa/)** – browser push notification app that registers browser subscriptions, receives bridge webhook alerts, and sends operator-facing VAPID/web-push notifications
 
 ## Architecture
@@ -16,10 +16,10 @@ Viking Bio 20 ──UART──► Pico W (pico-bridge)
                               │
                      Signed TCP ingest on INGEST_TCP_PORT
                               │
-                 Headless Go configurator (local API only)
-                 ├── GET /api/data                  Burner state snapshot
-                 ├── GET /api/metrics               Optional history samples
-                 └── USB provisioning + bridge state
+                 Headless Go configurator
+                 ├── TCP ingest and device state
+                 ├── USB provisioning + bridge setup
+                 └── mDNS discovery for Pico devices
                               │
                               └── push-pwa
                                   ├── webhook receiver for Pico alerts
@@ -76,10 +76,9 @@ Connect via USB serial (115200 baud) to configure:
 
 The Go configurator/runtime:
 - Signed TCP ingest on `INGEST_TCP_PORT` receives framed telemetry from the Pico bridge
-- Go net/http server exposes the local operational API and binds to `::` for dual-stack IPv6/IPv4
-- Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable HTTPS
+- Optional TLS: set `TLS_CERT_PATH` / `TLS_KEY_PATH` to enable TLS on the ingest listener
 - Bridge-side alert delivery is configured directly on the Pico; the configurator does not send outbound webhook payloads
-- **Device configurator** for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available; the runtime otherwise remains a headless local API service rather than a browser dashboard.
+- **Device configurator** for first-time setup of the Pico W over USB serial — opens a **Fyne GUI** when a display is available; the runtime otherwise remains a headless ingest service rather than a browser dashboard.
 
 ### Device Configurator
 
@@ -106,10 +105,9 @@ The GUI provides:
 | **Provision telemetry key** | Generates/stores a per-device key on the configurator and sends it to the Pico |
 | **Clear credentials** | Erases all stored credentials and reboots the device |
 
-### Local API and configurator UI
+### Local configurator UI
 
-The configurator exposes the local operational API and local setup UI without serving a dashboard at `/`:
-- **Local API**: the Go service manages ingest, telemetry state, and operational helpers over HTTP/HTTPS
+The configurator handles bridge onboarding and provisioning over serial without serving a dashboard at `/`:
 - **USB setup flow**: the local configurator handles bridge onboarding and provisioning over serial
 - **Bridge ownership**: alert delivery is configured on the Pico side, so the configurator stays focused on configuration and telemetry state rather than outbound webhooks
 
@@ -124,26 +122,25 @@ go build -o viking-bio-configurator ./cmd/configurator
 With custom configuration:
 
 ```bash
-HTTP_PORT=8080 \
 INGEST_TCP_PORT=9000 \
 ./viking-bio-configurator
 ```
 
-The configurator binds to `http://[::]:3000/` for the local API and returns 404 for browser-root requests.
+The configurator binds only to the ingest listener and never serves a browser-facing HTTP dashboard.
 
 ### Version display
 
 The configurator shows its build version in the header of the interactive TUI and in the header area of the desktop GUI, with automatic metadata such as the current build date and GitHub Actions run number when those values are available.
 
 Defensive validation notes:
-- `HTTP_PORT` and `INGEST_TCP_PORT` must be integers in the range `1..65535`
+- `INGEST_TCP_PORT` must be an integer in the range `1..65535`
 - The bridge owns the outbound webhook target; the configurator never sends direct alert webhooks
 - Existing devices must be reprovisioned to use `INGEST_TCP_PORT` (`9000`) and
   a per-device telemetry key to authenticate signed telemetry
 
 ### IPv6-only environments
 
-The configurator binds to `::` (all IPv6 addresses) by default. On Linux this also accepts IPv4 connections via IPv4-mapped addresses unless `IPV6_V6ONLY` is forced. Use a bracketed IPv6 literal when composing the Pico's `SERVER=` address:
+The ingest listener binds to `::` by default and accepts IPv6 and compatible IPv4-mapped addresses as required by the runtime. Use a bare IPv6 literal when composing the Pico's `SERVER=` address:
 
 ```
 SERVER=2001:db8::1   ← enter bare (no brackets) via USB serial

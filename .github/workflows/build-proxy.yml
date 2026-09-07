@@ -53,7 +53,7 @@ jobs:
       working-directory: configurator
       run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-configurator ./cmd/configurator
 
-    - name: "Smoke-test: server starts and API responds"
+    - name: "Smoke-test: ingest listener accepts signed telemetry"
       run: |
         set -euo pipefail
         mkdir -p /tmp/proxy-data
@@ -69,7 +69,6 @@ jobs:
         DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 configurator/dist/linux_amd64/viking-bio-configurator &
         SERVER_PID=$!
         sleep 2
-        curl -sf http://localhost:3000/api/data
         python - <<'PY'
         import base64
         import hmac
@@ -106,9 +105,7 @@ jobs:
             devices = json.load(f)
         assert devices["ci-device"]["last_seq"] == 1, devices
         PY
-        test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/machine-data)" = "404"
-        curl -sf http://localhost:3000/api/data | grep -q '"valid":true'
-        echo "Proxy started and responded successfully"
+        echo "Configurator ingest accepted signed telemetry successfully"
         kill "$SERVER_PID" || true
 
     - name: Cross-compile linux/arm64

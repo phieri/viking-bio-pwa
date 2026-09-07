@@ -4,43 +4,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"sync"
 	"time"
 )
 
 // State holds the shared burner telemetry state.
 type State struct {
-	mu                    sync.RWMutex
-	Flame                 bool    `json:"flame"`
-	Fan                   float64 `json:"fan"`
-	Temp                  float64 `json:"temp"`
-	Err                   float64 `json:"err"`
-	Valid                 bool    `json:"valid"`
-	FlameSecs             int64   `json:"flame_secs"`
-	UpdatedAt             int64   `json:"updated_at"`
-	lastFlameTime         int64   // ms; zero means flame was off last update
-	errorNotified         bool
-	telemetryHistory      []telemetryHistoryEntry
-	telemetryHistoryStart int
+	mu            sync.RWMutex
+	Flame         bool    `json:"flame"`
+	Fan           float64 `json:"fan"`
+	Temp          float64 `json:"temp"`
+	Err           float64 `json:"err"`
+	Valid         bool    `json:"valid"`
+	FlameSecs     int64   `json:"flame_secs"`
+	UpdatedAt     int64   `json:"updated_at"`
+	lastFlameTime int64   // ms; zero means flame was off last update
+	errorNotified bool
 }
 
 type machineDataSnapshot struct {
-	Flame     bool    `json:"flame"`
-	Fan       float64 `json:"fan"`
-	Temp      float64 `json:"temp"`
-	Err       float64 `json:"err"`
-	Valid     bool    `json:"valid"`
-	FlameSecs int64   `json:"flame_secs"`
-}
-
-type telemetryHistoryEntry struct {
-	Timestamp int64
-	Snapshot  machineDataSnapshot
-}
-
-type telemetryHistorySample struct {
-	Timestamp int64   `json:"timestamp"`
 	Flame     bool    `json:"flame"`
 	Fan       float64 `json:"fan"`
 	Temp      float64 `json:"temp"`
@@ -59,27 +41,6 @@ func newMachineDataSnapshot(flame bool, fan, temp, err float64, valid bool, flam
 		FlameSecs: flameSecs,
 	}
 }
-
-func newTelemetryHistorySample(entry telemetryHistoryEntry) telemetryHistorySample {
-	return telemetryHistorySample{
-		Timestamp: entry.Timestamp,
-		Flame:     entry.Snapshot.Flame,
-		Fan:       entry.Snapshot.Fan,
-		Temp:      entry.Snapshot.Temp,
-		Err:       entry.Snapshot.Err,
-		Valid:     entry.Snapshot.Valid,
-		FlameSecs: entry.Snapshot.FlameSecs,
-	}
-}
-
-const (
-	telemetryHistoryWindow              = 60 * time.Minute
-	telemetryHistoryCompactionThreshold = 100
-	telemetryHistoryCompactionRatio     = 10
-)
-
-// Compact the backing slice when the dead-space ratio grows too large so the
-// in-memory history stays efficient without frequent allocations.
 
 // machineDataBody is the shared telemetry payload shape used by ingest and state updates.
 type machineDataBody struct {
@@ -104,51 +65,6 @@ func (s *State) snapshot() machineDataSnapshot {
 	defer s.mu.RUnlock()
 
 	return newMachineDataSnapshot(s.Flame, s.Fan, s.Temp, s.Err, s.Valid, s.FlameSecs)
-}
-
-func (s *State) appendTelemetrySample(now time.Time, snapshot machineDataSnapshot) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	nowUTC := now.UTC()
-	cutoff := nowUTC.Add(-telemetryHistoryWindow).UnixMilli()
-	if s.telemetryHistoryStart > len(s.telemetryHistory) {
-		s.telemetryHistory = nil
-		s.telemetryHistoryStart = 0
-	}
-	if len(s.telemetryHistory) > s.telemetryHistoryStart {
-		activeLen := len(s.telemetryHistory) - s.telemetryHistoryStart
-		start := sort.Search(activeLen, func(i int) bool {
-			return s.telemetryHistory[s.telemetryHistoryStart+i].Timestamp >= cutoff
-		})
-		s.telemetryHistoryStart += start
-	}
-	if s.shouldCompact() {
-		s.telemetryHistory = s.telemetryHistory[s.telemetryHistoryStart:]
-		s.telemetryHistoryStart = 0
-	}
-
-	entry := telemetryHistoryEntry{Timestamp: nowUTC.UnixMilli(), Snapshot: snapshot}
-	s.telemetryHistory = append(s.telemetryHistory, entry)
-}
-
-func (s *State) shouldCompact() bool {
-	if s.telemetryHistoryStart <= telemetryHistoryCompactionThreshold {
-		return false
-	}
-	return s.telemetryHistoryStart*telemetryHistoryCompactionRatio > len(s.telemetryHistory)
-}
-
-func (s *State) telemetryHistoryWindow() []telemetryHistorySample {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	start := s.telemetryHistoryStart
-	out := make([]telemetryHistorySample, 0, len(s.telemetryHistory)-start)
-	for _, entry := range s.telemetryHistory[start:] {
-		out = append(out, newTelemetryHistorySample(entry))
-	}
-	return out
 }
 
 func decodeMachineData(r io.Reader) (machineDataBody, error) {

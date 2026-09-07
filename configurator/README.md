@@ -1,7 +1,7 @@
 # Viking Bio Configurator (Go)
 
 Go implementation of the Viking Bio pellet-burner configurator. It receives
-signed telemetry from the Pico W bridge, serves the local HTTP API, and
+signed telemetry from the Pico W bridge, listens for the ingest stream, and
 manages the bridge configuration flow without sending outbound webhook
 payloads itself.
 
@@ -21,11 +21,11 @@ directly or deploy it as a system service (see the systemd and Windows Service
 sections below):
 
 ```bash
-# Plain HTTP on port 3000
+# Start the ingest listener on port 9000
 ./viking-bio-configurator
 
 # With environment variables
-HTTP_PORT=8080 INGEST_TCP_PORT=9000 ./viking-bio-configurator
+INGEST_TCP_PORT=9000 ./viking-bio-configurator
 
 # Using make
 make run
@@ -35,14 +35,12 @@ make run
 
 | Variable | Default | Description |
 |---|---|---|
-| `HTTP_PORT` | `3000` | HTTP/HTTPS listen port |
 | `INGEST_TCP_PORT` | `9000` | Framed TCP telemetry ingest port |
 | `INGEST_TCP_TLS` | `false` | Require TLS on the ingest listener (uses `TLS_CERT_PATH`/`TLS_KEY_PATH`) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
-| `TELEMETRY_HISTORY_ENABLED` | `false` | Enable in-memory metrics history for `GET /api/metrics` (`1` or `true`) |
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for the local provisioning GUI |
 | `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for device registry, logs, and local config |
 
@@ -59,14 +57,12 @@ The configurator loads configuration in this order (earlier sources take precede
 Example `.env` / `viking-bio.conf` snippet:
 
 ```env
-HTTP_PORT=3000
 INGEST_TCP_PORT=9000
 MDNS_NAME=Viking Bio
-TELEMETRY_HISTORY_ENABLED=1
 ```
 
 The bridge owns outbound webhook delivery during runtime; the configurator stays
-responsible for provisioning the Pico and exposing the local API plus USB setup flow.
+responsible for provisioning the Pico and managing the local USB setup flow.
 
 ## TLS / HTTPS
 
@@ -140,19 +136,11 @@ normal state/update/notification pipeline, and writes overflow traffic to
 > reprovisioned or updated over USB with a server/port change and a per-device
 > telemetry key.
 
-## HTTP API
-
-The configurator exposes a small JSON API for local automation and alert consumers:
-
-- `GET /api/data` returns the current burner state snapshot.
-- `GET /api/metrics` returns the last 60 minutes of burner history as JSON samples in memory only when `TELEMETRY_HISTORY_ENABLED=1`.
-- Bridge-side notifications are configured on the Pico itself; the configurator does not send outbound alert webhooks.
-
 ## mDNS / DNS-SD
 
-The configurator advertises itself as `_viking-bio._tcp` with TXT record
-`path=/api/data`. Disable with `MDNS_DISABLE=1` (useful in Docker/CI
-environments without multicast).
+The configurator advertises itself as `_viking-bio._tcp` on the ingest port used by
+Pico devices. Disable with `MDNS_DISABLE=1` (useful in Docker/CI environments without
+multicast).
 
 ### Local-only IPv6 addressing
 
@@ -199,7 +187,7 @@ Using [NSSM](https://nssm.cc/):
 ```cmd
 nssm install VikingBioConfigurator C:\viking-bio\viking-bio-configurator.exe
 nssm set VikingBioConfigurator AppDirectory C:\viking-bio
-nssm set VikingBioConfigurator AppEnvironmentExtra HTTP_PORT=3000
+nssm set VikingBioConfigurator AppEnvironmentExtra INGEST_TCP_PORT=9000
 nssm start VikingBioConfigurator
 ```
 
