@@ -246,12 +246,12 @@ function renderPage(data) {
  
       <section class="section showcase" aria-label="Configurator and hardware overview">
         <div class="container showcase-grid">
-          <figure class="media-card">
-            <img src="../assets/configurator-gui.png" alt="${escapeHtml(data.showcaseConfiguratorAlt)}" />
+          <figure class="media-card placeholder">
+            <span>Configurator placeholder</span>
             <figcaption>${escapeHtml(data.showcaseConfiguratorCaption)}</figcaption>
           </figure>
-          <figure class="media-card">
-            <img src="../assets/pico-2w-board.svg" alt="${escapeHtml(data.showcasePicoAlt)}" />
+          <figure class="media-card placeholder">
+            <span>Pico placeholder</span>
             <figcaption>${escapeHtml(data.showcasePicoCaption)}</figcaption>
           </figure>
         </div>
