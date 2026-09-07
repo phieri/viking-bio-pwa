@@ -122,19 +122,19 @@ final class PushStorage
      */
     private static function yamlEncode(array $subscriptions): string
     {
-        $lines = [];
+        $lines = ['subscriptions:'];
         foreach ($subscriptions as $subscription) {
             if (!is_array($subscription)) {
                 continue;
             }
 
-            $lines[] = '- endpoint: ' . self::yamlString((string) ($subscription['endpoint'] ?? ''));
+            $lines[] = '  - endpoint: ' . self::yamlString((string) ($subscription['endpoint'] ?? ''));
 
             $keys = $subscription['keys'] ?? [];
             if (is_array($keys) && $keys !== []) {
-                $lines[] = '  keys:';
+                $lines[] = '    keys:';
                 foreach ($keys as $key => $value) {
-                    $lines[] = '    ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
+                    $lines[] = '      ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
                 }
             }
 
@@ -143,7 +143,7 @@ final class PushStorage
                     continue;
                 }
 
-                $lines[] = '  ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
+                $lines[] = '    ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
             }
         }
 
@@ -181,6 +181,34 @@ final class PushStorage
         $yaml = self::parseSimpleYaml($trimmed);
         if (is_array($yaml)) {
             return $yaml;
+        }
+
+        $lines = preg_split('/\R/', $trimmed);
+        if ($lines === false || $lines === []) {
+            return null;
+        }
+
+        $firstLine = trim($lines[0]);
+        if (preg_match('/^subscriptions\s*:\s*$/', $firstLine) === 1) {
+            $wrapped = [];
+            foreach (array_slice($lines, 1) as $line) {
+                $trimmedLine = trim($line);
+                if ($trimmedLine === '') {
+                    continue;
+                }
+
+                if (str_starts_with($line, '  ')) {
+                    $wrapped[] = substr($line, 2);
+                    continue;
+                }
+
+                $wrapped[] = ltrim($line, " \t");
+            }
+
+            $yaml = self::parseSimpleYaml(implode("\n", $wrapped));
+            if (is_array($yaml)) {
+                return $yaml;
+            }
         }
 
         return null;

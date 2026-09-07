@@ -24,16 +24,17 @@ Then open `http://localhost:8000/` in a browser and click “Generate client YAM
 
 ## Manual subscription file
 
-The generated YAML snippet is meant to be pasted into `storage/subscriptions.yaml` as a YAML list of objects. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
+The generated YAML snippet is meant to be pasted into `storage/subscriptions.yaml` under a `subscriptions` list. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
 
 ```yaml
-- endpoint: "https://fcm.googleapis.com/..."
-  keys:
-    p256dh: "..."
-    auth: "..."
-  sender: "viking-bio-01"
-  priority: "normal"
-  uiUrl: "http://localhost:8000"
+subscriptions:
+  - endpoint: "https://fcm.googleapis.com/..."
+    keys:
+      p256dh: "..."
+      auth: "..."
+    sender: "viking-bio-01"
+    priority: "normal"
+    uiUrl: "http://localhost:8000"
 ```
 
 ## Bridge webhook receiver

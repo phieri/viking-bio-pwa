@@ -68,14 +68,16 @@ function buildSubscriptionYaml(subscription) {
   const keys = subscription.toJSON ? subscription.toJSON().keys : subscription.keys || {};
   const sender = (senderInput.value || '').trim();
   return {
-    endpoint: subscription.endpoint,
-    keys: {
-      p256dh: keys.p256dh || '',
-      auth: keys.auth || '',
-    },
-    sender,
-    priority: prioritySelect.value,
-    uiUrl,
+    subscriptions: [{
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: keys.p256dh || '',
+        auth: keys.auth || '',
+      },
+      sender,
+      priority: prioritySelect.value,
+      uiUrl,
+    }],
   };
 }
 
