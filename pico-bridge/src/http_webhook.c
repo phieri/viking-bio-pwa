@@ -47,6 +47,8 @@ static size_t s_queue_head = 0;
 static size_t s_queue_count = 0;
 static uint64_t s_last_webhook_ms = 0;
 
+static bool queue_push(const char *json);
+
 static void record_webhook_sent(void) {
 	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
 }
