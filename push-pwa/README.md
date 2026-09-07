@@ -24,7 +24,7 @@ Then open `http://localhost:8000/` in a browser and click “Generate client YAM
 
 ## Manual subscription file
 
-The generated YAML snippet is meant to be pasted into `storage/subscriptions.yaml` under a `subscriptions` list. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
+The generated YAML snippet is meant to be pasted into `storage/subscriptions.yaml` under a `subscriptions` list. Each `notificationLevel` entry can be toggled independently so low, normal, and high alerts can be enabled or disabled per browser client. The constructor creates the file with a starter scaffold if it is missing, so operators can replace the sample values by hand:
 
 ```yaml
 subscriptions:
@@ -33,7 +33,10 @@ subscriptions:
       p256dh: "..."
       auth: "..."
     sender: "viking-bio-01"
-    notificationLevel: "normal"
+    notificationLevel:
+      low: true
+      normal: true
+      high: false
     uiUrl: "http://localhost:8000"
 ```
 

@@ -31,7 +31,11 @@ final class PushStorage
                         'auth' => 'replace-with-browser-auth',
                     ],
                     'sender' => 'viking-bio-01',
-                    'notificationLevel' => 'normal',
+                    'notificationLevel' => [
+                        'low' => true,
+                        'normal' => true,
+                        'high' => true,
+                    ],
                     'uiUrl' => 'https://example.com/replace-me',
                 ],
             ];
@@ -143,20 +147,37 @@ final class PushStorage
                     continue;
                 }
 
-                $normalizedKey = $key;
-                if (in_array($normalizedKey, ['priority', 'notificationPriority'], true)) {
-                    $normalizedKey = 'notificationLevel';
-                }
-
-                if (array_key_exists('notificationLevel', $subscription) && in_array($key, ['priority', 'notificationPriority'], true) && $key !== 'notificationLevel') {
+                if ($key === 'notificationLevel') {
+                    $lines[] = '    notificationLevel:';
+                    foreach (['low', 'normal', 'high'] as $level) {
+                        $enabled = self::notificationLevelEnabled($value, $level);
+                        $lines[] = '      ' . $level . ': ' . ($enabled ? 'true' : 'false');
+                    }
                     continue;
                 }
 
-                $lines[] = '    ' . self::yamlKey((string) $normalizedKey) . ': ' . self::yamlString((string) $value);
+                $lines[] = '    ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
             }
         }
 
         return implode("\n", $lines);
+    }
+
+    private static function notificationLevelEnabled(mixed $value, string $level): bool
+    {
+        if (!is_array($value)) {
+            return false;
+        }
+
+        $rawValue = $value[$level] ?? false;
+        if (is_bool($rawValue)) {
+            return $rawValue;
+        }
+        if (is_string($rawValue)) {
+            return filter_var(strtolower(trim($rawValue)), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+        }
+
+        return (bool) $rawValue;
     }
 
     private static function yamlString(string $value): string
@@ -279,14 +300,6 @@ final class PushStorage
 
             if (preg_match('/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/', $trimmed, $matches) === 1) {
                 $key = $matches[1];
-                if (in_array($key, ['priority', 'notificationPriority'], true)) {
-                    $key = 'notificationLevel';
-                }
-
-                if (array_key_exists('notificationLevel', $current) && $key === 'notificationLevel' && $matches[1] !== 'notificationLevel') {
-                    continue;
-                }
-
                 $value = trim($matches[2]);
                 if ($value === '') {
                     $current[$key] = [];

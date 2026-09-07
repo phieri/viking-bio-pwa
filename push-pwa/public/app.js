@@ -64,6 +64,14 @@ function urlBase64ToUint8Array(base64String) {
   return output;
 }
 
+function getNotificationLevels() {
+  return {
+    low: document.getElementById('notification-level-low').checked,
+    normal: document.getElementById('notification-level-normal').checked,
+    high: document.getElementById('notification-level-high').checked,
+  };
+}
+
 // This clipboard payload is intentionally wrapped under a `subscriptions` list so the
 // generated YAML reads like a subscription collection, not a single user-facing priority.
 function buildSubscriptionYaml(subscription) {
@@ -77,7 +85,7 @@ function buildSubscriptionYaml(subscription) {
         auth: keys.auth || '',
       },
       sender,
-      notificationLevel: prioritySelect.value,
+      notificationLevel: getNotificationLevels(),
       uiUrl,
     }],
   };
@@ -145,7 +153,7 @@ async function sendTestAlert() {
         title: 'Test notification',
         body: 'This is a Viking Bio test alert from the push PWA.',
         sender,
-        notificationLevel: prioritySelect.value,
+        priority: prioritySelect.value,
         url: uiUrl,
       }),
     });
