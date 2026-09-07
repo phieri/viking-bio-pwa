@@ -15,6 +15,20 @@ final class PushSender
     }
 
     /**
+     * Returns the notification icon path for a given alert type and detail string.
+     * Falls back to '/icon.svg' for unrecognised combinations.
+     */
+    public static function notificationIcon(string $type, string $detail = ''): string
+    {
+        return match (true) {
+            $type === 'flame' && $detail === 'on'  => '/icons/fire.svg',
+            $type === 'flame' && $detail === 'off' => '/icons/smoke.svg',
+            $type === 'error'                       => '/icons/warning.svg',
+            default                                 => '/icon.svg',
+        };
+    }
+
+    /**
      * @return array{sent:int, failed:int}
      */
     public function sendWeeklyCleaningReminder(?string $sender = null): array
@@ -24,7 +38,7 @@ final class PushSender
         return $this->send(
             'Weekly cleaning reminder',
             'Time for your weekly burner cleaning reminder.',
-            '/icon.svg',
+            '/icons/broom.svg',
             [
                 'tag' => 'viking-bio-cleaning-reminder',
                 'url' => getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: '/'),
