@@ -24,6 +24,13 @@ func NewHandlers(cfg *config.Config) *Handlers {
 	}
 }
 
+func (h *Handlers) State() *State {
+	if h == nil {
+		return nil
+	}
+	return h.state
+}
+
 func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machineDataUpdateResult {
 	if h == nil || h.state == nil {
 		return machineDataUpdateResult{}

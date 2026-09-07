@@ -4,11 +4,12 @@ package configure
 
 import (
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
 // RunGUI is not available in this build (CGo is disabled). Falls back to the TUI.
-func RunGUI(bridge *serial.Bridge, store *storage.Store) {
+func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*server.State) {
 	tui := NewTUI(bridge, store)
 	tui.Run()
 }
