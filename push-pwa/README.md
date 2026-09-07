@@ -7,7 +7,7 @@ This small installable PWA is the fourth part of the Viking Bio monorepo. It gen
 - Build a browser subscription payload with a VAPID keypair
 - Add subscribers manually to a YAML file rather than through a server-side save endpoint
 - Keep the storage layer read-only so subscription records are maintained by operators, not by the PHP app
-- Include a `notificationPriority` field for low, normal, and high notifications
+- Include a `notificationLevel` field for low, normal, and high notifications
 - Support multiple sender subscriptions so each browser client only receives alerts for the burner it is interested in
 - Receive Pico bridge webhook payloads and translate them into browser push notifications
 - Offer an install CTA on iOS Safari via the native Add to Home Screen flow
@@ -33,7 +33,7 @@ subscriptions:
       p256dh: "..."
       auth: "..."
     sender: "viking-bio-01"
-    notificationPriority: "normal"
+    notificationLevel: "normal"
     uiUrl: "http://localhost:8000"
 ```
 

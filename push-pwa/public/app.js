@@ -64,6 +64,8 @@ function urlBase64ToUint8Array(base64String) {
   return output;
 }
 
+// This clipboard payload is intentionally wrapped under a `subscriptions` list so the
+// generated YAML reads like a subscription collection, not a single user-facing priority.
 function buildSubscriptionYaml(subscription) {
   const keys = subscription.toJSON ? subscription.toJSON().keys : subscription.keys || {};
   const sender = (senderInput.value || '').trim();
@@ -75,7 +77,7 @@ function buildSubscriptionYaml(subscription) {
         auth: keys.auth || '',
       },
       sender,
-      notificationPriority: prioritySelect.value,
+      notificationLevel: prioritySelect.value,
       uiUrl,
     }],
   };
@@ -143,8 +145,7 @@ async function sendTestAlert() {
         title: 'Test notification',
         body: 'This is a Viking Bio test alert from the push PWA.',
         sender,
-        notificationPriority: prioritySelect.value,
-        priority: prioritySelect.value,
+        notificationLevel: prioritySelect.value,
         url: uiUrl,
       }),
     });

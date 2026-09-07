@@ -31,7 +31,7 @@ final class PushStorage
                         'auth' => 'replace-with-browser-auth',
                     ],
                     'sender' => 'viking-bio-01',
-                    'notificationPriority' => 'normal',
+                    'notificationLevel' => 'normal',
                     'uiUrl' => 'https://example.com/replace-me',
                 ],
             ];
@@ -143,11 +143,16 @@ final class PushStorage
                     continue;
                 }
 
-                if ($key === 'priority') {
-                    $key = 'notificationPriority';
+                $normalizedKey = $key;
+                if (in_array($normalizedKey, ['priority', 'notificationPriority'], true)) {
+                    $normalizedKey = 'notificationLevel';
                 }
 
-                $lines[] = '    ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);
+                if (array_key_exists('notificationLevel', $subscription) && in_array($key, ['priority', 'notificationPriority'], true) && $key !== 'notificationLevel') {
+                    continue;
+                }
+
+                $lines[] = '    ' . self::yamlKey((string) $normalizedKey) . ': ' . self::yamlString((string) $value);
             }
         }
 
@@ -195,23 +200,26 @@ final class PushStorage
         $firstLine = trim($lines[0]);
         if (preg_match('/^subscriptions\s*:\s*$/', $firstLine) === 1) {
             $wrapped = [];
+            $validWrapped = true;
             foreach (array_slice($lines, 1) as $line) {
                 $trimmedLine = trim($line);
                 if ($trimmedLine === '') {
                     continue;
                 }
 
-                if (str_starts_with($line, '  ')) {
-                    $wrapped[] = substr($line, 2);
-                    continue;
+                if (!str_starts_with($line, '  ')) {
+                    $validWrapped = false;
+                    break;
                 }
 
-                $wrapped[] = ltrim($line, " \t");
+                $wrapped[] = substr($line, 2);
             }
 
-            $yaml = self::parseSimpleYaml(implode("\n", $wrapped));
-            if (is_array($yaml)) {
-                return $yaml;
+            if ($validWrapped) {
+                $yaml = self::parseSimpleYaml(implode("\n", $wrapped));
+                if (is_array($yaml)) {
+                    return $yaml;
+                }
             }
         }
 
@@ -271,6 +279,14 @@ final class PushStorage
 
             if (preg_match('/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/', $trimmed, $matches) === 1) {
                 $key = $matches[1];
+                if (in_array($key, ['priority', 'notificationPriority'], true)) {
+                    $key = 'notificationLevel';
+                }
+
+                if (array_key_exists('notificationLevel', $current) && $key === 'notificationLevel' && $matches[1] !== 'notificationLevel') {
+                    continue;
+                }
+
                 $value = trim($matches[2]);
                 if ($value === '') {
                     $current[$key] = [];
