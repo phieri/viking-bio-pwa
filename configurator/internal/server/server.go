@@ -153,7 +153,6 @@ func (s *Server) apiRoutes() []apiRoute {
 	return []apiRoute{
 		{path: "/api/data", method: http.MethodGet, handler: s.handler.HandleGetData},
 		{path: "/api/metrics", method: http.MethodGet, handler: s.handler.HandleGetMetrics},
-		{path: "/api/energy-price", method: http.MethodGet, handler: s.handler.HandleGetEnergyPrice},
 	}
 }
 

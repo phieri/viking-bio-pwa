@@ -21,12 +21,6 @@ type Config struct {
 	PicoSerialPort string
 	DataDir        string
 
-	// Energy price card
-	EnergyCardEnabled      bool
-	BurnerFixedCostSEKYear float64 // annual fixed costs for burner (service, amortization)
-	BurnerCostSEKPerKWh    float64 // direct pellet energy cost per kWh of heat
-	AnnualHeatingKWh       float64 // estimated annual heating kWh (to amortize fixed costs)
-
 	// Telemetry history endpoint
 	TelemetryHistoryEnabled bool
 }
@@ -120,19 +114,6 @@ func Load() (*Config, error) {
 		mdnsName = "Viking Bio"
 	}
 
-	burnerFixed, err := parseFloat("BURNER_FIXED_COST_SEK_YEAR", os.Getenv("BURNER_FIXED_COST_SEK_YEAR"), 0)
-	if err != nil {
-		return nil, err
-	}
-	burnerKWh, err := parseFloat("BURNER_COST_SEK_KWH", os.Getenv("BURNER_COST_SEK_KWH"), 0)
-	if err != nil {
-		return nil, err
-	}
-	annualKWh, err := parseFloat("ANNUAL_HEATING_KWH", os.Getenv("ANNUAL_HEATING_KWH"), 20000)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Config{
 		HTTPPort:       httpPort,
 		IngestTCPPort:  ingestTCPPort,
@@ -144,10 +125,6 @@ func Load() (*Config, error) {
 		PicoSerialPort: os.Getenv("PICO_SERIAL_PORT"),
 		DataDir:        dataDir,
 
-		EnergyCardEnabled:       parseBool(os.Getenv("ENERGY_CARD_ENABLED")),
-		BurnerFixedCostSEKYear:  burnerFixed,
-		BurnerCostSEKPerKWh:     burnerKWh,
-		AnnualHeatingKWh:        annualKWh,
 		TelemetryHistoryEnabled: parseBool(os.Getenv("TELEMETRY_HISTORY_ENABLED")),
 	}, nil
 }

@@ -18,8 +18,7 @@ type Handlers struct {
 	config *config.Config
 }
 
-// NewHandlers creates a new Handlers instance. cfg may be nil to disable the
-// energy price card (used in tests).
+// NewHandlers creates a new Handlers instance.
 func NewHandlers(cfg *config.Config) *Handlers {
 	return &Handlers{
 		state:  &State{},
@@ -93,10 +92,6 @@ func (h *Handlers) metricsEnabled() bool {
 	return h.config != nil && h.config.TelemetryHistoryEnabled
 }
 
-func (h *Handlers) energyCardEnabled() bool {
-	return h.config != nil && h.config.EnergyCardEnabled
-}
-
 func (h *Handlers) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	if !h.metricsEnabled() {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "metrics history disabled"})
@@ -115,43 +110,4 @@ func (h *Handlers) processMachineData(body machineDataBody, source string, now t
 		h.state.appendTelemetrySample(now, result.snapshot)
 	}
 	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
-}
-
-// energyPriceResponse is the JSON payload for GET /api/energy-price.
-type energyPriceResponse struct {
-	Enabled           bool    `json:"enabled"`
-	BurnerSEKPerKWh   float64 `json:"burner_sek_kwh"`
-	FixedSEKPerKWh    float64 `json:"fixed_sek_kwh"`
-	VariableSEKPerKWh float64 `json:"variable_sek_kwh"`
-}
-
-func burnerPricePerKWh(cfg *config.Config) (variableCost, fixedCost, totalCost float64) {
-	annualKWh := cfg.AnnualHeatingKWh
-	if annualKWh <= 0 {
-		annualKWh = 20000
-	}
-
-	variableCost = cfg.BurnerCostSEKPerKWh
-	fixedCost = cfg.BurnerFixedCostSEKYear / annualKWh
-	totalCost = variableCost + fixedCost
-
-	return variableCost, fixedCost, totalCost
-}
-
-// HandleGetEnergyPrice serves GET /api/energy-price.
-// It returns the burner's current configured cost per kWh.
-func (h *Handlers) HandleGetEnergyPrice(w http.ResponseWriter, r *http.Request) {
-	if !h.energyCardEnabled() {
-		writeJSON(w, http.StatusOK, energyPriceResponse{Enabled: false})
-		return
-	}
-
-	variableCost, fixedCost, totalCost := burnerPricePerKWh(h.config)
-
-	writeJSON(w, http.StatusOK, energyPriceResponse{
-		Enabled:           true,
-		BurnerSEKPerKWh:   totalCost,
-		FixedSEKPerKWh:    fixedCost,
-		VariableSEKPerKWh: variableCost,
-	})
 }
