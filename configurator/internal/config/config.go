@@ -50,17 +50,6 @@ func parseBool(val string) bool {
 	}
 }
 
-func parseFloat(name, val string, def float64) (float64, error) {
-	if val == "" {
-		return def, nil
-	}
-	f, err := strconv.ParseFloat(val, 64)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be a number, got %q", name, val)
-	}
-	return f, nil
-}
-
 // DefaultDataDir returns the data directory path using DATA_DIR env var, falling
 // back to ~/.viking-bio-bridge on Linux or <exe_dir>/data otherwise (using
 // ./data when the binary lives under /tmp).
