@@ -15,6 +15,7 @@
 #define WEBHOOK_QUEUE_LEN 4
 #define WEBHOOK_JSON_MAX 384
 #define WEBHOOK_BODY_MAX 512
+#define WEBHOOK_HEARTBEAT_INTERVAL_MS (24ULL * 60ULL * 60ULL * 1000ULL)
 
 typedef enum {
 	WEBHOOK_STATE_IDLE,
@@ -28,6 +29,8 @@ static struct tcp_pcb *s_pcb = NULL;
 static http_webhook_state_t s_state = WEBHOOK_STATE_IDLE;
 
 static void send_http_request(void);
+static bool build_payload(const vikingbio_data_t *data, const char *type, const char *detail,
+						  char *out, size_t out_len);
 
 static char s_url[WIFI_WEBHOOK_URL_MAX_LEN + 1];
 static char s_host[WIFI_SERVER_IP_MAX_LEN + 1];
@@ -42,6 +45,34 @@ static absolute_time_t s_retry_time;
 static char s_queue[WEBHOOK_QUEUE_LEN][WEBHOOK_BODY_MAX];
 static size_t s_queue_head = 0;
 static size_t s_queue_count = 0;
+static uint64_t s_last_webhook_ms = 0;
+
+static void record_webhook_sent(void) {
+	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
+}
+
+static bool should_send_heartbeat(void) {
+	if (s_host[0] == '\0') {
+		return false;
+	}
+	uint64_t now_ms = to_ms_since_boot(get_absolute_time());
+	return now_ms - s_last_webhook_ms >= WEBHOOK_HEARTBEAT_INTERVAL_MS;
+}
+
+static bool queue_heartbeat(void) {
+	vikingbio_data_t snapshot = {0};
+	vikingbio_get_current_data(&snapshot);
+	char payload[WEBHOOK_BODY_MAX];
+	if (!build_payload(&snapshot, "heartbeat", "alive", payload, sizeof(payload))) {
+		printf("webhook: failed to build heartbeat payload\n");
+		return false;
+	}
+	if (!queue_push(payload)) {
+		printf("webhook: failed to queue heartbeat payload\n");
+		return false;
+	}
+	return true;
+}
 
 static void abort_connection(void) {
 	if (s_pcb != NULL) {
@@ -391,6 +422,7 @@ static void send_http_request(void) {
 	if (err == ERR_OK) {
 		tcp_output(s_pcb);
 		printf("webhook: sent alert payload to %s\n", s_url);
+		record_webhook_sent();
 		queue_pop();
 		abort_connection();
 		s_state = WEBHOOK_STATE_IDLE;
@@ -407,6 +439,7 @@ void http_webhook_init(void) {
 	s_path[0] = '/';
 	s_path[1] = '\0';
 	s_auth_token[0] = '\0';
+	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
 	s_state = WEBHOOK_STATE_IDLE;
 	abort_connection();
 	clear_queue();
@@ -426,6 +459,7 @@ void http_webhook_set_url(const char *url) {
 	}
 	clear_queue();
 	abort_connection();
+	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
 	s_state = WEBHOOK_STATE_IDLE;
 	printf("webhook: configured %s\n", s_url);
 }
@@ -455,6 +489,14 @@ void http_webhook_send_alert(const vikingbio_data_t *data, const char *type, con
 void http_webhook_poll(void) {
 	if (s_state == WEBHOOK_STATE_RETRY_WAIT && time_reached(s_retry_time)) {
 		s_state = WEBHOOK_STATE_IDLE;
+	}
+
+	if (s_state == WEBHOOK_STATE_IDLE && s_queue_count == 0 && s_host[0] != '\0' &&
+		should_send_heartbeat()) {
+		if (queue_heartbeat()) {
+			start_connection();
+		}
+		return;
 	}
 
 	if (s_state == WEBHOOK_STATE_IDLE && s_queue_count > 0 && s_host[0] != '\0') {

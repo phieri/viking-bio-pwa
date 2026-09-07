@@ -93,10 +93,67 @@ switch ($type) {
             $message = sprintf('Device %s reported an error state.', $device);
         }
         break;
+
+    case 'heartbeat':
+        $title = 'Burner heartbeat';
+        $message = sprintf('No alert activity has been reported by %s in the last 24 hours.', $device);
+        $priority = 'very-low';
+        break;
 }
 
 if ($temperature !== null && $type !== 'error') {
     $message .= sprintf(' Temperature %.1f°C.', $temperature);
+}
+
+if ($type === 'heartbeat') {
+    $cacheKey = 'viking-bio-last-contact';
+    $lastContactState = [];
+    if (function_exists('apcu_fetch')) {
+        $cachedState = apcu_fetch($cacheKey, $success);
+        if ($success && is_array($cachedState)) {
+            $lastContactState = $cachedState;
+        }
+    } else {
+        $lastContactPath = __DIR__ . '/../storage/last-contact.json';
+        if (is_file($lastContactPath)) {
+            $rawState = file_get_contents($lastContactPath);
+            if ($rawState !== false && trim($rawState) !== '') {
+                $decodedState = json_decode($rawState, true);
+                if (is_array($decodedState)) {
+                    $lastContactState = $decodedState;
+                }
+            }
+        }
+    }
+
+    $timestamp = (int) floor(microtime(true) * 1000);
+    $lastContactState[$device] = [
+        'device' => $device,
+        'timestamp' => $timestamp,
+        'type' => $type,
+        'detail' => $detail,
+    ];
+
+    $writeOk = false;
+    if (function_exists('apcu_store')) {
+        $writeOk = apcu_store($cacheKey, $lastContactState, 86400);
+    } else {
+        $lastContactPath = __DIR__ . '/../storage/last-contact.json';
+        $writeOk = file_put_contents(
+            $lastContactPath,
+            json_encode($lastContactState, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+        ) !== false;
+    }
+
+    echo json_encode([
+        'ok' => $writeOk,
+        'device' => $device,
+        'type' => $type,
+        'detail' => $detail,
+        'priority' => $priority,
+        'last_contact' => $timestamp,
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
 }
 
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
