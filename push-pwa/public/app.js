@@ -10,11 +10,34 @@ const prioritySelect = document.getElementById('subscription-priority');
 const senderInput = document.getElementById('subscription-sender');
 const subscriptionYaml = document.getElementById('subscription-yaml');
 const statusBox = document.getElementById('status');
+const lastContactBox = document.getElementById('last-contact-status');
 let installPromptEvent = null;
 
 function setStatus(message, type = '') {
   statusBox.textContent = message;
   statusBox.className = `status ${type}`.trim();
+}
+
+async function loadLastContactStatus() {
+  try {
+    const response = await fetch('/status.php', { headers: { Accept: 'application/json' } });
+    if (!response.ok) {
+      throw new Error('Could not load device heartbeat status.');
+    }
+
+    const data = await response.json();
+    const lastContact = data.lastContact;
+    if (!lastContact || !Number.isFinite(Number(lastContact))) {
+      lastContactBox.textContent = 'No device heartbeat received yet.';
+      return;
+    }
+
+    const stamp = new Date(Number(lastContact));
+    const label = Number.isNaN(stamp.getTime()) ? 'Unknown time' : stamp.toLocaleString();
+    lastContactBox.textContent = `Last device contact: ${label}`;
+  } catch (error) {
+    lastContactBox.textContent = 'Heartbeat status unavailable.';
+  }
 }
 
 async function loadConfig() {
@@ -182,6 +205,9 @@ copyButton.addEventListener('click', async () => {
 if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) {
   installBanner.classList.remove('hidden');
 }
+
+loadLastContactStatus();
+window.setInterval(loadLastContactStatus, 30000);
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();

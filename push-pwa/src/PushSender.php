@@ -42,8 +42,8 @@ final class PushSender
     public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
     {
         $normalizedPriority = $priority !== null ? strtolower($priority) : null;
-        if ($normalizedPriority !== null && !in_array($normalizedPriority, ['low', 'normal', 'high'], true)) {
-            throw new \InvalidArgumentException('Priority must be one of low, normal, or high');
+        if ($normalizedPriority !== null && !in_array($normalizedPriority, ['very-low', 'low', 'normal', 'high'], true)) {
+            throw new \InvalidArgumentException('Priority must be one of very-low, low, normal, or high');
         }
 
         // A null sender means broadcast to every subscription. Explicit sender values are
@@ -180,6 +180,10 @@ final class PushSender
                 continue;
             }
             $levels[$level] = (bool) $rawValue;
+        }
+
+        if ($requestedPriority === 'very-low') {
+            return $levels['low'] ?? false;
         }
 
         return $levels[$requestedPriority] ?? false;

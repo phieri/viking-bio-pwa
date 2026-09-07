@@ -97,12 +97,49 @@ switch ($type) {
     case 'heartbeat':
         $title = 'Burner heartbeat';
         $message = sprintf('No alert activity has been reported by %s in the last 24 hours.', $device);
-        $priority = 'low';
+        $priority = 'very-low';
         break;
 }
 
 if ($temperature !== null && $type !== 'error') {
     $message .= sprintf(' Temperature %.1f°C.', $temperature);
+}
+
+if ($type === 'heartbeat') {
+    $lastContactPath = __DIR__ . '/../storage/last-contact.json';
+    $lastContactState = [];
+    if (is_file($lastContactPath)) {
+        $rawState = file_get_contents($lastContactPath);
+        if ($rawState !== false && trim($rawState) !== '') {
+            $decodedState = json_decode($rawState, true);
+            if (is_array($decodedState)) {
+                $lastContactState = $decodedState;
+            }
+        }
+    }
+
+    $timestamp = (int) floor(microtime(true) * 1000);
+    $lastContactState[$device] = [
+        'device' => $device,
+        'timestamp' => $timestamp,
+        'type' => $type,
+        'detail' => $detail,
+    ];
+
+    $write = file_put_contents(
+        $lastContactPath,
+        json_encode($lastContactState, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+    );
+
+    echo json_encode([
+        'ok' => $write !== false,
+        'device' => $device,
+        'type' => $type,
+        'detail' => $detail,
+        'priority' => $priority,
+        'last_contact' => $timestamp,
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
 }
 
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
