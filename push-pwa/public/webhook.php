@@ -7,19 +7,30 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 use VikingBioPush\PushSender;
 use VikingBioPush\VapidConfig;
 
-header('Content-Type: application/json; charset=utf-8');
+header('Content-Type: text/plain; charset=utf-8');
+
+function webhook_response_ok(): never
+{
+    http_response_code(200);
+    echo 'OK';
+    exit;
+}
+
+function webhook_response_fail(int $statusCode, string $reason): never
+{
+    error_log('webhook.php: ' . $reason);
+    http_response_code($statusCode);
+    echo 'FAIL';
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
-    exit;
+    webhook_response_fail(405, 'Method not allowed');
 }
 
 $expectedToken = trim((string) getenv('PUSH_WEBHOOK_TOKEN'));
 if ($expectedToken === '') {
-    http_response_code(503);
-    echo json_encode(['error' => 'Webhook receiver is not configured']);
-    exit;
+    webhook_response_fail(503, 'Webhook receiver is not configured');
 }
 
 $providedToken = '';
@@ -31,23 +42,17 @@ if ($providedToken === '') {
     $providedToken = trim((string) ($_SERVER['HTTP_X_WEBHOOK_TOKEN'] ?? ''));
 }
 if (!hash_equals($expectedToken, $providedToken)) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
+    webhook_response_fail(401, 'Unauthorized webhook token');
 }
 
 $body = file_get_contents('php://input');
 if ($body === false || trim($body) === '') {
-    http_response_code(400);
-    echo json_encode(['error' => 'Request body required']);
-    exit;
+    webhook_response_fail(400, 'Request body required');
 }
 
 $payload = json_decode($body, true);
 if (!is_array($payload)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'JSON request body required']);
-    exit;
+    webhook_response_fail(400, 'JSON request body required');
 }
 
 $device = is_string($payload['device'] ?? null) ? trim($payload['device']) : '';
@@ -57,9 +62,7 @@ $errorCode = (int) ($payload['err'] ?? 0);
 $temperature = isset($payload['temp']) && is_numeric($payload['temp']) ? (float) $payload['temp'] : null;
 
 if ($device === '' || $type === '') {
-    http_response_code(400);
-    echo json_encode(['error' => 'device and type are required']);
-    exit;
+    webhook_response_fail(400, 'device and type are required');
 }
 
 $title = 'Viking Bio alert';
@@ -145,15 +148,12 @@ if ($type === 'heartbeat') {
         ) !== false;
     }
 
-    echo json_encode([
-        'ok' => $writeOk,
-        'device' => $device,
-        'type' => $type,
-        'detail' => $detail,
-        'priority' => $priority,
-        'last_contact' => $timestamp,
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    exit;
+    if (!$writeOk) {
+        webhook_response_fail(500, sprintf('Failed to persist last contact for %s', $device));
+    }
+
+    error_log(sprintf('webhook.php: heartbeat stored for %s (%s/%s)', $device, $type, $detail));
+    webhook_response_ok();
 }
 
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
@@ -175,11 +175,9 @@ $result = $sender->send(
     $device
 );
 
-echo json_encode([
-    'ok' => true,
-    'device' => $device,
-    'type' => $type,
-    'detail' => $detail,
-    'priority' => $priority,
-    ...$result,
-], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+if (!is_array($result) || !isset($result['sent'], $result['failed'])) {
+    webhook_response_fail(500, sprintf('Unexpected push result for %s', $device));
+}
+
+error_log(sprintf('webhook.php: delivered %s to %s (%d sent, %d failed)', $type, $device, $result['sent'], $result['failed']));
+webhook_response_ok();
