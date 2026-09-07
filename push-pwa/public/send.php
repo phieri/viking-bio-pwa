@@ -103,10 +103,10 @@ if (!is_string($priorityLevelValue)) {
     $rawPriority = strtolower($priorityLevelValue);
 }
 
-$allowedPriorities = ['low', 'normal', 'high'];
+$allowedPriorities = ['very-low', 'low', 'normal', 'high'];
 if (!in_array($rawPriority, $allowedPriorities, true)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Priority must be one of low, normal, or high']);
+    echo json_encode(['error' => 'Priority must be one of very-low, low, normal, or high']);
     exit;
 }
 $priority = $rawPriority;

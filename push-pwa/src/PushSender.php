@@ -183,7 +183,7 @@ final class PushSender
         }
 
         if ($requestedPriority === 'very-low') {
-            return $levels['low'] ?? false;
+            return true;
         }
 
         return $levels[$requestedPriority] ?? false;
