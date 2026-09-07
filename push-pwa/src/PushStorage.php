@@ -31,7 +31,7 @@ final class PushStorage
                         'auth' => 'replace-with-browser-auth',
                     ],
                     'sender' => 'viking-bio-01',
-                    'priority' => 'normal',
+                    'notificationPriority' => 'normal',
                     'uiUrl' => 'https://example.com/replace-me',
                 ],
             ];
@@ -141,6 +141,10 @@ final class PushStorage
             foreach ($subscription as $key => $value) {
                 if ($key === 'endpoint' || $key === 'keys') {
                     continue;
+                }
+
+                if ($key === 'priority') {
+                    $key = 'notificationPriority';
                 }
 
                 $lines[] = '    ' . self::yamlKey((string) $key) . ': ' . self::yamlString((string) $value);

@@ -83,7 +83,11 @@ final class PushSender
         $pendingReports = [];
 
         foreach ($subscriptions as $subscription) {
-            $priorityValue = is_string($subscription['priority'] ?? null) ? strtolower($subscription['priority']) : 'normal';
+            $priorityValue = $subscription['notificationPriority'] ?? $subscription['priority'] ?? 'normal';
+            if (!is_string($priorityValue)) {
+                $priorityValue = 'normal';
+            }
+            $priorityValue = strtolower($priorityValue);
             if ($normalizedPriority !== null && $priorityValue !== $normalizedPriority) {
                 continue;
             }

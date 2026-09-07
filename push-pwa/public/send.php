@@ -96,7 +96,7 @@ $title = is_string($data['title'] ?? null) ? $data['title'] : 'Viking Bio alert'
 $bodyText = is_string($data['body'] ?? null) ? $data['body'] : 'New status update';
 $icon = is_string($data['icon'] ?? null) ? $data['icon'] : '/icon.svg';
 $url = is_string($data['url'] ?? null) ? $data['url'] : (getenv('PUSH_UI_URL') ?: getenv('APP_URL') ?: '/');
-$rawPriority = is_string($data['priority'] ?? null) ? strtolower($data['priority']) : 'normal';
+$rawPriority = is_string($data['notificationPriority'] ?? null) ? strtolower($data['notificationPriority']) : (is_string($data['priority'] ?? null) ? strtolower($data['priority']) : 'normal');
 $allowedPriorities = ['low', 'normal', 'high'];
 if (!in_array($rawPriority, $allowedPriorities, true)) {
     http_response_code(400);

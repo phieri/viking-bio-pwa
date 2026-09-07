@@ -75,7 +75,7 @@ function buildSubscriptionYaml(subscription) {
         auth: keys.auth || '',
       },
       sender,
-      priority: prioritySelect.value,
+      notificationPriority: prioritySelect.value,
       uiUrl,
     }],
   };
@@ -143,6 +143,7 @@ async function sendTestAlert() {
         title: 'Test notification',
         body: 'This is a Viking Bio test alert from the push PWA.',
         sender,
+        notificationPriority: prioritySelect.value,
         priority: prioritySelect.value,
         url: uiUrl,
       }),
