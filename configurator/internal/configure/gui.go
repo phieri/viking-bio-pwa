@@ -32,6 +32,8 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	defer runtime.UnlockOSThread()
 
 	a := fyneapp.New()
+	var openWindows atomic.Int32
+	openWindows.Store(2)
 	provisioningWindow := a.NewWindow("Viking Bio – Provisioning over USB")
 	provisioningWindow.Resize(fyne.NewSize(680, 480))
 
@@ -94,7 +96,9 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	ctx, cancel := context.WithCancel(context.Background())
 	provisioningWindow.SetOnClosed(func() {
 		cancel()
-		a.Quit()
+		if openWindows.Add(-1) == 0 {
+			a.Quit()
+		}
 	})
 	go refreshStatus()
 	go func() {
@@ -459,20 +463,23 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	telemetryCtx, telemetryCancel := context.WithCancel(context.Background())
 	monitorWindow.SetOnClosed(func() {
 		telemetryCancel()
-		a.Quit()
-	})
-	go func() {
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-telemetryCtx.Done():
-				return
-			case <-ticker.C:
-				telemetryRefresh()
-			}
+		if openWindows.Add(-1) == 0 {
+			a.Quit()
 		}
-	}()
+	})
+	if telemetryStateValue != nil {
+		updates := telemetryStateValue.Updates()
+		go func() {
+			for {
+				select {
+				case <-telemetryCtx.Done():
+					return
+				case <-updates:
+					telemetryRefresh()
+				}
+			}
+		}()
+	}
 	telemetryRefresh()
 	monitorWindow.SetContent(container.NewBorder(
 		telemetryTitle,

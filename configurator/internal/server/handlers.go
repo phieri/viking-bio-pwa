@@ -19,7 +19,7 @@ func NewHandlers(cfg *config.Config) *Handlers {
 		cfg = &config.Config{}
 	}
 	return &Handlers{
-		state:  &State{},
+		state:  NewState(),
 		config: cfg,
 	}
 }

@@ -102,3 +102,30 @@ func TestStateSnapshot(t *testing.T) {
 		t.Fatalf("snapshot() = %#v, state = %#v", got, state)
 	}
 }
+
+func TestStateNotificationsFireOnUpdate(t *testing.T) {
+	t.Parallel()
+
+	state := NewState()
+	updates := state.Updates()
+
+	select {
+	case <-updates:
+		t.Fatal("unexpected notification before telemetry update")
+	default:
+	}
+
+	state.applyMachineData(machineDataBody{
+		Flame: testBoolPtr(true),
+		Fan:   testFloat64Ptr(42),
+		Temp:  testFloat64Ptr(70),
+		Err:   testFloat64Ptr(0),
+		Valid: testBoolPtr(true),
+	}, time.Unix(123, 0))
+
+	select {
+	case <-updates:
+	default:
+		t.Fatal("expected update notification after telemetry update")
+	}
+}
