@@ -29,9 +29,6 @@ func NewStore(dataDir string) (*Store, error) {
 # Lines starting with '#' are comments. Uncommented lines set a value.
 # Environment variables always take precedence over values in this file.
 
-# Port for the HTTP/HTTPS API server (default: 3000)
-# HTTP_PORT=3000
-
 # Port for framed telemetry ingest from the Pico bridge (default: 9000)
 # INGEST_TCP_PORT=9000
 
@@ -39,7 +36,7 @@ func NewStore(dataDir string) (*Store, error) {
 # Requires TLS_CERT_PATH and TLS_KEY_PATH.
 # INGEST_TCP_TLS=0
 
-# Optional manual HTTPS for the API server.
+# Optional manual TLS for the ingest listener.
 # TLS_CERT_PATH=/etc/ssl/certs/server.crt
 # TLS_KEY_PATH=/etc/ssl/private/server.key
 

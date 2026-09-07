@@ -7,7 +7,6 @@ import (
 )
 
 var configEnvKeys = []string{
-	"HTTP_PORT",
 	"INGEST_TCP_PORT",
 	"INGEST_TCP_TLS",
 	"TLS_CERT_PATH",
@@ -16,7 +15,6 @@ var configEnvKeys = []string{
 	"MDNS_DISABLE",
 	"PICO_SERIAL_PORT",
 	"DATA_DIR",
-	"TELEMETRY_HISTORY_ENABLED",
 }
 
 func clearConfigEnv(t *testing.T) {
@@ -29,23 +27,23 @@ func clearConfigEnv(t *testing.T) {
 func TestParsePort(t *testing.T) {
 	t.Parallel()
 
-	port, err := parsePort("HTTP_PORT", "", 3000)
-	if err != nil || port != 3000 {
-		t.Fatalf("expected default port 3000, got %d, err=%v", port, err)
+	port, err := parsePort("INGEST_TCP_PORT", "", 9000)
+	if err != nil || port != 9000 {
+		t.Fatalf("expected default port 9000, got %d, err=%v", port, err)
 	}
 
-	port, err = parsePort("HTTP_PORT", "443", 3000)
+	port, err = parsePort("INGEST_TCP_PORT", "443", 9000)
 	if err != nil || port != 443 {
 		t.Fatalf("expected parsed port 443, got %d, err=%v", port, err)
 	}
 
-	if _, err := parsePort("HTTP_PORT", "0", 3000); err == nil {
+	if _, err := parsePort("INGEST_TCP_PORT", "0", 9000); err == nil {
 		t.Fatal("expected invalid low port to fail")
 	}
-	if _, err := parsePort("HTTP_PORT", "70000", 3000); err == nil {
+	if _, err := parsePort("INGEST_TCP_PORT", "70000", 9000); err == nil {
 		t.Fatal("expected invalid high port to fail")
 	}
-	if _, err := parsePort("HTTP_PORT", "nope", 3000); err == nil {
+	if _, err := parsePort("INGEST_TCP_PORT", "nope", 9000); err == nil {
 		t.Fatal("expected non-numeric port to fail")
 	}
 }
@@ -85,9 +83,6 @@ func TestLoadDefaults(t *testing.T) {
 		expectedDataDir = filepath.Join(base, "data")
 	}
 
-	if cfg.HTTPPort != 3000 {
-		t.Fatalf("expected default HTTP port 3000, got %d", cfg.HTTPPort)
-	}
 	if cfg.IngestTCPPort != 9000 {
 		t.Fatalf("expected default ingest TCP port 9000, got %d", cfg.IngestTCPPort)
 	}
@@ -100,14 +95,10 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MDNSName != "Viking Bio" {
 		t.Fatalf("unexpected default MDNS name: %q", cfg.MDNSName)
 	}
-	if cfg.TelemetryHistoryEnabled {
-		t.Fatal("expected telemetry history to default to disabled")
-	}
 }
 
 func TestLoadOverrides(t *testing.T) {
 	clearConfigEnv(t)
-	t.Setenv("HTTP_PORT", "3001")
 	t.Setenv("INGEST_TCP_PORT", "9443")
 	t.Setenv("INGEST_TCP_TLS", "true")
 	t.Setenv("TLS_CERT_PATH", "/cert.pem")
@@ -116,14 +107,13 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("MDNS_DISABLE", "1")
 	t.Setenv("PICO_SERIAL_PORT", "/dev/ttyACM0")
 	t.Setenv("DATA_DIR", "/data")
-	t.Setenv("TELEMETRY_HISTORY_ENABLED", "true")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.HTTPPort != 3001 || cfg.IngestTCPPort != 9443 {
+	if cfg.IngestTCPPort != 9443 {
 		t.Fatalf("unexpected numeric overrides: %+v", cfg)
 	}
 	if cfg.DataDir != "/data" || cfg.TLSCertPath != "/cert.pem" || cfg.TLSKeyPath != "/key.pem" {
@@ -135,15 +125,12 @@ func TestLoadOverrides(t *testing.T) {
 	if !cfg.IngestTCPTLS || !cfg.MDNSDisable {
 		t.Fatalf("expected boolean overrides to be true: %+v", cfg)
 	}
-	if !cfg.TelemetryHistoryEnabled {
-		t.Fatalf("expected telemetry history overrides to be true: %+v", cfg)
-	}
 }
 
 func TestLoadRejectsInvalidValues(t *testing.T) {
 	clearConfigEnv(t)
-	t.Setenv("HTTP_PORT", "0")
+	t.Setenv("INGEST_TCP_PORT", "0")
 	if _, err := Load(); err == nil {
-		t.Fatal("expected invalid HTTP_PORT to fail")
+		t.Fatal("expected invalid INGEST_TCP_PORT to fail")
 	}
 }

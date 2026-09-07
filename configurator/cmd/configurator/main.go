@@ -73,7 +73,7 @@ func runServer() {
 	// mDNS advertiser
 	var mdnsAdv mdns.Advertiser
 	if !cfg.MDNSDisable {
-		mdnsAdv.Start(cfg.HTTPPort, cfg.MDNSName)
+		mdnsAdv.Start(cfg.IngestTCPPort, cfg.MDNSName)
 		defer mdnsAdv.Stop()
 	} else {
 		log.Println("mdns: disabled (MDNS_DISABLE is set)")

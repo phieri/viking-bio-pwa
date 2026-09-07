@@ -1,47 +1,35 @@
-package server_test
+package server
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"testing"
-
-	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
+	"time"
 )
 
-func newTestHandlers(t *testing.T) *server.Handlers {
-	t.Helper()
-	return server.NewHandlers(nil)
-}
+func TestProcessMachineDataUpdatesStateSnapshot(t *testing.T) {
+	h := NewHandlers(nil)
+	now := time.Unix(123, 0)
+	flame := true
+	fan := 55.0
+	temp := 72.0
+	err := 3.0
+	valid := true
 
-func getReq(t *testing.T, h http.HandlerFunc) *http.Response {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rr := httptest.NewRecorder()
-	h(rr, req)
-	return rr.Result()
-}
+	h.processMachineData(machineDataBody{
+		Flame: &flame,
+		Fan:   &fan,
+		Temp:  &temp,
+		Err:   &err,
+		Valid: &valid,
+	}, "test", now)
 
-func decodeJSON(t *testing.T, r *http.Response) map[string]any {
-	t.Helper()
-	defer r.Body.Close()
-	body, _ := io.ReadAll(r.Body)
-	var m map[string]any
-	if err := json.Unmarshal(body, &m); err != nil {
-		t.Fatalf("decode JSON: %v (body: %s)", err, body)
+	state := h.state.snapshot()
+	if !state.Flame {
+		t.Fatal("expected flame to be true")
 	}
-	return m
-}
-
-func TestGetDataReturnsStateSnapshot(t *testing.T) {
-	h := newTestHandlers(t)
-	resp := getReq(t, h.HandleGetData)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	if state.Temp != 72 {
+		t.Fatalf("expected temp 72, got %v", state.Temp)
 	}
-	m := decodeJSON(t, resp)
-	if _, ok := m["flame"]; !ok {
-		t.Fatalf("expected state snapshot JSON, got %#v", m)
+	if state.Err != 3 {
+		t.Fatalf("expected err 3, got %v", state.Err)
 	}
 }

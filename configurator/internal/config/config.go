@@ -11,7 +11,6 @@ import (
 
 // Config holds all runtime configuration parsed from environment variables.
 type Config struct {
-	HTTPPort       int
 	IngestTCPPort  int
 	IngestTCPTLS   bool
 	TLSCertPath    string
@@ -20,9 +19,6 @@ type Config struct {
 	MDNSDisable    bool
 	PicoSerialPort string
 	DataDir        string
-
-	// Telemetry history endpoint
-	TelemetryHistoryEnabled bool
 }
 
 func parsePort(name, val string, def int) (int, error) {
@@ -99,10 +95,6 @@ func exeDir() string {
 
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
-	httpPort, err := parsePort("HTTP_PORT", os.Getenv("HTTP_PORT"), 3000)
-	if err != nil {
-		return nil, err
-	}
 	ingestTCPPort, err := parsePort("INGEST_TCP_PORT", os.Getenv("INGEST_TCP_PORT"), 9000)
 	if err != nil {
 		return nil, err
@@ -115,7 +107,6 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		HTTPPort:       httpPort,
 		IngestTCPPort:  ingestTCPPort,
 		IngestTCPTLS:   parseBool(os.Getenv("INGEST_TCP_TLS")),
 		TLSCertPath:    os.Getenv("TLS_CERT_PATH"),
@@ -124,7 +115,5 @@ func Load() (*Config, error) {
 		MDNSDisable:    parseBool(os.Getenv("MDNS_DISABLE")),
 		PicoSerialPort: os.Getenv("PICO_SERIAL_PORT"),
 		DataDir:        dataDir,
-
-		TelemetryHistoryEnabled: parseBool(os.Getenv("TELEMETRY_HISTORY_ENABLED")),
 	}, nil
 }
