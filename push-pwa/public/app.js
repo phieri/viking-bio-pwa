@@ -1,6 +1,9 @@
 let uiUrl = 'http://localhost:8000';
 let sendToken = '';
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || ((window.navigator.userAgentData && window.navigator.userAgentData.platform === 'macOS') && navigator.maxTouchPoints > 1) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const HEARTBEAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const OFFLINE_HEARTBEATS_THRESHOLD = 3;
+const DEVICE_OFFLINE_THRESHOLD_MS = HEARTBEAT_INTERVAL_MS * OFFLINE_HEARTBEATS_THRESHOLD;
 const installBanner = document.getElementById('install-banner');
 const installButton = document.getElementById('install-button');
 const enablePushButton = document.getElementById('enable-push');
@@ -12,6 +15,26 @@ const subscriptionYaml = document.getElementById('subscription-yaml');
 const statusBox = document.getElementById('status');
 const lastContactBox = document.getElementById('last-contact-status');
 let installPromptEvent = null;
+let lastOfflineNotificationAt = 0;
+
+function notifyOffline(deviceLabel) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastOfflineNotificationAt < 60 * 60 * 1000) {
+    return;
+  }
+
+  lastOfflineNotificationAt = now;
+  new Notification('Viking Bio device offline', {
+    body: `${deviceLabel} appears to be offline.`,
+    tag: `viking-bio-offline-${deviceLabel}`,
+    icon: '/icon.svg',
+    badge: '/icon.svg',
+  });
+}
 
 function setStatus(message, type = '') {
   statusBox.textContent = message;
@@ -26,13 +49,28 @@ async function loadLastContactStatus() {
     }
 
     const data = await response.json();
-    const lastContact = data.lastContact;
+    const devices = data && typeof data.devices === 'object' ? Object.values(data.devices) : [];
+    const selectedSender = (senderInput.value || '').trim();
+    const selectedDevice = selectedSender
+      ? devices.find((device) => String(device.device || '').toLowerCase() === selectedSender.toLowerCase())
+      : null;
+    const lastContact = selectedDevice ? selectedDevice.timestamp : data.lastContact;
+
     if (!lastContact || !Number.isFinite(Number(lastContact))) {
       lastContactBox.textContent = 'No device heartbeat received yet.';
       return;
     }
 
-    const stamp = new Date(Number(lastContact));
+    const contactTimestamp = Number(lastContact);
+    const isOffline = Date.now() - contactTimestamp > DEVICE_OFFLINE_THRESHOLD_MS;
+    if (isOffline) {
+      const deviceLabel = selectedDevice && selectedDevice.device ? selectedDevice.device : 'Bridge device';
+      lastContactBox.textContent = `${deviceLabel} appears to be offline.`;
+      notifyOffline(deviceLabel);
+      return;
+    }
+
+    const stamp = new Date(contactTimestamp);
     const label = Number.isNaN(stamp.getTime()) ? 'Unknown time' : stamp.toLocaleString();
     lastContactBox.textContent = `Last device contact: ${label}`;
   } catch (error) {
