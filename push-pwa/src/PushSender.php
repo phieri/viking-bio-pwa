@@ -160,6 +160,10 @@ final class PushSender
             return true;
         }
 
+        if ($requestedPriority === 'very-low') {
+            return true;
+        }
+
         if ($configuredLevel === null) {
             return true;
         }
@@ -180,10 +184,6 @@ final class PushSender
                 continue;
             }
             $levels[$level] = (bool) $rawValue;
-        }
-
-        if ($requestedPriority === 'very-low') {
-            return $levels['low'] ?? false;
         }
 
         return $levels[$requestedPriority] ?? false;
