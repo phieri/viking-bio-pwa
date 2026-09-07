@@ -169,6 +169,39 @@ h3 {
   justify-content: center;
 }
 
+.showcase {
+  padding-top: 0;
+}
+
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.media-card {
+  margin: 0;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  box-shadow: 0 16px 28px rgba(2, 6, 23, 0.24);
+}
+
+.media-card img {
+  display: block;
+  width: 100%;
+  height: 320px;
+  object-fit: cover;
+  background: #0b1320;
+}
+
+.media-card figcaption {
+  padding: 1rem 1.1rem 1.2rem;
+  color: var(--muted);
+  font-size: 0.96rem;
+}
+
 .panel-card {
   width: min(100%, 420px);
   padding: 1.5rem;
@@ -324,7 +357,8 @@ h3 {
 @media (max-width: 860px) {
   .hero-grid,
   .architecture-grid,
-  .project-panel {
+  .project-panel,
+  .showcase-grid {
     grid-template-columns: 1fr;
   }
 
