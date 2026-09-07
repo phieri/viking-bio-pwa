@@ -61,6 +61,10 @@ type machineDataUpdateResult struct {
 }
 
 func (s *State) snapshot() machineDataSnapshot {
+	if s == nil {
+		return newMachineDataSnapshot(false, 0, 0, 0, false, 0)
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -68,6 +72,9 @@ func (s *State) snapshot() machineDataSnapshot {
 }
 
 func decodeMachineData(r io.Reader) (machineDataBody, error) {
+	if r == nil {
+		return machineDataBody{}, fmt.Errorf("nil reader")
+	}
 	var body machineDataBody
 	if err := json.NewDecoder(r).Decode(&body); err != nil {
 		return machineDataBody{}, err
@@ -79,6 +86,18 @@ func decodeMachineData(r io.Reader) (machineDataBody, error) {
 }
 
 func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDataUpdateResult {
+	if s == nil {
+		return machineDataUpdateResult{}
+	}
+	if body.Flame == nil || body.Fan == nil || body.Temp == nil || body.Err == nil || body.Valid == nil {
+		return machineDataUpdateResult{
+			snapshot: s.snapshot(),
+			flame:    s.Flame,
+			temp:     s.Temp,
+			err:      s.Err,
+		}
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -32,6 +32,9 @@ func main() {
 // loadDotEnv reads a simple KEY=VALUE file and sets environment variables.
 // Skips lines starting with '#' and empty lines. Does not override existing vars.
 func loadDotEnv(path string) {
+	if strings.TrimSpace(path) == "" {
+		return
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return
@@ -49,13 +52,19 @@ func loadDotEnv(path string) {
 		}
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		// Remove surrounding quotes
+		if key == "" {
+			continue
+		}
+		// Remove surrounding quotes.
 		if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
 			value = value[1 : len(value)-1]
 		}
 		if os.Getenv(key) == "" {
 			_ = os.Setenv(key, value)
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("config: failed to parse %s: %v", path, err)
 	}
 }
 

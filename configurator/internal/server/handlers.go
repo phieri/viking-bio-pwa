@@ -15,6 +15,9 @@ type Handlers struct {
 
 // NewHandlers creates a new Handlers instance.
 func NewHandlers(cfg *config.Config) *Handlers {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
 	return &Handlers{
 		state:  &State{},
 		config: cfg,
@@ -22,10 +25,16 @@ func NewHandlers(cfg *config.Config) *Handlers {
 }
 
 func (h *Handlers) updateBurnerState(body machineDataBody, now time.Time) machineDataUpdateResult {
+	if h == nil || h.state == nil {
+		return machineDataUpdateResult{}
+	}
 	return h.state.applyMachineData(body, now)
 }
 
 func (h *Handlers) processMachineData(body machineDataBody, source string, now time.Time) {
+	if h == nil {
+		return
+	}
 	result := h.updateBurnerState(body, now)
 	log.Printf("%s: data received (flame=%v, temp=%.1f°C, err=%.0f)", source, result.flame, result.temp, result.err)
 }

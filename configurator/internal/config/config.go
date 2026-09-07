@@ -22,6 +22,7 @@ type Config struct {
 }
 
 func parsePort(name, val string, def int) (int, error) {
+	val = strings.TrimSpace(val)
 	if val == "" {
 		return def, nil
 	}
@@ -54,11 +55,11 @@ func parseBool(val string) bool {
 // back to ~/.viking-bio-bridge on Linux or <exe_dir>/data otherwise (using
 // ./data when the binary lives under /tmp).
 func DefaultDataDir() string {
-	if dir := os.Getenv("DATA_DIR"); dir != "" {
+	if dir := strings.TrimSpace(os.Getenv("DATA_DIR")); dir != "" {
 		return dir
 	}
 	if runtime.GOOS == "linux" {
-		if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if home, err := os.UserHomeDir(); err == nil && strings.TrimSpace(home) != "" {
 			return filepath.Join(home, ".viking-bio-bridge")
 		}
 	}
@@ -84,11 +85,14 @@ func exeDir() string {
 
 // Load reads configuration from environment variables.
 func Load() (*Config, error) {
-	ingestTCPPort, err := parsePort("INGEST_TCP_PORT", os.Getenv("INGEST_TCP_PORT"), 9000)
+	ingestTCPPort, err := parsePort("INGEST_TCP_PORT", strings.TrimSpace(os.Getenv("INGEST_TCP_PORT")), 9000)
 	if err != nil {
 		return nil, err
 	}
-	dataDir := DefaultDataDir()
+	dataDir := strings.TrimSpace(DefaultDataDir())
+	if dataDir == "" {
+		dataDir = "."
+	}
 
 	mdnsName := firstNonEmptyEnv("MDNS_NAME")
 	if mdnsName == "" {
@@ -98,11 +102,11 @@ func Load() (*Config, error) {
 	return &Config{
 		IngestTCPPort:  ingestTCPPort,
 		IngestTCPTLS:   parseBool(os.Getenv("INGEST_TCP_TLS")),
-		TLSCertPath:    os.Getenv("TLS_CERT_PATH"),
-		TLSKeyPath:     os.Getenv("TLS_KEY_PATH"),
+		TLSCertPath:    strings.TrimSpace(os.Getenv("TLS_CERT_PATH")),
+		TLSKeyPath:     strings.TrimSpace(os.Getenv("TLS_KEY_PATH")),
 		MDNSName:       mdnsName,
 		MDNSDisable:    parseBool(os.Getenv("MDNS_DISABLE")),
-		PicoSerialPort: os.Getenv("PICO_SERIAL_PORT"),
+		PicoSerialPort: strings.TrimSpace(os.Getenv("PICO_SERIAL_PORT")),
 		DataDir:        dataDir,
 	}, nil
 }

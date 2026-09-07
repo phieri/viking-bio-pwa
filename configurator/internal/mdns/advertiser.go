@@ -17,12 +17,18 @@ type Advertiser struct {
 
 // isLinkLocalIPv6 returns true if ip is an IPv6 link-local address (fe80::/10).
 func isLinkLocalIPv6(ip6 net.IP) bool {
+	if ip6 == nil || len(ip6) < 2 {
+		return false
+	}
 	return ip6[0] == 0xfe && (ip6[1]&0xc0) == 0x80
 }
 
 // isLocalIPv6 returns true if ip is a ULA (fc00::/7) or link-local (fe80::/10) IPv6 address.
 // These are the address ranges that should be used for local network discovery.
 func isLocalIPv6(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
 	ip6 := ip.To16()
 	if ip6 == nil || ip.To4() != nil {
 		return false // skip IPv4
@@ -88,6 +94,13 @@ func collectLocalIPv6Addrs() []string {
 // available the function falls back to zeroconf.Register (host=nil), which
 // advertises all interface addresses, and logs a warning.
 func (a *Advertiser) Start(port int, name string) {
+	if a == nil {
+		return
+	}
+	if port < 1 || port > 65535 {
+		log.Printf("mdns: invalid port %d; refusing to advertise", port)
+		return
+	}
 	localAddrs := collectLocalIPv6Addrs()
 
 	var err error
