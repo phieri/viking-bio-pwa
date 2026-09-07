@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
@@ -141,9 +143,41 @@ func (t *failureTracker) clear(remote string) {
 func remoteHost(remote string) string {
 	host, _, err := net.SplitHostPort(remote)
 	if err != nil {
-		return remote
+		return strings.Trim(remote, "[]")
 	}
 	return host
+}
+
+var allowedIngestRemotePrefixes = []netip.Prefix{
+	netip.MustParsePrefix("::1/128"),
+	netip.MustParsePrefix("fc00::/7"),
+	netip.MustParsePrefix("fe80::/10"),
+	netip.MustParsePrefix("127.0.0.0/8"),
+	netip.MustParsePrefix("10.0.0.0/8"),
+	netip.MustParsePrefix("172.16.0.0/12"),
+	netip.MustParsePrefix("192.168.0.0/16"),
+	netip.MustParsePrefix("169.254.0.0/16"),
+}
+
+func isAllowedRemoteAddr(remote string) bool {
+	host := remoteHost(remote)
+	if host == "" {
+		return false
+	}
+	if i := strings.Index(host, "%"); i >= 0 {
+		host = host[:i]
+	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return false
+	}
+	addr = addr.Unmap()
+	for _, prefix := range allowedIngestRemotePrefixes {
+		if prefix.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 type tcpIngestServer struct {
@@ -216,6 +250,10 @@ func (s *tcpIngestServer) handleConn(conn net.Conn) {
 	defer conn.Close()
 	remote := conn.RemoteAddr().String()
 	now := time.Now()
+	if !isAllowedRemoteAddr(remote) {
+		log.Printf("ingest: rejecting non-local client %s", remote)
+		return
+	}
 	if s.failures == nil {
 		log.Printf("ingest: no failure tracker available for %s", remote)
 		return
