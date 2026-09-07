@@ -42,6 +42,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 	statusLabel := widget.NewLabel("Loading device status...")
 	statusLabel.Wrapping = fyne.TextWrapWord
 	statusLabel.TextStyle = fyne.TextStyle{Monospace: true}
+	offlineMode := bridge == nil || strings.TrimSpace(bridge.PortName()) == ""
 
 	var refreshInFlight atomic.Bool
 	refreshStatus := func() {
@@ -52,6 +53,10 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 
 		status, err := bridge.GetStatus()
 		if err != nil {
+			if offlineMode {
+				statusLabel.SetText("Status unavailable: no Pico serial port is connected.\nConnect a device over USB or set PICO_SERIAL_PORT to enable live configuration.\nThe configurator is running in offline/network mode.")
+				return
+			}
 			statusLabel.SetText("Status unavailable: " + err.Error())
 			return
 		}

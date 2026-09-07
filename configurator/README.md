@@ -77,9 +77,9 @@ TLS_KEY_PATH=/etc/ssl/private/server.key
 
 Connect the Pico W via USB and start `./viking-bio-configurator` from a local desktop or
 interactive terminal session. If `PICO_SERIAL_PORT` is set, the configurator opens that
-USB serial port automatically. Otherwise it auto-launches the local setup UI only when
-exactly one serial port is available; if multiple ports are present, set `PICO_SERIAL_PORT`
-explicitly.
+USB serial port automatically. Otherwise the configurator still launches the local
+setup UI whenever a graphical or interactive session is available; if no Pico is
+currently attached, it opens in offline/network mode instead of exiting early.
 
 When a graphical display is available (X11 `DISPLAY` or Wayland `WAYLAND_DISPLAY` on
 Linux; always on Windows and macOS) the configurator opens a **Fyne-based GUI window**.
