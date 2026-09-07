@@ -263,9 +263,10 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		portEntry := widget.NewEntry()
 		portEntry.SetText("9000")
 
-		form := &widget.Form{
-			Items: []*widget.FormItem{{Text: "Server IP/hostname", Widget: addrEntry}, {Text: "Port", Widget: portEntry}},
-		}
+		form := widget.NewForm(
+			widget.NewFormItem("Server IP/hostname", addrEntry),
+			widget.NewFormItem("Port", portEntry),
+		)
 		d := dialog.NewCustomConfirm("Set server", "Set", "Cancel", form, func(confirmed bool) {
 			if !confirmed {
 				return
@@ -310,7 +311,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		urlEntry := widget.NewEntry()
 		urlEntry.SetPlaceHolder("https://hooks.example.com/secret")
 
-		form := &widget.Form{{Text: "Webhook URL", Widget: urlEntry}}
+		form := widget.NewForm(widget.NewFormItem("Webhook URL", urlEntry))
 		d := dialog.NewCustomConfirm("Set webhook URL", "Set", "Cancel", form, func(confirmed bool) {
 			if !confirmed {
 				return
@@ -444,7 +445,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			telemetryStatus.SetText("Waiting for telemetry...\nThe server is not connected to a live telemetry stream.")
 			return
 		}
-		snapshot := telemetryStateValue.snapshot()
+		snapshot := telemetryStateValue.Snapshot()
 		if snapshot.UpdatedAt == 0 {
 			telemetryStatus.SetText("Waiting for telemetry...\nNo data has been received yet.")
 			return

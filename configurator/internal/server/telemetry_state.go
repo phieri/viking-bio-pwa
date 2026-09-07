@@ -96,6 +96,10 @@ type machineDataUpdateResult struct {
 	snapshot     machineDataSnapshot
 }
 
+func (s *State) Snapshot() machineDataSnapshot {
+	return s.snapshot()
+}
+
 func (s *State) snapshot() machineDataSnapshot {
 	if s == nil {
 		return newMachineDataSnapshot(false, 0, 0, 0, false, 0, 0)
