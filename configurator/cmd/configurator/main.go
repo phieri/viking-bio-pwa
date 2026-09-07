@@ -116,7 +116,7 @@ func runServer() {
 	}()
 
 	if configure.ShouldLaunchLocalUI(cfg.PicoSerialPort) {
-		if err := configure.RunLocalUI(cfg.PicoSerialPort, store); err != nil {
+		if err := configure.RunLocalUI(cfg.PicoSerialPort, store, srv.State()); err != nil {
 			log.Printf("configure: %v", err)
 		}
 		cancel()

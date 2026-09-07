@@ -18,6 +18,20 @@ type Server struct {
 	ingestSrv *tcpIngestServer
 }
 
+func (s *Server) Handlers() *Handlers {
+	if s == nil {
+		return nil
+	}
+	return s.handler
+}
+
+func (s *Server) State() *State {
+	if s == nil || s.handler == nil {
+		return nil
+	}
+	return s.handler.State()
+}
+
 func New(cfg *config.Config, store *storage.Store) *Server {
 	h := NewHandlers(cfg)
 	return &Server{

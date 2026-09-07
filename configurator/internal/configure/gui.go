@@ -18,6 +18,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 	appversion "github.com/phieri/viking-bio-pwa/configurator/internal/version"
 )
@@ -25,14 +26,16 @@ import (
 // RunGUI starts the Fyne-based device configurator GUI and blocks until the
 // window is closed. It must be called from the main goroutine (or a goroutine
 // that has been locked to the OS thread with runtime.LockOSThread).
-func RunGUI(bridge *serial.Bridge, store *storage.Store) {
+func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*server.State) {
 	// Fyne requires the main OS thread on some platforms.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	a := fyneapp.New()
-	w := a.NewWindow("Viking Bio – Device Configurator " + appversion.String())
-	w.Resize(fyne.NewSize(680, 480))
+	var openWindows atomic.Int32
+	openWindows.Store(2)
+	provisioningWindow := a.NewWindow("Viking Bio – Provisioning over USB")
+	provisioningWindow.Resize(fyne.NewSize(680, 480))
 
 	titleLabel := widget.NewLabelWithStyle("Viking Bio – Device Configurator",
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
@@ -91,7 +94,12 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		statusLabel.SetText(strings.TrimRight(sb.String(), "\n"))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	w.SetOnClosed(cancel)
+	provisioningWindow.SetOnClosed(func() {
+		cancel()
+		if openWindows.Add(-1) == 0 {
+			a.Quit()
+		}
+	})
 	go refreshStatus()
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
@@ -130,7 +138,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 			status, err := bridge.GetStatus()
 			if err != nil {
 				appendLog("Error: " + err.Error())
-				dialog.ShowError(err, w)
+				dialog.ShowError(err, provisioningWindow)
 				return
 			}
 			var sb strings.Builder
@@ -183,7 +191,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 			}
 			ssid := strings.TrimSpace(ssidEntry.Text)
 			if ssid == "" {
-				dialog.ShowError(fmt.Errorf("SSID must not be empty"), w)
+				dialog.ShowError(fmt.Errorf("SSID must not be empty"), provisioningWindow)
 				return
 			}
 			go func() {
@@ -191,7 +199,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				lines, err := bridge.SendCommand("SSID=" + ssid)
 				if err != nil {
 					appendLog("Error: " + err.Error())
-					dialog.ShowError(err, w)
+					dialog.ShowError(err, provisioningWindow)
 					return
 				}
 				for _, l := range lines {
@@ -201,32 +209,25 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				lines, err = bridge.SendCommand("PASS=" + passEntry.Text)
 				if err != nil {
 					appendLog("Error: " + err.Error())
-					dialog.ShowError(err, w)
+					dialog.ShowError(err, provisioningWindow)
 					return
 				}
 				for _, l := range lines {
 					appendLog("  " + l)
 				}
-				dialog.ShowInformation("WiFi configured", "Credentials saved. Device will reboot.", w)
+				dialog.ShowInformation("WiFi configured", "Credentials saved. Device will reboot.", provisioningWindow)
 			}()
-		}, w)
+		}, provisioningWindow)
 		d.Show()
 	})
 
 	// ── Set country code ─────────────────────────────────────────────────
 	btnCountry := widget.NewButton("Set country code", func() {
-		// Offer a simple choice: Sweden (SE) or worldwide (XX).
-		// XX is the Pico SDK worldwide/permissive regulatory region.
-		regionSelect := widget.NewSelect(
-			[]string{"Sweden (SE)", "Worldwide (XX)"},
-			nil,
-		)
+		regionSelect := widget.NewSelect([]string{"Sweden (SE)", "Worldwide (XX)"}, nil)
 		regionSelect.SetSelected("Sweden (SE)")
 
 		form := &widget.Form{
-			Items: []*widget.FormItem{
-				{Text: "Wi-Fi region", Widget: regionSelect},
-			},
+			Items: []*widget.FormItem{{Text: "Wi-Fi region", Widget: regionSelect}},
 		}
 		d := dialog.NewCustomConfirm("Set Wi-Fi country code", "Set", "Cancel", form, func(confirmed bool) {
 			if !confirmed {
@@ -244,14 +245,14 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				lines, err := bridge.SendCommand("COUNTRY=" + cc)
 				if err != nil {
 					appendLog("Error: " + err.Error())
-					dialog.ShowError(err, w)
+					dialog.ShowError(err, provisioningWindow)
 					return
 				}
 				for _, l := range lines {
 					appendLog("  " + l)
 				}
 			}()
-		}, w)
+		}, provisioningWindow)
 		d.Show()
 	})
 
@@ -263,10 +264,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		portEntry.SetText("9000")
 
 		form := &widget.Form{
-			Items: []*widget.FormItem{
-				{Text: "Server IP/hostname", Widget: addrEntry},
-				{Text: "Port", Widget: portEntry},
-			},
+			Items: []*widget.FormItem{{Text: "Server IP/hostname", Widget: addrEntry}, {Text: "Port", Widget: portEntry}},
 		}
 		d := dialog.NewCustomConfirm("Set server", "Set", "Cancel", form, func(confirmed bool) {
 			if !confirmed {
@@ -274,7 +272,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 			}
 			addr := strings.TrimSpace(addrEntry.Text)
 			if addr == "" {
-				dialog.ShowError(fmt.Errorf("server address must not be empty"), w)
+				dialog.ShowError(fmt.Errorf("server address must not be empty"), provisioningWindow)
 				return
 			}
 			port := strings.TrimSpace(portEntry.Text)
@@ -286,7 +284,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				lines, err := bridge.SendCommand("SERVER=" + addr)
 				if err != nil {
 					appendLog("Error: " + err.Error())
-					dialog.ShowError(err, w)
+					dialog.ShowError(err, provisioningWindow)
 					return
 				}
 				for _, l := range lines {
@@ -296,14 +294,14 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				lines, err = bridge.SendCommand("PORT=" + port)
 				if err != nil {
 					appendLog("Error: " + err.Error())
-					dialog.ShowError(err, w)
+					dialog.ShowError(err, provisioningWindow)
 					return
 				}
 				for _, l := range lines {
 					appendLog("  " + l)
 				}
 			}()
-		}, w)
+		}, provisioningWindow)
 		d.Show()
 	})
 
@@ -312,18 +310,14 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		urlEntry := widget.NewEntry()
 		urlEntry.SetPlaceHolder("https://hooks.example.com/secret")
 
-		form := &widget.Form{
-			Items: []*widget.FormItem{
-				{Text: "Webhook URL", Widget: urlEntry},
-			},
-		}
+		form := &widget.Form{{Text: "Webhook URL", Widget: urlEntry}}
 		d := dialog.NewCustomConfirm("Set webhook URL", "Set", "Cancel", form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 			url := strings.TrimSpace(urlEntry.Text)
 			if url == "" || (!strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://")) {
-				dialog.ShowError(fmt.Errorf("webhook URL must start with http:// or https://"), w)
+				dialog.ShowError(fmt.Errorf("webhook URL must start with http:// or https://"), provisioningWindow)
 				return
 			}
 			go func() {
@@ -331,14 +325,14 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 				lines, err := bridge.SendCommand("WEBHOOK=" + url)
 				if err != nil {
 					appendLog("Error: " + err.Error())
-					dialog.ShowError(err, w)
+					dialog.ShowError(err, provisioningWindow)
 					return
 				}
 				for _, l := range lines {
 					appendLog("  " + l)
 				}
 			}()
-		}, w)
+		}, provisioningWindow)
 		d.Show()
 	})
 
@@ -349,31 +343,31 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 			status, err := bridge.GetStatus()
 			if err != nil {
 				appendLog("Error: " + err.Error())
-				dialog.ShowError(err, w)
+				dialog.ShowError(err, provisioningWindow)
 				return
 			}
 			if status.DeviceID == "" {
 				msg := fmt.Errorf("device ID missing from STATUS output")
 				appendLog("Error: " + msg.Error())
-				dialog.ShowError(msg, w)
+				dialog.ShowError(msg, provisioningWindow)
 				return
 			}
 			key, err := randomDeviceKey()
 			if err != nil {
 				appendLog("Error generating key: " + err.Error())
-				dialog.ShowError(err, w)
+				dialog.ShowError(err, provisioningWindow)
 				return
 			}
 			if err := store.ProvisionDevice(status.DeviceID, key); err != nil {
 				appendLog("Error storing key: " + err.Error())
-				dialog.ShowError(err, w)
+				dialog.ShowError(err, provisioningWindow)
 				return
 			}
 			appendLog("→ DEVICEKEY=*** (sending to device)")
 			lines, err := bridge.SendCommand("DEVICEKEY=" + key)
 			if err != nil {
 				appendLog("Error: " + err.Error())
-				dialog.ShowError(err, w)
+				dialog.ShowError(err, provisioningWindow)
 				return
 			}
 			for _, l := range lines {
@@ -381,7 +375,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 			}
 			msg := "Telemetry key provisioned for " + status.DeviceID + "."
 			appendLog(msg)
-			dialog.ShowInformation("Provisioned", msg, w)
+			dialog.ShowInformation("Provisioned", msg, provisioningWindow)
 		}()
 	})
 
@@ -398,21 +392,21 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 					lines, err := bridge.SendCommand("CLEAR")
 					if err != nil {
 						appendLog("Error: " + err.Error())
-						dialog.ShowError(err, w)
+						dialog.ShowError(err, provisioningWindow)
 						return
 					}
 					for _, l := range lines {
 						appendLog("  " + l)
 					}
 					appendLog("Credentials cleared. Device will reboot.")
-					dialog.ShowInformation("Done", "Credentials cleared. Device will reboot.", w)
+					dialog.ShowInformation("Done", "Credentials cleared. Device will reboot.", provisioningWindow)
 				}()
-			}, w)
+			}, provisioningWindow)
 	})
 
 	// ── Close ────────────────────────────────────────────────────────────
 	btnClose := widget.NewButton("Close", func() {
-		w.Close()
+		provisioningWindow.Close()
 	})
 
 	// Layout
@@ -433,7 +427,71 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store) {
 		nil,
 		container.NewVBox(buttons, widget.NewSeparator(), logScroll),
 	)
+	provisioningWindow.SetContent(content)
 
-	w.SetContent(content)
-	w.ShowAndRun()
+	monitorWindow := a.NewWindow("Viking Bio – Network Telemetry")
+	monitorWindow.Resize(fyne.NewSize(420, 320))
+	telemetryStateValue := (*server.State)(nil)
+	if len(telemetryState) > 0 {
+		telemetryStateValue = telemetryState[0]
+	}
+	telemetryTitle := widget.NewLabelWithStyle("Network telemetry", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	telemetryStatus := widget.NewLabel("Waiting for telemetry...")
+	telemetryStatus.Wrapping = fyne.TextWrapWord
+	telemetryStatus.TextStyle = fyne.TextStyle{Monospace: true}
+	telemetryRefresh := func() {
+		if telemetryStateValue == nil {
+			telemetryStatus.SetText("Waiting for telemetry...\nThe server is not connected to a live telemetry stream.")
+			return
+		}
+		snapshot := telemetryStateValue.snapshot()
+		if snapshot.UpdatedAt == 0 {
+			telemetryStatus.SetText("Waiting for telemetry...\nNo data has been received yet.")
+			return
+		}
+		telemetryStatus.SetText(strings.TrimRight(fmt.Sprintf(
+			"Flame: %t\nFan: %.1f\nTemp: %.1f°C\nErr: %.0f\nValid: %t\nFlame seconds: %d\nUpdated: %s",
+			snapshot.Flame,
+			snapshot.Fan,
+			snapshot.Temp,
+			snapshot.Err,
+			snapshot.Valid,
+			snapshot.FlameSecs,
+			time.UnixMilli(snapshot.UpdatedAt).Format(time.RFC3339),
+		), "\n"))
+	}
+	telemetryCtx, telemetryCancel := context.WithCancel(context.Background())
+	monitorWindow.SetOnClosed(func() {
+		telemetryCancel()
+		if openWindows.Add(-1) == 0 {
+			a.Quit()
+		}
+	})
+	if telemetryStateValue != nil {
+		updates := telemetryStateValue.Updates()
+		go func() {
+			for {
+				select {
+				case <-telemetryCtx.Done():
+					return
+				case <-updates:
+					telemetryRefresh()
+				}
+			}
+		}()
+	}
+	telemetryRefresh()
+	monitorWindow.SetContent(container.NewBorder(
+		telemetryTitle,
+		nil,
+		nil,
+		nil,
+		container.NewVBox(
+			widget.NewLabel("Live burner telemetry"),
+			telemetryStatus,
+		),
+	))
+	provisioningWindow.Show()
+	monitorWindow.Show()
+	a.Run()
 }

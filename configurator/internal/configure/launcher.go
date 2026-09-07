@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
@@ -73,13 +74,13 @@ func ShouldLaunchLocalUI(explicitPort string) bool {
 	return true
 }
 
-func RunLocalUI(explicitPort string, store *storage.Store) error {
+func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*server.State) error {
 	port, err := resolvePort(explicitPort)
 	if err != nil {
 		if strings.TrimSpace(explicitPort) == "" && (displayAvailable() || interactiveSession()) {
 			bridge := serial.New("")
 			if displayAvailable() {
-				RunGUI(bridge, store)
+				RunGUI(bridge, store, telemetryState...)
 				return nil
 			}
 			NewTUI(bridge, store).Run()
@@ -95,7 +96,7 @@ func RunLocalUI(explicitPort string, store *storage.Store) error {
 	defer bridge.Disconnect()
 
 	if displayAvailable() {
-		RunGUI(bridge, store)
+		RunGUI(bridge, store, telemetryState...)
 		return nil
 	}
 

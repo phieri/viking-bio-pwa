@@ -20,6 +20,40 @@ type State struct {
 	UpdatedAt     int64   `json:"updated_at"`
 	lastFlameTime int64   // ms; zero means flame was off last update
 	errorNotified bool
+	updates       chan struct{}
+}
+
+func NewState() *State {
+	return &State{updates: make(chan struct{}, 1)}
+}
+
+func (s *State) Updates() chan struct{} {
+	if s == nil {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.updates == nil {
+		s.updates = make(chan struct{}, 1)
+	}
+	return s.updates
+}
+
+func (s *State) notifyUpdate() {
+	if s == nil {
+		return
+	}
+
+	ch := s.Updates()
+	if ch == nil {
+		return
+	}
+
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
 }
 
 type machineDataSnapshot struct {
@@ -29,9 +63,10 @@ type machineDataSnapshot struct {
 	Err       float64 `json:"err"`
 	Valid     bool    `json:"valid"`
 	FlameSecs int64   `json:"flame_secs"`
+	UpdatedAt int64   `json:"updated_at"`
 }
 
-func newMachineDataSnapshot(flame bool, fan, temp, err float64, valid bool, flameSecs int64) machineDataSnapshot {
+func newMachineDataSnapshot(flame bool, fan, temp, err float64, valid bool, flameSecs, updatedAt int64) machineDataSnapshot {
 	return machineDataSnapshot{
 		Flame:     flame,
 		Fan:       fan,
@@ -39,6 +74,7 @@ func newMachineDataSnapshot(flame bool, fan, temp, err float64, valid bool, flam
 		Err:       err,
 		Valid:     valid,
 		FlameSecs: flameSecs,
+		UpdatedAt: updatedAt,
 	}
 }
 
@@ -62,13 +98,13 @@ type machineDataUpdateResult struct {
 
 func (s *State) snapshot() machineDataSnapshot {
 	if s == nil {
-		return newMachineDataSnapshot(false, 0, 0, 0, false, 0)
+		return newMachineDataSnapshot(false, 0, 0, 0, false, 0, 0)
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return newMachineDataSnapshot(s.Flame, s.Fan, s.Temp, s.Err, s.Valid, s.FlameSecs)
+	return newMachineDataSnapshot(s.Flame, s.Fan, s.Temp, s.Err, s.Valid, s.FlameSecs, s.UpdatedAt)
 }
 
 func decodeMachineData(r io.Reader) (machineDataBody, error) {
@@ -99,8 +135,6 @@ func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDat
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	prevFlame := s.Flame
 	prevErr := s.Err
 	nowMillis := now.UnixMilli()
@@ -134,7 +168,7 @@ func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDat
 		flame:        s.Flame,
 		temp:         s.Temp,
 		err:          s.Err,
-		snapshot:     newMachineDataSnapshot(s.Flame, s.Fan, s.Temp, s.Err, s.Valid, s.FlameSecs),
+		snapshot:     newMachineDataSnapshot(s.Flame, s.Fan, s.Temp, s.Err, s.Valid, s.FlameSecs, s.UpdatedAt),
 	}
 	if result.newErr {
 		s.errorNotified = true
@@ -142,6 +176,7 @@ func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDat
 	if s.Err == 0 {
 		s.errorNotified = false
 	}
-
+	s.mu.Unlock()
+	s.notifyUpdate()
 	return result
 }
