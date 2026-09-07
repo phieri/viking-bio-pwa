@@ -93,6 +93,12 @@ switch ($type) {
             $message = sprintf('Device %s reported an error state.', $device);
         }
         break;
+
+    case 'heartbeat':
+        $title = 'Burner heartbeat';
+        $message = sprintf('No alert activity has been reported by %s in the last 24 hours.', $device);
+        $priority = 'low';
+        break;
 }
 
 if ($temperature !== null && $type !== 'error') {
