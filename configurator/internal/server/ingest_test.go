@@ -67,6 +67,36 @@ func TestVerifyTelemetrySignature(t *testing.T) {
 	}
 }
 
+func TestIsAllowedRemoteAddr(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		remote string
+		want   bool
+	}{
+		{name: "ipv6 loopback", remote: "[::1]:12345", want: true},
+		{name: "ipv6 ula", remote: "[fc00::1234]:12345", want: true},
+		{name: "ipv6 link local", remote: "[fe80::1234%lo0]:12345", want: true},
+		{name: "ipv4 loopback", remote: "127.0.0.1:12345", want: true},
+		{name: "ipv4 private 10", remote: "10.0.0.2:12345", want: true},
+		{name: "ipv4 private 172", remote: "172.16.0.2:12345", want: true},
+		{name: "ipv4 private 192", remote: "192.168.1.2:12345", want: true},
+		{name: "ipv4 link local", remote: "169.254.1.1:12345", want: true},
+		{name: "public ipv4", remote: "8.8.8.8:12345", want: false},
+		{name: "public ipv6", remote: "[2001:4860:4860::8888]:12345", want: false},
+		{name: "private ipv6", remote: "[fd00::1]:12345", want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isAllowedRemoteAddr(tc.remote); got != tc.want {
+				t.Fatalf("isAllowedRemoteAddr(%q) = %v, want %v", tc.remote, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestProcessPayloadRejectsReplay(t *testing.T) {
 	t.Parallel()
 
