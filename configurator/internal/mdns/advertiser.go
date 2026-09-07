@@ -17,7 +17,7 @@ type Advertiser struct {
 
 // isLinkLocalIPv6 returns true if ip is an IPv6 link-local address (fe80::/10).
 func isLinkLocalIPv6(ip6 net.IP) bool {
-	if ip6 == nil || len(ip6) < 2 {
+	if len(ip6) < 2 {
 		return false
 	}
 	return ip6[0] == 0xfe && (ip6[1]&0xc0) == 0x80
