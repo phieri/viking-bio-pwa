@@ -157,10 +157,11 @@ if ($type === 'heartbeat') {
 }
 
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
+$icon = PushSender::notificationIcon($type, $detail);
 $result = $sender->send(
     $title,
     $message,
-    '/icon.svg',
+    $icon,
     [
         'tag' => 'viking-bio-' . $type,
         'url' => getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: '/'),
