@@ -106,14 +106,22 @@ if ($temperature !== null && $type !== 'error') {
 }
 
 if ($type === 'heartbeat') {
-    $lastContactPath = __DIR__ . '/../storage/last-contact.json';
+    $cacheKey = 'viking-bio-last-contact';
     $lastContactState = [];
-    if (is_file($lastContactPath)) {
-        $rawState = file_get_contents($lastContactPath);
-        if ($rawState !== false && trim($rawState) !== '') {
-            $decodedState = json_decode($rawState, true);
-            if (is_array($decodedState)) {
-                $lastContactState = $decodedState;
+    if (function_exists('apcu_fetch')) {
+        $cachedState = apcu_fetch($cacheKey, $success);
+        if ($success && is_array($cachedState)) {
+            $lastContactState = $cachedState;
+        }
+    } else {
+        $lastContactPath = __DIR__ . '/../storage/last-contact.json';
+        if (is_file($lastContactPath)) {
+            $rawState = file_get_contents($lastContactPath);
+            if ($rawState !== false && trim($rawState) !== '') {
+                $decodedState = json_decode($rawState, true);
+                if (is_array($decodedState)) {
+                    $lastContactState = $decodedState;
+                }
             }
         }
     }
@@ -126,13 +134,19 @@ if ($type === 'heartbeat') {
         'detail' => $detail,
     ];
 
-    $write = file_put_contents(
-        $lastContactPath,
-        json_encode($lastContactState, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
-    );
+    $writeOk = false;
+    if (function_exists('apcu_store')) {
+        $writeOk = apcu_store($cacheKey, $lastContactState, 86400);
+    } else {
+        $lastContactPath = __DIR__ . '/../storage/last-contact.json';
+        $writeOk = file_put_contents(
+            $lastContactPath,
+            json_encode($lastContactState, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+        ) !== false;
+    }
 
     echo json_encode([
-        'ok' => $write !== false,
+        'ok' => $writeOk,
         'device' => $device,
         'type' => $type,
         'detail' => $detail,

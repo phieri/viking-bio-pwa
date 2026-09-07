@@ -4,31 +4,40 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
-$statePath = __DIR__ . '/../storage/last-contact.json';
-if (!is_file($statePath)) {
-    echo json_encode([
-        'lastContact' => null,
-        'devices' => [],
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    exit;
-}
+$cacheKey = 'viking-bio-last-contact';
+$decoded = [];
+if (function_exists('apcu_fetch')) {
+    $cached = apcu_fetch($cacheKey, $success);
+    if ($success && is_array($cached)) {
+        $decoded = $cached;
+    }
+} else {
+    $statePath = __DIR__ . '/../storage/last-contact.json';
+    if (!is_file($statePath)) {
+        echo json_encode([
+            'lastContact' => null,
+            'devices' => [],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
 
-$raw = file_get_contents($statePath);
-if ($raw === false || trim($raw) === '') {
-    echo json_encode([
-        'lastContact' => null,
-        'devices' => [],
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    exit;
-}
+    $raw = file_get_contents($statePath);
+    if ($raw === false || trim($raw) === '') {
+        echo json_encode([
+            'lastContact' => null,
+            'devices' => [],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
 
-$decoded = json_decode($raw, true);
-if (!is_array($decoded)) {
-    echo json_encode([
-        'lastContact' => null,
-        'devices' => [],
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    exit;
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        echo json_encode([
+            'lastContact' => null,
+            'devices' => [],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
 }
 
 $latest = null;
