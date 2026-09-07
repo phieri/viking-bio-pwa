@@ -98,8 +98,8 @@ bool wifi_config_save_server(const char *ip, uint16_t port);
 // Outbound notification webhook URL max length
 #define WIFI_WEBHOOK_URL_MAX_LEN 512
 
-// Hex-encoded RP2040 unique ID length
-#define WIFI_DEVICE_ID_MAX_LEN 16
+// Persisted bridge identifier length (UUID/GUID format: 36 chars + null)
+#define WIFI_DEVICE_ID_MAX_LEN 36
 
 /**
  * Load the telemetry device key from storage (LittleFS).
@@ -132,7 +132,8 @@ bool wifi_config_load_webhook_url(char *url, size_t len);
 bool wifi_config_save_webhook_url(const char *url);
 
 /**
- * Fill the output buffer with the device ID derived from the RP2040 unique ID.
+ * Fill the output buffer with the bridge's persisted random GUID.
+ * The first call creates and stores a new UUID/GUID in LittleFS for later reuse.
  * @param device_id Output buffer (at least WIFI_DEVICE_ID_MAX_LEN+1 bytes)
  * @param len       Size of output buffer
  * @return true on success, false on error

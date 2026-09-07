@@ -13,6 +13,7 @@
 #define WIFI_CONFIG_FILE       "/wifi.dat"
 #define WIFI_COUNTRY_FILE      "/country.dat"
 #define WIFI_SERVER_FILE       "/server.dat"
+#define WIFI_DEVICE_ID_FILE    "/device_id.dat"
 #define WIFI_DEVICE_KEY_FILE   "/device_key.dat"
 #define WIFI_WEBHOOK_URL_FILE  "/webhook_url.dat"
 #define WIFI_BOOT_COUNTER_FILE "/boot_counter.dat"
@@ -199,6 +200,9 @@ void wifi_config_clear(void) {
 	if (!lfs_hal_delete_file(WIFI_SERVER_FILE)) {
 		printf("wifi_config: WARNING failed to delete %s\n", WIFI_SERVER_FILE);
 	}
+	if (!lfs_hal_delete_file(WIFI_DEVICE_ID_FILE)) {
+		printf("wifi_config: WARNING failed to delete %s\n", WIFI_DEVICE_ID_FILE);
+	}
 	if (!lfs_hal_delete_file(WIFI_DEVICE_KEY_FILE)) {
 		printf("wifi_config: WARNING failed to delete %s\n", WIFI_DEVICE_KEY_FILE);
 	}
@@ -354,15 +358,77 @@ bool wifi_config_save_webhook_url(const char *url) {
 	return true;
 }
 
-bool wifi_config_get_device_id(char *device_id, size_t len) {
-	if (!device_id || len < WIFI_DEVICE_ID_MAX_LEN + 1) return false;
+static bool is_valid_device_id(const char *id) {
+	if (!id || strlen(id) != WIFI_DEVICE_ID_MAX_LEN) {
+		return false;
+	}
+
+	static const size_t hyphen_positions[] = { 8, 13, 18, 23 };
+	for (size_t i = 0; i < sizeof(hyphen_positions) / sizeof(hyphen_positions[0]); ++i) {
+		if (id[hyphen_positions[i]] != '-') {
+			return false;
+		}
+	}
+	for (size_t i = 0; i < WIFI_DEVICE_ID_MAX_LEN; ++i) {
+		if (i == 8 || i == 13 || i == 18 || i == 23) {
+			continue;
+		}
+		unsigned char c = (unsigned char)id[i];
+		if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static void generate_device_id(char *device_id, size_t len) {
+	if (!device_id || len < WIFI_DEVICE_ID_MAX_LEN + 1) {
+		return;
+	}
 
 	pico_unique_board_id_t uid;
 	pico_get_unique_board_id(&uid);
-	for (size_t i = 0; i < PICO_UNIQUE_BOARD_ID_SIZE_BYTES; i++) {
-		snprintf(device_id + (i * 2), len - (i * 2), "%02x", uid.id[i]);
+
+	uint8_t bytes[16];
+	uint64_t now = time_us_64();
+	for (size_t i = 0; i < sizeof(bytes); ++i) {
+		uint8_t board_byte = uid.id[i % PICO_UNIQUE_BOARD_ID_SIZE_BYTES];
+		uint8_t time_byte = (uint8_t)((now >> ((i % 8U) * 8U)) & 0xffU);
+		bytes[i] = (uint8_t)(board_byte ^ time_byte ^ ((uint8_t)i * 0x11U) ^ (uint8_t)(now >> 16));
 	}
-	device_id[WIFI_DEVICE_ID_MAX_LEN] = '\0';
+	bytes[6] = (uint8_t)((bytes[6] & 0x0fU) | 0x40U);
+	bytes[8] = (uint8_t)((bytes[8] & 0x3fU) | 0x80U);
+
+	snprintf(device_id, len,
+		"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+		bytes[0], bytes[1], bytes[2], bytes[3],
+		bytes[4], bytes[5],
+		bytes[6], bytes[7],
+		bytes[8], bytes[9],
+		bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]);
+}
+
+bool wifi_config_get_device_id(char *device_id, size_t len) {
+	if (!device_id || len < WIFI_DEVICE_ID_MAX_LEN + 1) return false;
+
+	char stored[WIFI_DEVICE_ID_MAX_LEN + 1];
+	int n = lfs_hal_read_file(WIFI_DEVICE_ID_FILE, stored, sizeof(stored));
+	if (n > 0) {
+		stored[n] = '\0';
+		if (is_valid_device_id(stored)) {
+			strncpy(device_id, stored, len - 1);
+			device_id[len - 1] = '\0';
+			return true;
+		}
+	}
+
+	generate_device_id(device_id, len);
+	if (!is_valid_device_id(device_id)) {
+		return false;
+	}
+	if (!lfs_hal_write_file(WIFI_DEVICE_ID_FILE, device_id, strlen(device_id))) {
+		printf("wifi_config: WARNING failed to persist bridge GUID\n");
+	}
 	return true;
 }
 
