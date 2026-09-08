@@ -275,7 +275,7 @@ notification config.
 ### Device configurator changes
 
 - The local provisioning GUI is launched from the desktop/OS app entry.
-- GUI (Fyne) lives in `configurator/internal/configure/gui.go`.
+- GUI (Fyne) lives in `configurator/internal/provisioning/gui.go`.
 - `RunGUI(bridge, store)` is called when a graphical display is available (X11/Wayland on
   Linux, always on Windows/macOS).
 - The Fyne GUI requires native development libraries at compile time on Linux:

@@ -11,8 +11,8 @@ import (
 	"syscall"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/config"
-	"github.com/phieri/viking-bio-pwa/configurator/internal/configure"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/mdns"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/provisioning"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
@@ -115,9 +115,9 @@ func runServer() {
 		}
 	}()
 
-	if configure.ShouldLaunchLocalUI(cfg.PicoSerialPort) {
-		if err := configure.RunLocalUI(cfg.PicoSerialPort, store, srv.State()); err != nil {
-			log.Printf("configure: %v", err)
+	if provisioning.ShouldLaunchLocalUI(cfg.PicoSerialPort) {
+		if err := provisioning.RunLocalUI(cfg.PicoSerialPort, store, srv.State()); err != nil {
+			log.Printf("provisioning: %v", err)
 		}
 		cancel()
 	}

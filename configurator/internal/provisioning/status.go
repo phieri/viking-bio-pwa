@@ -1,4 +1,4 @@
-package configure
+package provisioning
 
 import "strings"
 
