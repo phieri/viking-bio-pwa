@@ -334,9 +334,9 @@ final class PushSender
             return true;
         }
 
-        // "very-low" is the legacy heartbeat-tier alias for the low delivery bucket.
-        // It is intentionally mapped to the low allowlist so subscribers who disable
-        // low-priority delivery still do not receive low-tier alerts.
+        // "very-low" is a distinct priority, but the stored subscription preferences only
+        // expose low/normal/high toggles. We map it to the low delivery bucket so a
+        // subscriber who disables low-priority alerts still does not receive them.
         $effectivePriority = $requestedPriority === 'very-low' ? 'low' : $requestedPriority;
 
         if ($configuredLevel === null) {
