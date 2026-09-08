@@ -81,24 +81,11 @@ final class PushSender
      */
     public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
     {
-        $normalizedPriority = $priority !== null ? strtolower($priority) : null;
-        if ($normalizedPriority !== null && !in_array($normalizedPriority, ['very-low', 'low', 'normal', 'high'], true)) {
-            throw new \InvalidArgumentException('Priority must be one of very-low, low, normal, or high');
-        }
-
-        // A null sender means broadcast to every subscription. Explicit sender values are
-        // matched case-insensitively so each browser client only receives the burner it chose.
-        $normalizedSender = $sender !== null ? trim($sender) : null;
-        if ($normalizedSender === '' || ($normalizedSender !== null && strtolower($normalizedSender) === 'all')) {
-            $normalizedSender = null;
-        }
-        if ($normalizedSender !== null) {
-            $normalizedSender = strtolower($normalizedSender);
-        }
+        $normalizedPriority = $this->normalizePriority($priority);
+        $normalizedSender = $this->normalizeSender($sender);
 
         $storage = new PushStorage($this->storagePath);
         $subscriptions = $storage->all();
-
         if ($subscriptions === []) {
             return ['sent' => 0, 'failed' => 0];
         }
@@ -111,84 +98,168 @@ final class PushSender
             ],
         ]);
 
-        $payload = json_encode([
+        $payload = $this->buildPayload($title, $body, $icon, $extra);
+        $deliveryState = $this->queuePendingNotifications($webPush, $payload, $subscriptions, $normalizedPriority, $normalizedSender, $storage);
+
+        return $this->processDeliveryReports($webPush->flush(), $deliveryState['pendingReports'], $deliveryState['failed'], $storage);
+    }
+
+    private function normalizePriority(?string $priority): ?string
+    {
+        if ($priority === null) {
+            return null;
+        }
+
+        $normalizedPriority = strtolower(trim($priority));
+        if (!in_array($normalizedPriority, ['very-low', 'low', 'normal', 'high'], true)) {
+            throw new \InvalidArgumentException('Priority must be one of very-low, low, normal, or high');
+        }
+
+        return $normalizedPriority;
+    }
+
+    private function normalizeSender(?string $sender): ?string
+    {
+        // A null sender means broadcast to every subscription. Explicit sender values are
+        // matched case-insensitively so each browser client only receives the burner it chose.
+        $normalizedSender = $sender !== null ? trim($sender) : null;
+        if ($normalizedSender === '' || ($normalizedSender !== null && strtolower($normalizedSender) === 'all')) {
+            return null;
+        }
+
+        return $normalizedSender !== null ? strtolower($normalizedSender) : null;
+    }
+
+    private function buildPayload(string $title, string $body, ?string $icon, array $extra): string
+    {
+        return json_encode([
             'title' => $title,
             'body' => $body,
             'icon' => $icon ?? '/icon.svg',
             ...$extra,
         ], JSON_UNESCAPED_SLASHES);
+    }
 
-        $sent = 0;
-        $failed = 0;
+    /**
+     * @param array<int, array<string, mixed>> $subscriptions
+     * @return array{pendingReports: array<int, string>, failed: int}
+     */
+    private function queuePendingNotifications(WebPush $webPush, string $payload, array $subscriptions, ?string $requestedPriority, ?string $requestedSender, PushStorage $storage): array
+    {
         $pendingReports = [];
+        $failed = 0;
 
         foreach ($subscriptions as $subscription) {
-            $notificationLevel = $subscription['notificationLevel'] ?? null;
-            if ($normalizedPriority !== null && !$this->matchesNotificationLevel($notificationLevel, $normalizedPriority)) {
+            if (!$this->canSendToSubscription($subscription, $requestedPriority, $requestedSender)) {
                 continue;
             }
 
-            $subscriptionSender = $subscription['sender'] ?? null;
-            if (is_string($subscriptionSender)) {
-                $subscriptionSender = trim($subscriptionSender);
-            } else {
-                $subscriptionSender = '';
-            }
-
-            if ($normalizedSender !== null) {
-                $subscriptionSenderLower = strtolower($subscriptionSender);
-                // `sender: all` is a deliberate wildcard; otherwise a message is only sent to
-                // subscriptions that explicitly match the requested sender value.
-                if ($subscriptionSenderLower !== 'all' && ($subscriptionSender === '' || $subscriptionSenderLower !== $normalizedSender)) {
-                    continue;
-                }
-            }
-
-            $endpoint = $subscription['endpoint'] ?? null;
-            $keys = $subscription['keys'] ?? [];
-            $userPublicKey = $keys['p256dh'] ?? null;
-            $userAuth = $keys['auth'] ?? null;
-
-            if (!is_string($endpoint) || !is_string($userPublicKey) || !is_string($userAuth)) {
+            $delivery = $this->extractSubscriptionDelivery($subscription);
+            if ($delivery === null) {
                 $failed++;
                 continue;
             }
 
-            $pendingReports[] = $endpoint;
+            $pendingReports[] = $delivery['endpoint'];
 
             try {
-                $webPush->sendNotification($endpoint, $payload, $userPublicKey, $userAuth, ['TTL' => 2419200]);
+                $webPush->sendNotification(
+                    $delivery['endpoint'],
+                    $payload,
+                    $delivery['publicKey'],
+                    $delivery['auth'],
+                    ['TTL' => 2419200]
+                );
             } catch (\Throwable $throwable) {
                 if ($this->isPermanentThrowableError($throwable)) {
-                    $storage->removeEndpoint($endpoint);
+                    $storage->removeEndpoint($delivery['endpoint']);
                 }
-                continue;
             }
         }
 
-        $reports = $webPush->flush();
-        if (is_array($reports)) {
-            foreach ($reports as $index => $report) {
-                $reportEndpoint = $pendingReports[$index] ?? null;
-                if ($this->isPermanentError($report)) {
-                    if (is_string($reportEndpoint)) {
-                        $storage->removeEndpoint($reportEndpoint);
-                    }
-                    $failed++;
-                    continue;
-                }
+        return ['pendingReports' => $pendingReports, 'failed' => $failed];
+    }
 
-                if (is_object($report) && method_exists($report, 'isSuccess')) {
-                    if ($report->isSuccess()) {
-                        $sent++;
-                    } else {
-                        $failed++;
-                    }
-                    continue;
-                }
+    /**
+     * @param array<string, mixed> $subscription
+     */
+    private function canSendToSubscription(array $subscription, ?string $requestedPriority, ?string $requestedSender): bool
+    {
+        $notificationLevel = $subscription['notificationLevel'] ?? null;
+        if ($requestedPriority !== null && !$this->matchesNotificationLevel($notificationLevel, $requestedPriority)) {
+            return false;
+        }
 
+        if ($requestedSender === null) {
+            return true;
+        }
+
+        $subscriptionSender = $subscription['sender'] ?? null;
+        if (!is_string($subscriptionSender)) {
+            $subscriptionSender = '';
+        }
+
+        $subscriptionSender = trim($subscriptionSender);
+        $subscriptionSenderLower = strtolower($subscriptionSender);
+
+        return $subscriptionSenderLower === 'all' || ($subscriptionSender !== '' && $subscriptionSenderLower === $requestedSender);
+    }
+
+    /**
+     * @param array<string, mixed> $subscription
+     * @return array{endpoint:string,publicKey:string,auth:string}|null
+     */
+    private function extractSubscriptionDelivery(array $subscription): ?array
+    {
+        $endpoint = $subscription['endpoint'] ?? null;
+        $keys = $subscription['keys'] ?? [];
+        $userPublicKey = $keys['p256dh'] ?? null;
+        $userAuth = $keys['auth'] ?? null;
+
+        if (!is_string($endpoint) || !is_string($userPublicKey) || !is_string($userAuth)) {
+            return null;
+        }
+
+        return [
+            'endpoint' => $endpoint,
+            'publicKey' => $userPublicKey,
+            'auth' => $userAuth,
+        ];
+    }
+
+    /**
+     * @param array<int, mixed>|null $reports
+     * @param array<int, string> $pendingReports
+     */
+    private function processDeliveryReports(mixed $reports, array $pendingReports, int $priorFailed, PushStorage $storage): array
+    {
+        $sent = 0;
+        $failed = $priorFailed;
+
+        if (!is_array($reports)) {
+            return ['sent' => $sent, 'failed' => $failed];
+        }
+
+        foreach ($reports as $index => $report) {
+            $reportEndpoint = $pendingReports[$index] ?? null;
+            if ($this->isPermanentError($report)) {
+                if (is_string($reportEndpoint)) {
+                    $storage->removeEndpoint($reportEndpoint);
+                }
                 $failed++;
+                continue;
             }
+
+            if (is_object($report) && method_exists($report, 'isSuccess')) {
+                if ($report->isSuccess()) {
+                    $sent++;
+                } else {
+                    $failed++;
+                }
+                continue;
+            }
+
+            $failed++;
         }
 
         return ['sent' => $sent, 'failed' => $failed];
