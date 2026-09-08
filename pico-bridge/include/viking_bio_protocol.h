@@ -20,9 +20,9 @@
 typedef vikingbio_data_t viking_bio_data_t;
 
 void viking_bio_init(void);
-bool viking_bio_parse_data(const uint8_t *buffer, size_t length, viking_bio_data_t *data)
-    __attribute__((hot));
+[[gnu::hot, nodiscard]] bool viking_bio_parse_data(const uint8_t *buffer, size_t length,
+                                                  viking_bio_data_t *data);
 void viking_bio_get_current_data(viking_bio_data_t *data);
-bool viking_bio_is_data_stale(uint32_t timeout_ms);
+[[nodiscard]] bool viking_bio_is_data_stale(uint32_t timeout_ms);
 
 #endif
