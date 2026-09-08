@@ -144,9 +144,7 @@ void vikingbio_context_init(vikingbio_context_t *ctx) {
 
 void vikingbio_set_clock_provider(vikingbio_clock_fn clock) {
     g_clock_provider = clock;
-    if (g_default_context.now_ms == NULL) {
-        g_default_context.now_ms = clock;
-    }
+    g_default_context.now_ms = clock;
 }
 
 void vikingbio_register_parser(const vikingbio_parser_t *parser) {
