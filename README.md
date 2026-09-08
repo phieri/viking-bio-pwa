@@ -42,4 +42,4 @@ composer install
 php -S 0.0.0.0:8000 -t public
 ```
 
-See `docs/architecture.md` for the runtime details and data flow.
+See `architecture.md` for the runtime details and data flow.
