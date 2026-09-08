@@ -6,6 +6,8 @@ namespace VikingBioPush;
 
 final class PushStorage
 {
+    private const array NOTIFICATION_LEVELS = ['low', 'normal', 'high'];
+
     public function __construct(private readonly string $path)
     {
         $directory = dirname($this->path);
@@ -60,9 +62,6 @@ final class PushStorage
         }
     }
 
-    /**
-     * @return array<int, array<string, mixed>>
-     */
     public function all(): array
     {
         $contents = file_get_contents($this->path);
@@ -149,7 +148,7 @@ final class PushStorage
 
                 if ($key === 'notificationLevel') {
                     $lines[] = '    notificationLevel:';
-                    foreach (['low', 'normal', 'high'] as $level) {
+                    foreach (self::NOTIFICATION_LEVELS as $level) {
                         $enabled = self::notificationLevelEnabled($value, $level);
                         $lines[] = '      ' . $level . ': ' . ($enabled ? 'true' : 'false');
                     }
@@ -163,17 +162,14 @@ final class PushStorage
         return implode("\n", $lines);
     }
 
-    /**
-     * @return array{low:bool, normal:bool, high:bool}
-     */
     public static function normalizeNotificationLevels(mixed $value): array
     {
-        $levels = ['low' => false, 'normal' => false, 'high' => false];
+        $levels = array_fill_keys(self::NOTIFICATION_LEVELS, false);
         if (!is_array($value)) {
             return $levels;
         }
 
-        foreach (array_keys($levels) as $level) {
+        foreach (self::NOTIFICATION_LEVELS as $level) {
             $rawValue = $value[$level] ?? false;
             if (is_bool($rawValue)) {
                 $levels[$level] = $rawValue;
@@ -214,9 +210,6 @@ final class PushStorage
         return $key;
     }
 
-    /**
-     * @return array<int, array<string, mixed>>|null
-     */
     private static function decode(string $contents): ?array
     {
         $trimmed = trim($contents);
@@ -263,9 +256,6 @@ final class PushStorage
         return null;
     }
 
-    /**
-     * @return array<int, array<string, mixed>>|null
-     */
     private static function parseSimpleYaml(string $contents): ?array
     {
         $lines = preg_split('/\R/', $contents);

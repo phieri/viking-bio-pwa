@@ -8,6 +8,8 @@ use Minishlink\WebPush\WebPush;
 
 final class PushSender
 {
+    public const array VALID_PRIORITIES = ['very-low', 'low', 'normal', 'high'];
+
     public function __construct(
         private readonly string $storagePath,
         private readonly VapidConfig $vapidConfig
@@ -117,9 +119,6 @@ final class PushSender
         return $host;
     }
 
-    /**
-     * @return array{sent:int, failed:int}
-     */
     public function sendWeeklyCleaningReminder(?string $sender = null): array
     {
         $sentAt = (int) floor(microtime(true) * 1000);
@@ -139,9 +138,6 @@ final class PushSender
         );
     }
 
-    /**
-     * @return array{sent:int, failed:int}
-     */
     public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
     {
         $normalizedPriority = $this->normalizePriority($priority);
@@ -174,11 +170,11 @@ final class PushSender
         }
 
         $normalizedPriority = strtolower(trim($priority));
-        if (!in_array($normalizedPriority, ['very-low', 'low', 'normal', 'high'], true)) {
-            throw new \InvalidArgumentException('Priority must be one of very-low, low, normal, or high');
-        }
 
-        return $normalizedPriority;
+        return match ($normalizedPriority) {
+            'very-low', 'low', 'normal', 'high' => $normalizedPriority,
+            default => throw new \InvalidArgumentException('Priority must be one of very-low, low, normal, or high'),
+        };
     }
 
     private function normalizeSender(?string $sender): ?string
