@@ -334,10 +334,12 @@ final class PushSender
             return true;
         }
 
-        // "very-low" is a distinct priority, but the stored subscription preferences only
-        // expose low/normal/high toggles. We map it to the low delivery bucket so a
-        // subscriber who disables low-priority alerts still does not receive them.
-        $effectivePriority = $requestedPriority === 'very-low' ? 'low' : $requestedPriority;
+        // "very-low" is intentionally a broadcast priority: it should reach every
+        // subscriber on the target device, regardless of that subscriber's low/normal/high
+        // allowlist settings.
+        if ($requestedPriority === 'very-low') {
+            return true;
+        }
 
         if ($configuredLevel === null) {
             return true;
@@ -345,7 +347,7 @@ final class PushSender
 
         $levels = PushStorage::normalizeNotificationLevels($configuredLevel);
 
-        return $levels[$effectivePriority] ?? false;
+        return $levels[$requestedPriority] ?? false;
     }
 
     private function isPermanentThrowableError(\Throwable $throwable): bool
