@@ -35,6 +35,6 @@ void http_client_poll(void);
  * Check whether the HTTP client currently has an active request in-flight.
  * @return true if connecting or waiting for a response
  */
-bool http_client_is_active(void);
+[[nodiscard]] bool http_client_is_active(void);
 
 #endif // HTTP_CLIENT_H

@@ -56,7 +56,7 @@ static void do_connect(void);
 static void abort_and_retry(void);
 static void flush_queue(void);
 
-static bool queue_push(const uint8_t *data, size_t len) {
+[[nodiscard]] static bool queue_push(const uint8_t *data, size_t len) {
 	if (len == 0 || len > TELEMETRY_FRAME_MAX) {
 		return false;
 	}
@@ -89,7 +89,7 @@ static void queue_pop(void) {
 	s_queue_count--;
 }
 
-static bool build_data_json(const vikingbio_data_t *data, char *out, size_t out_len) {
+[[nodiscard]] static bool build_data_json(const vikingbio_data_t *data, char *out, size_t out_len) {
 	int written = snprintf(out, out_len,
 						   "{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
 						   data->flame_detected ? "true" : "false", data->fan_speed,
@@ -103,7 +103,7 @@ static uint64_t next_sequence(void) {
 	return ((uint64_t)s_boot_counter << 32) | s_message_counter;
 }
 
-static bool build_signature(const char *device_key, const char *canonical,
+[[nodiscard]] static bool build_signature(const char *device_key, const char *canonical,
 							char *out, size_t out_len) {
 	unsigned char mac[32];
 	const mbedtls_md_info_t *md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
@@ -125,7 +125,7 @@ static bool build_signature(const char *device_key, const char *canonical,
 	return true;
 }
 
-static bool build_frame(const vikingbio_data_t *data, uint8_t *frame, size_t *frame_len) {
+[[nodiscard]] static bool build_frame(const vikingbio_data_t *data, uint8_t *frame, size_t *frame_len) {
 	char data_json[TELEMETRY_DATA_JSON_MAX];
 	char canonical[TELEMETRY_CANONICAL_MAX];
 	char signature[TELEMETRY_SIGNATURE_MAX];
