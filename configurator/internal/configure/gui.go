@@ -23,6 +23,86 @@ import (
 	appversion "github.com/phieri/viking-bio-pwa/configurator/internal/version"
 )
 
+var supportedWiFiRegions = []string{
+	"Worldwide (XX)",
+	"Australia (AU)",
+	"Austria (AT)",
+	"Belgium (BE)",
+	"Brazil (BR)",
+	"Canada (CA)",
+	"Chile (CL)",
+	"China (CN)",
+	"Colombia (CO)",
+	"Czech Republic (CZ)",
+	"Denmark (DK)",
+	"Estonia (EE)",
+	"Finland (FI)",
+	"France (FR)",
+	"Germany (DE)",
+	"Greece (GR)",
+	"Hong Kong (HK)",
+	"Hungary (HU)",
+	"Iceland (IS)",
+	"India (IN)",
+	"Israel (IL)",
+	"Italy (IT)",
+	"Japan (JP)",
+	"Kenya (KE)",
+	"Latvia (LV)",
+	"Liechtenstein (LI)",
+	"Lithuania (LT)",
+	"Luxembourg (LU)",
+	"Malaysia (MY)",
+	"Malta (MT)",
+	"Mexico (MX)",
+	"Netherlands (NL)",
+	"New Zealand (NZ)",
+	"Nigeria (NG)",
+	"Norway (NO)",
+	"Peru (PE)",
+	"Philippines (PH)",
+	"Poland (PL)",
+	"Portugal (PT)",
+	"Singapore (SG)",
+	"Slovakia (SK)",
+	"Slovenia (SI)",
+	"South Africa (ZA)",
+	"South Korea (KR)",
+	"Spain (ES)",
+	"Sweden (SE)",
+	"Switzerland (CH)",
+	"Taiwan (TW)",
+	"Thailand (TH)",
+	"Turkey (TR)",
+	"United Kingdom (GB)",
+	"United States (US)",
+}
+
+func wifiCountryCodeFromSelection(selection string) string {
+	if selection == "" {
+		return "XX"
+	}
+	start := strings.LastIndex(selection, " (")
+	end := strings.LastIndex(selection, ")")
+	if start >= 0 && end > start+2 {
+		return strings.ToUpper(selection[start+2 : end])
+	}
+	return strings.ToUpper(selection)
+}
+
+func wifiRegionLabel(countryCode string) string {
+	countryCode = strings.ToUpper(strings.TrimSpace(countryCode))
+	if countryCode == "" {
+		return "Worldwide (XX)"
+	}
+	for _, option := range supportedWiFiRegions {
+		if wifiCountryCodeFromSelection(option) == countryCode {
+			return option
+		}
+	}
+	return "Worldwide (XX)"
+}
+
 // RunGUI starts the Fyne-based device configurator GUI and blocks until the
 // window is closed. It must be called from the main goroutine (or a goroutine
 // that has been locked to the OS thread with runtime.LockOSThread).
@@ -223,8 +303,13 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 
 	// ── Set country code ─────────────────────────────────────────────────
 	btnCountry := widget.NewButton("Set country code", func() {
-		regionSelect := widget.NewSelect([]string{"Sweden (SE)", "Worldwide (XX)"}, nil)
-		regionSelect.SetSelected("Sweden (SE)")
+		regionSelect := widget.NewSelect(supportedWiFiRegions, nil)
+		regionSelect.SetSelected("Worldwide (XX)")
+		if bridge != nil {
+			if status, err := bridge.GetStatus(); err == nil {
+				regionSelect.SetSelected(wifiRegionLabel(status.Country))
+			}
+		}
 
 		form := &widget.Form{
 			Items: []*widget.FormItem{{Text: "Wi-Fi region", Widget: regionSelect}},
@@ -233,13 +318,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			if !confirmed {
 				return
 			}
-			var cc string
-			switch regionSelect.Selected {
-			case "Worldwide (XX)":
-				cc = "XX"
-			default:
-				cc = "SE"
-			}
+			cc := wifiCountryCodeFromSelection(regionSelect.Selected)
 			go func() {
 				appendLog("→ COUNTRY=" + cc)
 				lines, err := bridge.SendCommand("COUNTRY=" + cc)
