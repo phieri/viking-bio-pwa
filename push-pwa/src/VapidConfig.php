@@ -65,7 +65,7 @@ final class VapidConfig
             'subject' => $subject,
         ];
 
-        file_put_contents($this->storagePath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        file_put_contents($this->storagePath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
         chmod($this->storagePath, 0600);
 
         return $config;
