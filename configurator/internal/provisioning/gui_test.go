@@ -1,6 +1,6 @@
 //go:build cgo
 
-package configure
+package provisioning
 
 import "testing"
 

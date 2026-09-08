@@ -1,6 +1,6 @@
 //go:build !cgo
 
-package configure
+package provisioning
 
 import (
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
