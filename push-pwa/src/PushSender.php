@@ -334,6 +334,9 @@ final class PushSender
             return true;
         }
 
+        // "very-low" is intentionally a broadcast priority: it should reach every
+        // subscriber on the target device, regardless of that subscriber's low/normal/high
+        // allowlist settings.
         if ($requestedPriority === 'very-low') {
             return true;
         }

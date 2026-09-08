@@ -111,7 +111,7 @@ final class PushStorage
         }
 
         $yaml = self::yamlEncode($filtered);
-        $written = file_put_contents($this->path, $yaml === '' ? '' : $yaml . "\n");
+        $written = file_put_contents($this->path, $yaml === '' ? '' : $yaml . "\n", LOCK_EX);
         if ($written === false) {
             return false;
         }

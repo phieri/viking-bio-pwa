@@ -144,7 +144,8 @@ if ($type === 'heartbeat') {
         $lastContactPath = __DIR__ . '/../storage/last-contact.json';
         $writeOk = file_put_contents(
             $lastContactPath,
-            json_encode($lastContactState, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+            json_encode($lastContactState, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
+            LOCK_EX
         ) !== false;
     }
 

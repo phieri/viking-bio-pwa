@@ -47,7 +47,7 @@ final class ReminderState
             throw new \RuntimeException('Unable to encode reminder state');
         }
 
-        $written = file_put_contents($this->path, $json . "\n");
+        $written = file_put_contents($this->path, $json . "\n", LOCK_EX);
         if ($written === false) {
             throw new \RuntimeException('Unable to write reminder state');
         }
