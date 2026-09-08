@@ -32,17 +32,11 @@ final class PushSender
     {
         $configuredUrl = getenv('PUSH_UI_URL') ?: getenv('APP_URL');
         if (is_string($configuredUrl) && trim($configuredUrl) !== '') {
-            return rtrim(trim($configuredUrl), '/');
+            $normalizedConfiguredUrl = trim($configuredUrl);
+            return self::normalizeUiTargetUrl($normalizedConfiguredUrl, $normalizedConfiguredUrl);
         }
 
-        $protocol = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? $_SERVER['HTTPS'] ?? 'http';
-        if (is_string($protocol) && str_contains($protocol, ',')) {
-            $protocol = trim(explode(',', $protocol)[0]);
-        }
-        $protocol = strtolower(trim((string) $protocol));
-        $protocol = $protocol === 'https' ? 'https' : 'http';
-
-        $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
         if (is_string($host) && str_contains($host, ',')) {
             $host = trim(explode(',', $host)[0]);
         }
@@ -51,7 +45,76 @@ final class PushSender
             $host = 'localhost';
         }
 
+        $host = self::canonicaliseHost($host);
+
+        $protocol = isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off' ? 'https' : 'http';
+
         return $protocol . '://' . $host;
+    }
+
+    public static function normalizeUiTargetUrl(string $targetUrl, string $fallbackUrl = ''): string
+    {
+        $safeFallback = $fallbackUrl !== '' ? $fallbackUrl : self::uiUrl();
+        $candidate = trim($targetUrl);
+        if ($candidate === '') {
+            return $safeFallback;
+        }
+
+        if (preg_match('/^[\/?#]/', $candidate) === 1) {
+            return $candidate;
+        }
+
+        $parsed = parse_url($candidate);
+        if ($parsed === false || !isset($parsed['scheme'], $parsed['host'])) {
+            return $safeFallback;
+        }
+
+        $scheme = strtolower((string) $parsed['scheme']);
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return $safeFallback;
+        }
+
+        $fallbackHost = parse_url($safeFallback, PHP_URL_HOST);
+        $candidateHost = strtolower((string) $parsed['host']);
+        if ($fallbackHost === false || $fallbackHost === '' || $candidateHost !== strtolower((string) $fallbackHost)) {
+            return $safeFallback;
+        }
+
+        $path = $parsed['path'] ?? '/';
+        $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+        $fragment = isset($parsed['fragment']) ? '#' . $parsed['fragment'] : '';
+
+        return $scheme . '://' . $candidateHost . $path . $query . $fragment;
+    }
+
+    private static function canonicaliseHost(string $host): string
+    {
+        $host = trim($host);
+        if ($host === '') {
+            return 'localhost';
+        }
+
+        if (str_starts_with($host, '[') && str_contains($host, ']')) {
+            $host = trim($host, '[]');
+            return '[' . $host . ']';
+        }
+
+        $parsed = parse_url('http://' . $host);
+        $parsedHost = is_array($parsed) ? $parsed['host'] ?? null : null;
+        if (is_string($parsedHost) && $parsedHost !== '') {
+            $port = $parsed['port'] ?? null;
+            if (is_int($port) && $port > 0 && !in_array($port, [80, 443], true)) {
+                return $parsedHost . ':' . $port;
+            }
+
+            return $parsedHost;
+        }
+
+        if (preg_match('/^[A-Za-z0-9.-]+$/', $host) !== 1 && !preg_match('/^localhost$/i', $host)) {
+            return 'localhost';
+        }
+
+        return $host;
     }
 
     /**

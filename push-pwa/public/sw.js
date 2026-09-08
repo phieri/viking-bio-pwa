@@ -53,6 +53,28 @@ self.addEventListener('activate', (event) => {
   self.setInterval(checkOfflineDevices, 60 * 1000);
 });
 
+function normaliseNotificationTarget(targetUrl) {
+  const safeFallback = '/';
+  if (typeof targetUrl !== 'string') {
+    return safeFallback;
+  }
+
+  const trimmed = targetUrl.trim();
+  if (trimmed === '' || trimmed === '#') {
+    return safeFallback;
+  }
+
+  try {
+    const url = new URL(trimmed, self.location.origin);
+    if (url.origin !== self.location.origin) {
+      return safeFallback;
+    }
+    return url.pathname + url.search + url.hash || safeFallback;
+  } catch (error) {
+    return safeFallback;
+  }
+}
+
 self.addEventListener('push', (event) => {
   const payload = event.data && event.data.json ? event.data.json() : { title: 'Viking Bio', body: 'A new burner update is available.' };
   const rawTimestamp = payload.timestamp;
@@ -62,7 +84,7 @@ self.addEventListener('push', (event) => {
     icon: payload.icon || '/icon.svg',
     badge: payload.icon || '/icon.svg',
     tag: payload.tag || 'viking-bio-alert',
-    data: { url: payload.url || payload.uiUrl || '/' },
+    data: { url: normaliseNotificationTarget(payload.url || payload.uiUrl || '/') },
   };
 
   if (priority === 'high') {
@@ -80,7 +102,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const payload = event.notification && event.notification.data ? event.notification.data : {};
-  const targetUrl = payload.url || payload.uiUrl || '/';
+  const targetUrl = normaliseNotificationTarget(payload.url || payload.uiUrl || '/');
   const openPage = () => self.clients.openWindow(targetUrl);
   event.waitUntil(openPage());
 });

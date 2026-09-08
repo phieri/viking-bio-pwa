@@ -9,6 +9,8 @@ use VikingBioPush\PushSender;
 use VikingBioPush\VapidConfig;
 
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -95,7 +97,9 @@ if ($type === 'weekly_cleaning_reminder' || $type === 'cleaning-reminder' || $ty
 $title = is_string($data['title'] ?? null) ? $data['title'] : 'Viking Bio alert';
 $bodyText = is_string($data['body'] ?? null) ? $data['body'] : 'New status update';
 $icon = is_string($data['icon'] ?? null) ? $data['icon'] : '/icon.svg';
-$url = is_string($data['url'] ?? null) ? $data['url'] : \VikingBioPush\PushSender::uiUrl();
+$safeUiUrl = \VikingBioPush\PushSender::uiUrl();
+$url = is_string($data['url'] ?? null) ? $data['url'] : $safeUiUrl;
+$url = \VikingBioPush\PushSender::normalizeUiTargetUrl($url, $safeUiUrl);
 $priorityLevelValue = $data['priority'] ?? null;
 if (!is_string($priorityLevelValue)) {
     $rawPriority = 'normal';
