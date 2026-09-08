@@ -28,6 +28,32 @@ final class PushSender
         };
     }
 
+    public static function uiUrl(): string
+    {
+        $configuredUrl = getenv('PUSH_UI_URL') ?: getenv('APP_URL');
+        if (is_string($configuredUrl) && trim($configuredUrl) !== '') {
+            return rtrim(trim($configuredUrl), '/');
+        }
+
+        $protocol = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? $_SERVER['HTTPS'] ?? 'http';
+        if (is_string($protocol) && str_contains($protocol, ',')) {
+            $protocol = trim(explode(',', $protocol)[0]);
+        }
+        $protocol = strtolower(trim((string) $protocol));
+        $protocol = $protocol === 'https' ? 'https' : 'http';
+
+        $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+        if (is_string($host) && str_contains($host, ',')) {
+            $host = trim(explode(',', $host)[0]);
+        }
+        $host = trim((string) $host);
+        if ($host === '') {
+            $host = 'localhost';
+        }
+
+        return $protocol . '://' . $host;
+    }
+
     /**
      * @return array{sent:int, failed:int}
      */
@@ -41,7 +67,7 @@ final class PushSender
             '/icons/broom.svg',
             [
                 'tag' => 'viking-bio-cleaning-reminder',
-                'url' => getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: '/'),
+                'url' => self::uiUrl(),
                 'timestamp' => $sentAt,
                 'priority' => 'low',
             ],

@@ -164,7 +164,7 @@ $result = $sender->send(
     $icon,
     [
         'tag' => 'viking-bio-' . $type,
-        'url' => getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: '/'),
+        'url' => PushSender::uiUrl(),
         'timestamp' => (int) floor(microtime(true) * 1000),
         'priority' => $priority,
         'device' => $device,
