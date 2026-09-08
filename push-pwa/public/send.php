@@ -21,15 +21,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $allowedOrigin = getenv('APP_URL') ?: (getenv('PUSH_UI_URL') ?: \VikingBioPush\PushSender::uiUrl());
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $referrer = $_SERVER['HTTP_REFERER'] ?? '';
-$allowedHost = parse_url($allowedOrigin, PHP_URL_HOST) ?: 'localhost';
+$allowedHost = strtolower((string) (parse_url($allowedOrigin, PHP_URL_HOST) ?: 'localhost'));
 
-if ($origin !== '' && parse_url($origin, PHP_URL_HOST) !== $allowedHost) {
+$originHost = $origin !== '' ? strtolower((string) (parse_url($origin, PHP_URL_HOST) ?: '')) : '';
+$referrerHost = $referrer !== '' ? strtolower((string) (parse_url($referrer, PHP_URL_HOST) ?: '')) : '';
+
+if ($origin !== '' && $originHost !== $allowedHost) {
     http_response_code(403);
     echo json_encode(['error' => 'Forbidden origin']);
     exit;
 }
 
-if ($origin === '' && $referrer !== '' && parse_url($referrer, PHP_URL_HOST) !== $allowedHost) {
+if ($origin === '' && $referrer !== '' && $referrerHost !== $allowedHost) {
     http_response_code(403);
     echo json_encode(['error' => 'Forbidden referrer']);
     exit;

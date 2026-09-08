@@ -89,7 +89,7 @@ final class PushSender
 
     private static function canonicaliseHost(string $host): string
     {
-        $host = trim($host);
+        $host = strtolower(trim($host));
         if ($host === '') {
             return 'localhost';
         }
@@ -104,10 +104,10 @@ final class PushSender
         if (is_string($parsedHost) && $parsedHost !== '') {
             $port = $parsed['port'] ?? null;
             if (is_int($port) && $port > 0 && !in_array($port, [80, 443], true)) {
-                return $parsedHost . ':' . $port;
+                return strtolower($parsedHost) . ':' . $port;
             }
 
-            return $parsedHost;
+            return strtolower($parsedHost);
         }
 
         if (preg_match('/^[A-Za-z0-9.-]+$/', $host) !== 1 && !preg_match('/^localhost$/i', $host)) {
