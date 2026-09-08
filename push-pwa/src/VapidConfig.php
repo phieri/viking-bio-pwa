@@ -29,9 +29,6 @@ final class VapidConfig
         return $this->resolve()['subject'];
     }
 
-    /**
-     * @return array{publicKey:string, privateKey:string, subject:string}
-     */
     private function resolve(): array
     {
         $publicKey = getenv('VAPID_PUBLIC_KEY');
@@ -48,13 +45,20 @@ final class VapidConfig
         }
 
         if (file_exists($this->storagePath)) {
-            $data = json_decode((string) file_get_contents($this->storagePath), true);
-            if (is_array($data) && !empty($data['publicKey']) && !empty($data['privateKey'])) {
-                return [
-                    'publicKey' => (string) $data['publicKey'],
-                    'privateKey' => (string) $data['privateKey'],
-                    'subject' => (string) ($data['subject'] ?? $subject),
-                ];
+            $storedConfig = file_get_contents($this->storagePath);
+            if (is_string($storedConfig) && $storedConfig !== '' && json_validate($storedConfig)) {
+                try {
+                    $data = json_decode($storedConfig, true, 512, JSON_THROW_ON_ERROR);
+                } catch (\JsonException) {
+                    $data = null;
+                }
+                if (is_array($data) && !empty($data['publicKey']) && !empty($data['privateKey'])) {
+                    return [
+                        'publicKey' => (string) $data['publicKey'],
+                        'privateKey' => (string) $data['privateKey'],
+                        'subject' => (string) ($data['subject'] ?? $subject),
+                    ];
+                }
             }
         }
 

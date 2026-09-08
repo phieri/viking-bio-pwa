@@ -65,44 +65,56 @@ if ($device === '' || $type === '') {
     webhook_response_fail(400, 'device and type are required');
 }
 
-$title = 'Viking Bio alert';
-$message = 'New burner status update received.';
-$priority = 'normal';
+$alert = match ($type) {
+    'flame' => match (true) {
+        $detail === 'on' => [
+            'title' => 'Burner started',
+            'message' => sprintf('Flame detected on %s.', $device),
+            'priority' => 'high',
+        ],
+        $detail === 'off' => [
+            'title' => 'Burner stopped',
+            'message' => sprintf('Flame cleared on %s.', $device),
+            'priority' => 'normal',
+        ],
+        default => [
+            'title' => 'Viking Bio alert',
+            'message' => sprintf('Flame state changed on %s.', $device),
+            'priority' => 'normal',
+        ],
+    },
+    'error' => match (true) {
+        $detail === 'stale' => [
+            'title' => 'Telemetry lost',
+            'message' => sprintf('No fresh telemetry received from %s.', $device),
+            'priority' => 'high',
+        ],
+        $errorCode > 0 => [
+            'title' => 'Burner error',
+            'message' => sprintf('Device %s reported error code %d.', $device, $errorCode),
+            'priority' => 'high',
+        ],
+        default => [
+            'title' => 'Burner alert',
+            'message' => sprintf('Device %s reported an error state.', $device),
+            'priority' => 'high',
+        ],
+    },
+    'heartbeat' => [
+        'title' => 'Burner heartbeat',
+        'message' => sprintf('No alert activity has been reported by %s in the last 24 hours.', $device),
+        'priority' => 'very-low',
+    ],
+    default => [
+        'title' => 'Viking Bio alert',
+        'message' => 'New burner status update received.',
+        'priority' => 'normal',
+    ],
+};
 
-switch ($type) {
-    case 'flame':
-        if ($detail === 'on') {
-            $title = 'Burner started';
-            $message = sprintf('Flame detected on %s.', $device);
-            $priority = 'high';
-        } elseif ($detail === 'off') {
-            $title = 'Burner stopped';
-            $message = sprintf('Flame cleared on %s.', $device);
-        } else {
-            $message = sprintf('Flame state changed on %s.', $device);
-        }
-        break;
-
-    case 'error':
-        $priority = 'high';
-        if ($detail === 'stale') {
-            $title = 'Telemetry lost';
-            $message = sprintf('No fresh telemetry received from %s.', $device);
-        } elseif ($errorCode > 0) {
-            $title = 'Burner error';
-            $message = sprintf('Device %s reported error code %d.', $device, $errorCode);
-        } else {
-            $title = 'Burner alert';
-            $message = sprintf('Device %s reported an error state.', $device);
-        }
-        break;
-
-    case 'heartbeat':
-        $title = 'Burner heartbeat';
-        $message = sprintf('No alert activity has been reported by %s in the last 24 hours.', $device);
-        $priority = 'very-low';
-        break;
-}
+$title = $alert['title'];
+$message = $alert['message'];
+$priority = $alert['priority'];
 
 if ($temperature !== null && $type !== 'error') {
     $message .= sprintf(' Temperature %.1f°C.', $temperature);

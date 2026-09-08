@@ -66,7 +66,16 @@ final class ReminderState
             return null;
         }
 
-        $decoded = json_decode($contents, true);
+        if (!json_validate($contents)) {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+
         if (!is_array($decoded)) {
             return null;
         }
