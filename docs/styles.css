@@ -191,6 +191,33 @@ h3 {
   box-shadow: 0 16px 28px rgba(2, 6, 23, 0.24);
 }
 
+.media-card.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: linear-gradient(180deg, rgba(17, 37, 55, 0.96), rgba(9, 19, 29, 0.96));
+  border-style: dashed;
+}
+
+.media-card.placeholder span {
+  display: grid;
+  place-items: center;
+  width: min(100%, 240px);
+  min-height: 120px;
+  border-radius: 0.9rem;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
 .media-card img {
   display: block;
   width: 100%;
@@ -201,9 +228,10 @@ h3 {
 }
 
 .media-card figcaption {
-  padding: 1rem 1.1rem 1.2rem;
+  padding: 0 0.3rem 0.2rem;
   color: var(--muted);
   font-size: 0.96rem;
+  text-align: center;
 }
 
 .panel-card {
