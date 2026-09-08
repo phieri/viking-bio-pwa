@@ -334,9 +334,7 @@ final class PushSender
             return true;
         }
 
-        if ($requestedPriority === 'very-low') {
-            return true;
-        }
+        $effectivePriority = $requestedPriority === 'very-low' ? 'low' : $requestedPriority;
 
         if ($configuredLevel === null) {
             return true;
@@ -344,7 +342,7 @@ final class PushSender
 
         $levels = PushStorage::normalizeNotificationLevels($configuredLevel);
 
-        return $levels[$requestedPriority] ?? false;
+        return $levels[$effectivePriority] ?? false;
     }
 
     private function isPermanentThrowableError(\Throwable $throwable): bool
