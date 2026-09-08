@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$allowedOrigin = getenv('APP_URL') ?: (getenv('PUSH_UI_URL') ?: 'http://localhost:8000');
+$allowedOrigin = getenv('APP_URL') ?: (getenv('PUSH_UI_URL') ?: \VikingBioPush\PushSender::uiUrl());
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $referrer = $_SERVER['HTTP_REFERER'] ?? '';
 $allowedHost = parse_url($allowedOrigin, PHP_URL_HOST) ?: 'localhost';
@@ -95,7 +95,7 @@ if ($type === 'weekly_cleaning_reminder' || $type === 'cleaning-reminder' || $ty
 $title = is_string($data['title'] ?? null) ? $data['title'] : 'Viking Bio alert';
 $bodyText = is_string($data['body'] ?? null) ? $data['body'] : 'New status update';
 $icon = is_string($data['icon'] ?? null) ? $data['icon'] : '/icon.svg';
-$url = is_string($data['url'] ?? null) ? $data['url'] : (getenv('PUSH_UI_URL') ?: getenv('APP_URL') ?: '/');
+$url = is_string($data['url'] ?? null) ? $data['url'] : \VikingBioPush\PushSender::uiUrl();
 $priorityLevelValue = $data['priority'] ?? null;
 if (!is_string($priorityLevelValue)) {
     $rawPriority = 'normal';

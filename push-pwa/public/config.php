@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+require dirname(__DIR__) . '/vendor/autoload.php';
+
 session_start();
 
-$uiUrl = getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: 'http://localhost:8000');
+$uiUrl = getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: \VikingBioPush\PushSender::uiUrl());
 if (empty($_SESSION['push_send_token'])) {
     $_SESSION['push_send_token'] = bin2hex(random_bytes(32));
 }

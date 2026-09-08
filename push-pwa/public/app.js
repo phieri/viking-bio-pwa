@@ -1,4 +1,4 @@
-let uiUrl = 'http://localhost:8000';
+let uiUrl = (window.location.origin && window.location.origin !== 'null') ? window.location.origin : (window.location.protocol + '//' + window.location.host);
 let sendToken = '';
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || ((window.navigator.userAgentData && window.navigator.userAgentData.platform === 'macOS') && navigator.maxTouchPoints > 1) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 const HEARTBEAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
