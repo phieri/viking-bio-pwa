@@ -65,7 +65,6 @@ if (array_key_exists('lfs_ok', $payload) && is_bool($payload['lfs_ok'])) {
 } elseif (array_key_exists('lfs_ok', $payload) && is_numeric($payload['lfs_ok'])) {
     $lfsHealth = (bool) $payload['lfs_ok'];
 }
-$cpuTemp = isset($payload['cpu_temp_c']) && is_numeric($payload['cpu_temp_c']) ? (float) $payload['cpu_temp_c'] : null;
 $errorCode = (int) ($payload['err'] ?? 0);
 $temperature = isset($payload['temp']) && is_numeric($payload['temp']) ? (float) $payload['temp'] : null;
 
@@ -130,9 +129,6 @@ if ($temperature !== null && $type !== 'error') {
 if ($type === 'heartbeat' && $lfsHealth !== null) {
     $message .= sprintf(' LittleFS %s.', $lfsHealth ? 'healthy' : 'degraded');
 }
-if ($type === 'heartbeat' && $cpuTemp !== null) {
-    $message .= sprintf(' CPU %.1f°C.', $cpuTemp);
-}
 
 if ($type === 'heartbeat') {
     $cacheKey = 'viking-bio-last-contact';
@@ -163,7 +159,6 @@ if ($type === 'heartbeat') {
         'detail' => $detail,
         'rssi' => $rssi,
         'lfsHealth' => $lfsHealth,
-        'cpuTemp' => $cpuTemp,
     ];
 
     $writeOk = false;

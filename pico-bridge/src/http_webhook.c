@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "hardware/adc.h"
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
 #include "pico/stdlib.h"
@@ -81,20 +80,6 @@ static bool should_send_heartbeat(void) {
 	}
 	uint64_t now_ms = to_ms_since_boot(get_absolute_time());
 	return now_ms - s_last_heartbeat_ms >= WEBHOOK_HEARTBEAT_INTERVAL_MS;
-}
-
-static bool read_cpu_temperature_c(float *temp_c) {
-	if (temp_c == NULL) {
-		return false;
-	}
-	*temp_c = 0.0f;
-	adc_init();
-	adc_set_temp_sensor_enabled(true);
-	adc_select_input(4);
-	const uint16_t raw = adc_read();
-	const float voltage = raw * (3.3f / 4095.0f);
-	*temp_c = 27.0f - ((voltage - 0.706f) / 0.001721f);
-	return true;
 }
 
 static bool queue_heartbeat(void) {
@@ -367,26 +352,17 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 		int rssi = INT_MIN;
 		bool have_rssi = read_wifi_rssi(&rssi);
 		bool lfs_healthy = lfs_hal_is_healthy();
-		float cpu_temp_c = 0.0f;
-		bool have_cpu_temp = read_cpu_temperature_c(&cpu_temp_c);
 		int written;
 		const char *rssi_value = have_rssi ? "" : "null";
-		const char *cpu_temp_value = have_cpu_temp ? "" : "null";
 		char rssi_buf[32];
-		char cpu_temp_buf[32];
 		if (have_rssi) {
 			snprintf(rssi_buf, sizeof(rssi_buf), "%d", rssi);
 			rssi_value = rssi_buf;
 		}
-		if (have_cpu_temp) {
-			snprintf(cpu_temp_buf, sizeof(cpu_temp_buf), "%.1f", cpu_temp_c);
-			cpu_temp_value = cpu_temp_buf;
-		}
 		written = snprintf(out, out_len,
-				"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%s,\"lfs_ok\":%s,\"cpu_temp_c\":%s}",
+				"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%s,\"lfs_ok\":%s}",
 				device, type, detail_text, rssi_value,
-				lfs_healthy ? "true" : "false",
-				cpu_temp_value);
+				lfs_healthy ? "true" : "false");
 		return written > 0 && written < (int)out_len;
 	}
 

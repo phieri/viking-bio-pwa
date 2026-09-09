@@ -147,7 +147,6 @@ target_link_libraries(viking_bio_bridge
     hardware_gpio
     hardware_sync
     hardware_flash
-    hardware_adc
     hardware_watchdog
     pico_unique_id
     pico_status_led
