@@ -1,6 +1,6 @@
-/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
-
 //go:build cgo
+
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
 
 package provisioning
 
