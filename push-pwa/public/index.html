@@ -14,44 +14,52 @@
   <body>
     <main class="shell">
       <div class="card">
-        <p class="eyebrow">Viking Bio</p>
-        <h1>Burner alerts</h1>
-        <p class="lead">Generate a single YAML snippet for a client subscription and paste it into the subscription file manually.</p>
+        <p class="eyebrow" data-i18n="eyebrow">Viking Bio</p>
+        <h1 data-i18n="heading">Burner alerts</h1>
+        <p class="lead" data-i18n="lead">Generate a single YAML snippet for a client subscription and paste it into the subscription file manually.</p>
+
+        <div class="locale-picker">
+          <label class="field-label" for="language-select" data-i18n="languageLabel">Language</label>
+          <select id="language-select" class="priority-select" aria-label="Language">
+            <option value="en">English</option>
+            <option value="sv">Svenska</option>
+          </select>
+        </div>
 
         <div id="install-banner" class="install-banner hidden" aria-live="polite">
-          <strong>Install this app</strong>
-          <p>On iPhone or iPad, tap the Share button and choose “Add to Home Screen”.</p>
-          <button id="install-button" type="button">Install app</button>
+          <strong data-i18n="installTitle">Install this app</strong>
+          <p data-i18n="installText">On iPhone or iPad, tap the Share button and choose “Add to Home Screen”.</p>
+          <button id="install-button" type="button" data-i18n="installButton">Install app</button>
         </div>
 
-        <label class="field-label" for="subscription-sender">Sender ID</label>
-        <input id="subscription-sender" class="sender-input" type="text" value="" placeholder="viking-bio-01" aria-label="Sender ID" />
+        <label class="field-label" for="subscription-sender" data-i18n="senderLabel">Sender ID</label>
+        <input id="subscription-sender" class="sender-input" type="text" value="" data-i18n-placeholder="senderPlaceholder" placeholder="viking-bio-01" data-i18n-aria="senderLabel" aria-label="Sender ID" />
 
-        <label class="field-label">Notification levels</label>
-        <div class="notification-level-group" aria-label="Notification levels">
-          <label class="checkbox-option"><input id="notification-level-low" type="checkbox" checked> low</label>
-          <label class="checkbox-option"><input id="notification-level-normal" type="checkbox" checked> normal</label>
-          <label class="checkbox-option"><input id="notification-level-high" type="checkbox" checked> high</label>
+        <label class="field-label" data-i18n="notificationLevelsLabel">Notification levels</label>
+        <div class="notification-level-group" data-i18n-aria="notificationLevelsLabel" aria-label="Notification levels">
+          <label class="checkbox-option"><input id="notification-level-low" type="checkbox" checked> <span data-i18n="low">low</span></label>
+          <label class="checkbox-option"><input id="notification-level-normal" type="checkbox" checked> <span data-i18n="normal">normal</span></label>
+          <label class="checkbox-option"><input id="notification-level-high" type="checkbox" checked> <span data-i18n="high">high</span></label>
         </div>
 
-        <label class="field-label" for="subscription-priority">Test alert priority</label>
+        <label class="field-label" for="subscription-priority" data-i18n="priorityLabel">Test alert priority</label>
         <select id="subscription-priority" class="priority-select">
-          <option value="low">low</option>
-          <option value="normal" selected>normal</option>
-          <option value="high">high</option>
+          <option value="low" data-i18n="low">low</option>
+          <option value="normal" selected data-i18n="normal">normal</option>
+          <option value="high" data-i18n="high">high</option>
         </select>
 
         <div class="actions">
-          <button id="enable-push" type="button" class="primary">Generate client YAML</button>
-          <button id="copy-yaml" type="button" class="secondary">Copy YAML</button>
-          <button id="send-test" type="button" class="secondary">Send test alert</button>
+          <button id="enable-push" type="button" class="primary" data-i18n="generateYaml">Generate client YAML</button>
+          <button id="copy-yaml" type="button" class="secondary" data-i18n="copyYaml">Copy YAML</button>
+          <button id="send-test" type="button" class="secondary" data-i18n="sendTestAlert">Send test alert</button>
         </div>
 
-        <textarea id="subscription-yaml" class="subscription-yaml" readonly aria-label="Subscription YAML snippet"></textarea>
-        <div id="last-contact-status" class="status subtle" aria-live="polite">Waiting for device heartbeat.</div>
-        <div id="rssi-status" class="status subtle" aria-live="polite">Waiting for RSSI data.</div>
-        <div id="lfs-status" class="status subtle" aria-live="polite">Waiting for LittleFS health.</div>
-        <div id="status" class="status" aria-live="polite">Waiting for subscription data.</div>
+        <textarea id="subscription-yaml" class="subscription-yaml" readonly data-i18n-aria="yamlAria" aria-label="Subscription YAML snippet"></textarea>
+        <div id="last-contact-status" class="status subtle" aria-live="polite" data-i18n="waitingHeartbeat">Waiting for device heartbeat.</div>
+        <div id="rssi-status" class="status subtle" aria-live="polite" data-i18n="waitingRssi">Waiting for RSSI data.</div>
+        <div id="lfs-status" class="status subtle" aria-live="polite" data-i18n="waitingLfs">Waiting for LittleFS health.</div>
+        <div id="status" class="status" aria-live="polite" data-i18n="waitingStatus">Waiting for subscription data.</div>
       </div>
     </main>
   </body>
