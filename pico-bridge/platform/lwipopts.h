@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #ifndef LWIPOPTS_H
 #define LWIPOPTS_H
 

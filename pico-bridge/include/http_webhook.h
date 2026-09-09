@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #ifndef HTTP_WEBHOOK_H
 #define HTTP_WEBHOOK_H
 

@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #ifndef WIFI_CONFIG_H
 #define WIFI_CONFIG_H
 

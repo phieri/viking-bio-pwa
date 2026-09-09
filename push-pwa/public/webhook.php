@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 <?php
 
 declare(strict_types=1);

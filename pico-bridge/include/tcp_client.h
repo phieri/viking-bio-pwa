@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #ifndef TCP_CLIENT_H
 #define TCP_CLIENT_H
 
