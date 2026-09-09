@@ -15,6 +15,7 @@ const subscriptionYaml = document.getElementById('subscription-yaml');
 const statusBox = document.getElementById('status');
 const lastContactBox = document.getElementById('last-contact-status');
 const rssiBox = document.getElementById('rssi-status');
+const lfsBox = document.getElementById('lfs-status');
 let installPromptEvent = null;
 let lastOfflineNotificationAt = 0;
 
@@ -59,10 +60,14 @@ async function loadLastContactStatus() {
     const rssiValue = selectedDevice && Number.isFinite(Number(selectedDevice.rssi))
       ? Number(selectedDevice.rssi)
       : (Number.isFinite(Number(data.lastRssi)) ? Number(data.lastRssi) : null);
+    const lfsHealth = selectedDevice && Object.prototype.hasOwnProperty.call(selectedDevice, 'lfsHealth')
+      ? selectedDevice.lfsHealth
+      : data.lastLfsHealth;
 
     if (!lastContact || !Number.isFinite(Number(lastContact))) {
       lastContactBox.textContent = 'No device heartbeat received yet.';
       rssiBox.textContent = 'RSSI: unavailable';
+      lfsBox.textContent = 'LittleFS: unavailable';
       return;
     }
 
@@ -72,6 +77,7 @@ async function loadLastContactStatus() {
       const deviceLabel = selectedDevice && selectedDevice.device ? selectedDevice.device : 'Bridge device';
       lastContactBox.textContent = `${deviceLabel} appears to be offline.`;
       rssiBox.textContent = rssiValue === null ? 'RSSI: unavailable' : `RSSI: ${rssiValue} dBm`;
+      lfsBox.textContent = lfsHealth === null ? 'LittleFS: unavailable' : `LittleFS: ${lfsHealth ? 'healthy' : 'degraded'}`;
       notifyOffline(deviceLabel);
       return;
     }
@@ -80,9 +86,11 @@ async function loadLastContactStatus() {
     const label = Number.isNaN(stamp.getTime()) ? 'Unknown time' : stamp.toLocaleString();
     lastContactBox.textContent = `Last device contact: ${label}`;
     rssiBox.textContent = rssiValue === null ? 'RSSI: unavailable' : `RSSI: ${rssiValue} dBm`;
+    lfsBox.textContent = lfsHealth === null ? 'LittleFS: unavailable' : `LittleFS: ${lfsHealth ? 'healthy' : 'degraded'}`;
   } catch (error) {
     lastContactBox.textContent = 'Heartbeat status unavailable.';
     rssiBox.textContent = 'RSSI: unavailable';
+    lfsBox.textContent = 'LittleFS: unavailable';
   }
 }
 

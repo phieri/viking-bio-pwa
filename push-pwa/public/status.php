@@ -17,6 +17,7 @@ if (function_exists('apcu_fetch')) {
         echo json_encode([
             'lastContact' => null,
             'lastRssi' => null,
+            'lastLfsHealth' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -27,6 +28,7 @@ if (function_exists('apcu_fetch')) {
         echo json_encode([
             'lastContact' => null,
             'lastRssi' => null,
+            'lastLfsHealth' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -37,6 +39,7 @@ if (function_exists('apcu_fetch')) {
         echo json_encode([
             'lastContact' => null,
             'lastRssi' => null,
+            'lastLfsHealth' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -45,6 +48,7 @@ if (function_exists('apcu_fetch')) {
 
 $latest = null;
 $latestRssi = null;
+$latestLfsHealth = null;
 $devices = [];
 foreach ($decoded as $device => $entry) {
     if (!is_array($entry)) {
@@ -63,6 +67,11 @@ foreach ($decoded as $device => $entry) {
         $rssi = null;
     }
 
+    $lfsHealth = isset($entry['lfsHealth']) ? filter_var($entry['lfsHealth'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+    if ($lfsHealth === null && isset($entry['lfs_ok'])) {
+        $lfsHealth = filter_var($entry['lfs_ok'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    }
+
     $deviceTimestamp = (int) $timestamp;
     $devices[(string) $device] = [
         'device' => (string) ($entry['device'] ?? $device),
@@ -70,18 +79,26 @@ foreach ($decoded as $device => $entry) {
         'type' => $entry['type'] ?? 'heartbeat',
         'detail' => $entry['detail'] ?? 'alive',
         'rssi' => $rssi,
+        'lfsHealth' => $lfsHealth,
     ];
 
     if ($latest === null || $deviceTimestamp > $latest) {
         $latest = $deviceTimestamp;
         $latestRssi = $rssi;
-    } elseif ($deviceTimestamp === $latest && $rssi !== null) {
-        $latestRssi = $rssi;
+        $latestLfsHealth = $lfsHealth;
+    } elseif ($deviceTimestamp === $latest) {
+        if ($rssi !== null) {
+            $latestRssi = $rssi;
+        }
+        if ($lfsHealth !== null) {
+            $latestLfsHealth = $lfsHealth;
+        }
     }
 }
 
 echo json_encode([
     'lastContact' => $latest,
     'lastRssi' => $latestRssi,
+    'lastLfsHealth' => $latestLfsHealth,
     'devices' => $devices,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);

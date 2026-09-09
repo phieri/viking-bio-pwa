@@ -59,6 +59,12 @@ $device = is_string($payload['device'] ?? null) ? trim($payload['device']) : '';
 $type = is_string($payload['type'] ?? null) ? strtolower(trim($payload['type'])) : '';
 $detail = is_string($payload['detail'] ?? null) ? strtolower(trim($payload['detail'])) : '';
 $rssi = isset($payload['rssi']) && is_numeric($payload['rssi']) ? (int) $payload['rssi'] : null;
+$lfsHealth = null;
+if (array_key_exists('lfs_ok', $payload) && is_bool($payload['lfs_ok'])) {
+    $lfsHealth = $payload['lfs_ok'];
+} elseif (array_key_exists('lfs_ok', $payload) && is_numeric($payload['lfs_ok'])) {
+    $lfsHealth = (bool) $payload['lfs_ok'];
+}
 $errorCode = (int) ($payload['err'] ?? 0);
 $temperature = isset($payload['temp']) && is_numeric($payload['temp']) ? (float) $payload['temp'] : null;
 
@@ -120,6 +126,9 @@ $priority = $alert['priority'];
 if ($temperature !== null && $type !== 'error') {
     $message .= sprintf(' Temperature %.1f°C.', $temperature);
 }
+if ($type === 'heartbeat' && $lfsHealth !== null) {
+    $message .= sprintf(' LittleFS %s.', $lfsHealth ? 'healthy' : 'degraded');
+}
 
 if ($type === 'heartbeat') {
     $cacheKey = 'viking-bio-last-contact';
@@ -149,6 +158,7 @@ if ($type === 'heartbeat') {
         'type' => $type,
         'detail' => $detail,
         'rssi' => $rssi,
+        'lfsHealth' => $lfsHealth,
     ];
 
     $writeOk = false;

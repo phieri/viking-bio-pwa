@@ -50,4 +50,9 @@ bool lfs_hal_write_file(const char *path, const void *buf, size_t size);
  */
 bool lfs_hal_delete_file(const char *path);
 
+/**
+ * Return true while the LittleFS filesystem is mounted and usable.
+ */
+bool lfs_hal_is_healthy(void);
+
 #endif // LFS_HAL_H
