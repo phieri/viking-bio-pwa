@@ -15,6 +15,8 @@ const subscriptionYaml = document.getElementById('subscription-yaml');
 const statusBox = document.getElementById('status');
 const lastContactBox = document.getElementById('last-contact-status');
 const rssiBox = document.getElementById('rssi-status');
+const lfsBox = document.getElementById('lfs-status');
+const cpuTempBox = document.getElementById('cpu-temp-status');
 let installPromptEvent = null;
 let lastOfflineNotificationAt = 0;
 
@@ -59,10 +61,18 @@ async function loadLastContactStatus() {
     const rssiValue = selectedDevice && Number.isFinite(Number(selectedDevice.rssi))
       ? Number(selectedDevice.rssi)
       : (Number.isFinite(Number(data.lastRssi)) ? Number(data.lastRssi) : null);
+    const lfsHealth = selectedDevice && Object.prototype.hasOwnProperty.call(selectedDevice, 'lfsHealth')
+      ? selectedDevice.lfsHealth
+      : data.lastLfsHealth;
+    const cpuTempValue = selectedDevice && Number.isFinite(Number(selectedDevice.cpuTemp))
+      ? Number(selectedDevice.cpuTemp)
+      : (Number.isFinite(Number(data.lastCpuTemp)) ? Number(data.lastCpuTemp) : null);
 
     if (!lastContact || !Number.isFinite(Number(lastContact))) {
       lastContactBox.textContent = 'No device heartbeat received yet.';
       rssiBox.textContent = 'RSSI: unavailable';
+      lfsBox.textContent = 'LittleFS: unavailable';
+      cpuTempBox.textContent = 'CPU temp: unavailable';
       return;
     }
 
@@ -72,6 +82,8 @@ async function loadLastContactStatus() {
       const deviceLabel = selectedDevice && selectedDevice.device ? selectedDevice.device : 'Bridge device';
       lastContactBox.textContent = `${deviceLabel} appears to be offline.`;
       rssiBox.textContent = rssiValue === null ? 'RSSI: unavailable' : `RSSI: ${rssiValue} dBm`;
+      lfsBox.textContent = lfsHealth === null ? 'LittleFS: unavailable' : `LittleFS: ${lfsHealth ? 'healthy' : 'degraded'}`;
+      cpuTempBox.textContent = cpuTempValue === null ? 'CPU temp: unavailable' : `CPU temp: ${cpuTempValue.toFixed(1)}°C`;
       notifyOffline(deviceLabel);
       return;
     }
@@ -80,9 +92,13 @@ async function loadLastContactStatus() {
     const label = Number.isNaN(stamp.getTime()) ? 'Unknown time' : stamp.toLocaleString();
     lastContactBox.textContent = `Last device contact: ${label}`;
     rssiBox.textContent = rssiValue === null ? 'RSSI: unavailable' : `RSSI: ${rssiValue} dBm`;
+    lfsBox.textContent = lfsHealth === null ? 'LittleFS: unavailable' : `LittleFS: ${lfsHealth ? 'healthy' : 'degraded'}`;
+    cpuTempBox.textContent = cpuTempValue === null ? 'CPU temp: unavailable' : `CPU temp: ${cpuTempValue.toFixed(1)}°C`;
   } catch (error) {
     lastContactBox.textContent = 'Heartbeat status unavailable.';
     rssiBox.textContent = 'RSSI: unavailable';
+    lfsBox.textContent = 'LittleFS: unavailable';
+    cpuTempBox.textContent = 'CPU temp: unavailable';
   }
 }
 

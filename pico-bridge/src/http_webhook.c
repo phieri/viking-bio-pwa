@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "hardware/adc.h"
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
 #include "pico/stdlib.h"
@@ -11,6 +12,7 @@
 #include "lwip/tcp.h"
 
 #include "http_webhook.h"
+#include "lfs_hal.h"
 #include "wifi_config.h"
 
 #define WEBHOOK_RETRY_MS 30000
@@ -49,6 +51,7 @@ static char s_queue[WEBHOOK_QUEUE_LEN][WEBHOOK_BODY_MAX];
 static size_t s_queue_head = 0;
 static size_t s_queue_count = 0;
 static uint64_t s_last_webhook_ms = 0;
+static uint64_t s_last_heartbeat_ms = 0;
 
 static bool queue_push(const char *json);
 
@@ -73,12 +76,30 @@ static void record_webhook_sent(void) {
 	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
 }
 
+static void record_heartbeat_sent(void) {
+	s_last_heartbeat_ms = to_ms_since_boot(get_absolute_time());
+}
+
 static bool should_send_heartbeat(void) {
 	if (s_host[0] == '\0') {
 		return false;
 	}
 	uint64_t now_ms = to_ms_since_boot(get_absolute_time());
-	return now_ms - s_last_webhook_ms >= WEBHOOK_HEARTBEAT_INTERVAL_MS;
+	return now_ms - s_last_heartbeat_ms >= WEBHOOK_HEARTBEAT_INTERVAL_MS;
+}
+
+static bool read_cpu_temperature_c(float *temp_c) {
+	if (temp_c == NULL) {
+		return false;
+	}
+	*temp_c = 0.0f;
+	adc_init();
+	adc_set_temp_sensor_enabled(true);
+	adc_select_input(4);
+	const uint16_t raw = adc_read();
+	const float voltage = raw * (3.3f / 4095.0f);
+	*temp_c = 27.0f - ((voltage - 0.706f) / 0.001721f);
+	return true;
 }
 
 static bool queue_heartbeat(void) {
@@ -93,6 +114,7 @@ static bool queue_heartbeat(void) {
 		printf("webhook: failed to queue heartbeat payload\n");
 		return false;
 	}
+	record_heartbeat_sent();
 	return true;
 }
 
@@ -349,18 +371,27 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 	if (strcmp(type, "heartbeat") == 0) {
 		int rssi = INT_MIN;
 		bool have_rssi = read_wifi_rssi(&rssi);
+		bool lfs_healthy = lfs_hal_is_healthy();
+		float cpu_temp_c = 0.0f;
+		bool have_cpu_temp = read_cpu_temperature_c(&cpu_temp_c);
 		int written;
+		const char *rssi_value = have_rssi ? "" : "null";
+		const char *cpu_temp_value = have_cpu_temp ? "" : "null";
+		char rssi_buf[32];
+		char cpu_temp_buf[32];
 		if (have_rssi) {
-			written = snprintf(out, out_len,
-					"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%d}",
-					device, type, detail_text, rssi);
-		} else {
-			// The Wi‑Fi stack exposes RSSI in dBm only once the station link is up; keep
-			// heartbeat payloads valid by sending null when the value is unavailable.
-			written = snprintf(out, out_len,
-					"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":null}",
-					device, type, detail_text);
+			snprintf(rssi_buf, sizeof(rssi_buf), "%d", rssi);
+			rssi_value = rssi_buf;
 		}
+		if (have_cpu_temp) {
+			snprintf(cpu_temp_buf, sizeof(cpu_temp_buf), "%.1f", cpu_temp_c);
+			cpu_temp_value = cpu_temp_buf;
+		}
+		written = snprintf(out, out_len,
+				"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%s,\"lfs_ok\":%s,\"cpu_temp_c\":%s}",
+				device, type, detail_text, rssi_value,
+				lfs_healthy ? "true" : "false",
+				cpu_temp_value);
 		return written > 0 && written < (int)out_len;
 	}
 
@@ -480,6 +511,7 @@ void http_webhook_init(void) {
 	s_path[1] = '\0';
 	s_auth_token[0] = '\0';
 	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
+	s_last_heartbeat_ms = s_last_webhook_ms;
 	s_state = WEBHOOK_STATE_IDLE;
 	abort_connection();
 	clear_queue();
@@ -500,6 +532,7 @@ void http_webhook_set_url(const char *url) {
 	clear_queue();
 	abort_connection();
 	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
+	s_last_heartbeat_ms = s_last_webhook_ms;
 	s_state = WEBHOOK_STATE_IDLE;
 	printf("webhook: configured %s\n", s_url);
 }

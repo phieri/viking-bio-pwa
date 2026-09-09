@@ -134,3 +134,7 @@ bool lfs_hal_delete_file(const char *path) {
 	int err = lfs_remove(&s_lfs, path);
 	return (err == LFS_ERR_OK || err == LFS_ERR_NOENT);
 }
+
+bool lfs_hal_is_healthy(void) {
+	return s_mounted;
+}

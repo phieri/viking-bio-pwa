@@ -17,6 +17,8 @@ if (function_exists('apcu_fetch')) {
         echo json_encode([
             'lastContact' => null,
             'lastRssi' => null,
+            'lastLfsHealth' => null,
+            'lastCpuTemp' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -27,6 +29,8 @@ if (function_exists('apcu_fetch')) {
         echo json_encode([
             'lastContact' => null,
             'lastRssi' => null,
+            'lastLfsHealth' => null,
+            'lastCpuTemp' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -37,6 +41,8 @@ if (function_exists('apcu_fetch')) {
         echo json_encode([
             'lastContact' => null,
             'lastRssi' => null,
+            'lastLfsHealth' => null,
+            'lastCpuTemp' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -45,6 +51,8 @@ if (function_exists('apcu_fetch')) {
 
 $latest = null;
 $latestRssi = null;
+$latestLfsHealth = null;
+$latestCpuTemp = null;
 $devices = [];
 foreach ($decoded as $device => $entry) {
     if (!is_array($entry)) {
@@ -63,6 +71,18 @@ foreach ($decoded as $device => $entry) {
         $rssi = null;
     }
 
+    $lfsHealth = isset($entry['lfsHealth']) ? filter_var($entry['lfsHealth'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+    if ($lfsHealth === null && isset($entry['lfs_ok'])) {
+        $lfsHealth = filter_var($entry['lfs_ok'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    }
+
+    $cpuTemp = null;
+    if (isset($entry['cpuTemp']) && is_numeric($entry['cpuTemp'])) {
+        $cpuTemp = (float) $entry['cpuTemp'];
+    } elseif (isset($entry['cpu_temp_c']) && is_numeric($entry['cpu_temp_c'])) {
+        $cpuTemp = (float) $entry['cpu_temp_c'];
+    }
+
     $deviceTimestamp = (int) $timestamp;
     $devices[(string) $device] = [
         'device' => (string) ($entry['device'] ?? $device),
@@ -70,18 +90,32 @@ foreach ($decoded as $device => $entry) {
         'type' => $entry['type'] ?? 'heartbeat',
         'detail' => $entry['detail'] ?? 'alive',
         'rssi' => $rssi,
+        'lfsHealth' => $lfsHealth,
+        'cpuTemp' => $cpuTemp,
     ];
 
     if ($latest === null || $deviceTimestamp > $latest) {
         $latest = $deviceTimestamp;
         $latestRssi = $rssi;
-    } elseif ($deviceTimestamp === $latest && $rssi !== null) {
-        $latestRssi = $rssi;
+        $latestLfsHealth = $lfsHealth;
+        $latestCpuTemp = $cpuTemp;
+    } elseif ($deviceTimestamp === $latest) {
+        if ($rssi !== null) {
+            $latestRssi = $rssi;
+        }
+        if ($lfsHealth !== null) {
+            $latestLfsHealth = $lfsHealth;
+        }
+        if ($cpuTemp !== null) {
+            $latestCpuTemp = $cpuTemp;
+        }
     }
 }
 
 echo json_encode([
     'lastContact' => $latest,
     'lastRssi' => $latestRssi,
+    'lastLfsHealth' => $latestLfsHealth,
+    'lastCpuTemp' => $latestCpuTemp,
     'devices' => $devices,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
