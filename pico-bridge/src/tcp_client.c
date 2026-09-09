@@ -57,6 +57,11 @@ static void start_connect(void);
 static void do_connect(void);
 static void abort_and_retry(void);
 static void flush_queue(void);
+static void schedule_retry(void);
+static void refresh_timeout(void);
+[[nodiscard]] static bool server_target_ready(void);
+[[nodiscard]] static bool device_identity_ready(void);
+[[nodiscard]] static bool queue_ready_for_flush(void);
 
 [[nodiscard]] static bool queue_push(const uint8_t *data, size_t len) {
 	if (len == 0 || len > TELEMETRY_FRAME_MAX) {
@@ -89,6 +94,27 @@ static void queue_pop(void) {
 	}
 	s_queue_head = (s_queue_head + 1) % TELEMETRY_QUEUE_LEN;
 	s_queue_count--;
+}
+
+static void schedule_retry(void) {
+	s_state = TCP_STATE_RETRY_WAIT;
+	s_retry_time = make_timeout_time_ms(TCP_CLIENT_RETRY_MS);
+}
+
+static void refresh_timeout(void) {
+	s_timeout = make_timeout_time_ms(TCP_CLIENT_TIMEOUT_MS);
+}
+
+[[nodiscard]] static bool server_target_ready(void) {
+	return s_host[0] != '\0' && s_port != 0;
+}
+
+[[nodiscard]] static bool device_identity_ready(void) {
+	return s_device_key[0] != '\0' && s_device_id[0] != '\0';
+}
+
+[[nodiscard]] static bool queue_ready_for_flush(void) {
+	return s_queue_count > 0 && server_target_ready() && s_device_key[0] != '\0';
 }
 
 [[nodiscard]] static bool build_data_json(const vikingbio_data_t *data, char *out, size_t out_len) {
@@ -177,7 +203,7 @@ static err_t tcp_connected_cb(void *arg, struct tcp_pcb *pcb, err_t err) {
 	}
 
 	s_state = TCP_STATE_CONNECTED;
-	s_timeout = make_timeout_time_ms(TCP_CLIENT_TIMEOUT_MS);
+	refresh_timeout();
 	printf("tcp_client: connected to %s:%d\n", s_host, s_port);
 	return ERR_OK;
 }
@@ -188,14 +214,13 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t e
 	if (p == NULL) {
 		printf("tcp_client: server closed connection\n");
 		s_pcb = NULL;
-		s_state = TCP_STATE_RETRY_WAIT;
-		s_retry_time = make_timeout_time_ms(TCP_CLIENT_RETRY_MS);
+		schedule_retry();
 		return ERR_OK;
 	}
 
 	tcp_recved(pcb, p->tot_len);
 	pbuf_free(p);
-	s_timeout = make_timeout_time_ms(TCP_CLIENT_TIMEOUT_MS);
+	refresh_timeout();
 	return ERR_OK;
 }
 
@@ -203,8 +228,7 @@ static void tcp_err_cb(void *arg, err_t err) {
 	(void)arg;
 	printf("tcp_client: TCP error %d – reconnecting\n", (int)err);
 	s_pcb = NULL;
-	s_state = TCP_STATE_RETRY_WAIT;
-	s_retry_time = make_timeout_time_ms(TCP_CLIENT_RETRY_MS);
+	schedule_retry();
 }
 
 static void dns_found_cb(const char *name, const ip_addr_t *addr, void *arg) {
@@ -212,8 +236,7 @@ static void dns_found_cb(const char *name, const ip_addr_t *addr, void *arg) {
 	(void)arg;
 	if (addr == NULL) {
 		printf("tcp_client: DNS lookup failed\n");
-		s_state = TCP_STATE_RETRY_WAIT;
-		s_retry_time = make_timeout_time_ms(TCP_CLIENT_RETRY_MS);
+		schedule_retry();
 		return;
 	}
 	s_server_addr = *addr;
@@ -229,8 +252,7 @@ static void abort_connection(void) {
 
 static void abort_and_retry(void) {
 	abort_connection();
-	s_state = TCP_STATE_RETRY_WAIT;
-	s_retry_time = make_timeout_time_ms(TCP_CLIENT_RETRY_MS);
+	schedule_retry();
 }
 
 static void flush_queue(void) {
@@ -244,7 +266,7 @@ static void flush_queue(void) {
 			tcp_output(s_pcb);
 			printf("tcp_client: sent telemetry frame (%u bytes)\n", (unsigned)frame->len);
 			queue_pop();
-			s_timeout = make_timeout_time_ms(TCP_CLIENT_TIMEOUT_MS);
+			refresh_timeout();
 			continue;
 		}
 		if (err == ERR_MEM) {
@@ -257,22 +279,21 @@ static void flush_queue(void) {
 }
 
 static void do_connect(void) {
-	if (s_pcb != NULL || s_host[0] == '\0' || s_port == 0) {
+	if (s_pcb != NULL || !server_target_ready()) {
 		return;
 	}
 
 	s_pcb = tcp_new_ip_type(IP_GET_TYPE(&s_server_addr));
 	if (s_pcb == NULL) {
 		printf("tcp_client: tcp_new failed\n");
-		s_state = TCP_STATE_RETRY_WAIT;
-		s_retry_time = make_timeout_time_ms(TCP_CLIENT_RETRY_MS);
+		schedule_retry();
 		return;
 	}
 
 	tcp_err(s_pcb, tcp_err_cb);
 	tcp_recv(s_pcb, tcp_recv_cb);
 	s_state = TCP_STATE_CONNECTING;
-	s_timeout = make_timeout_time_ms(TCP_CLIENT_TIMEOUT_MS);
+	refresh_timeout();
 	err_t err = tcp_connect(s_pcb, &s_server_addr, s_port, tcp_connected_cb);
 	if (err != ERR_OK) {
 		printf("tcp_client: tcp_connect failed (%d)\n", (int)err);
@@ -281,7 +302,7 @@ static void do_connect(void) {
 }
 
 static void start_connect(void) {
-	if (s_pcb != NULL || s_host[0] == '\0' || s_port == 0) {
+	if (s_pcb != NULL || !server_target_ready()) {
 		return;
 	}
 
@@ -289,16 +310,15 @@ static void start_connect(void) {
 		do_connect();
 		return;
 	}
-
 	s_state = TCP_STATE_RESOLVING;
-	s_timeout = make_timeout_time_ms(TCP_CLIENT_TIMEOUT_MS);
+	s_state = TCP_STATE_RESOLVING;
 	err_t err = dns_gethostbyname(s_host, &s_server_addr, dns_found_cb, NULL);
 	if (err == ERR_OK) {
 		do_connect();
 	} else if (err != ERR_INPROGRESS) {
 		printf("tcp_client: DNS error %d\n", (int)err);
-		s_state = TCP_STATE_RETRY_WAIT;
-		s_retry_time = make_timeout_time_ms(TCP_CLIENT_RETRY_MS);
+		printf("tcp_client: DNS error %d\n", (int)err);
+		schedule_retry();
 	}
 }
 
@@ -323,7 +343,7 @@ void tcp_client_init(const char *host, uint16_t port, const char *device_key) {
 		}
 	}
 
-	if (s_host[0] != '\0' && s_device_key[0] != '\0') {
+	if (server_target_ready() && s_device_key[0] != '\0') {
 		printf("tcp_client: ready for device %s -> %s:%d (boot counter %lu)\n", s_device_id,
 			   s_host, s_port, (unsigned long)s_boot_counter);
 	} else if (s_device_key[0] == '\0') {
@@ -335,8 +355,7 @@ void tcp_client_send_data(const vikingbio_data_t *data) {
 	uint8_t frame[TELEMETRY_FRAME_MAX];
 	size_t frame_len = 0;
 
-	if (data == NULL || s_host[0] == '\0' || s_port == 0 || s_device_key[0] == '\0' ||
-		s_device_id[0] == '\0') {
+	if (data == NULL || !server_target_ready() || !device_identity_ready()) {
 		return;
 	}
 
@@ -363,7 +382,7 @@ void tcp_client_poll(void) {
 		s_state = TCP_STATE_IDLE;
 	}
 
-	if (s_queue_count == 0 || s_host[0] == '\0' || s_port == 0 || s_device_key[0] == '\0') {
+	if (!queue_ready_for_flush()) {
 		return;
 	}
 

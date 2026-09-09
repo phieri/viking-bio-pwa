@@ -112,8 +112,7 @@ if (!is_string($priority)) {
     $priority = strtolower(trim($priority));
 }
 
-$allowedPriorities = ['very-low', 'low', 'normal', 'high'];
-if (!in_array($priority, $allowedPriorities, true)) {
+if (!in_array($priority, PushSender::VALID_PRIORITIES, true)) {
     http_response_code(400);
     echo json_encode(['error' => 'Priority must be one of very-low, low, normal, or high']);
     exit;

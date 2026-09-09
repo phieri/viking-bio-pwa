@@ -6,6 +6,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -125,5 +127,40 @@ func TestProcessPayloadRejectsReplay(t *testing.T) {
 	})
 	if err := ingest.processPayload(replay, "[::1]:12345", time.Now()); err == nil {
 		t.Fatal("expected replayed sequence to be rejected")
+	}
+}
+
+func TestProcessPayloadAppendsFallbackWhenPipelineUnavailable(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := storage.NewStore(dataDir)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	if err := store.ProvisionDevice("pico-1234", "super-secret"); err != nil {
+		t.Fatalf("ProvisionDevice: %v", err)
+	}
+
+	ingest := newTCPIngestServer(&config.Config{IngestTCPPort: 9000}, store, nil)
+	ingest.pipeline = nil
+
+	payload := signPayload(t, "super-secret", ingestcodec.Payload{
+		Device: "pico-1234",
+		Seq:    1,
+		TS:     time.Now().Unix(),
+		Data:   ingestcodec.TelemetryData{Valid: true},
+	})
+	if err := ingest.processPayload(payload, "[::1]:12345", time.Now()); err != nil {
+		t.Fatalf("processPayload: %v", err)
+	}
+
+	fallbackPath := filepath.Join(dataDir, "ingest-fallback.log")
+	contents, err := os.ReadFile(fallbackPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%s): %v", fallbackPath, err)
+	}
+	if len(contents) == 0 {
+		t.Fatal("expected fallback log entry to be written")
 	}
 }

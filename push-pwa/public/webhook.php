@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+use VikingBioPush\LastContactState;
 use VikingBioPush\PushSender;
 use VikingBioPush\VapidConfig;
 
@@ -148,49 +149,8 @@ if ($type === 'heartbeat' && $lfsHealth !== null) {
 }
 
 if ($type === 'heartbeat') {
-    $cacheKey = 'viking-bio-last-contact';
-    $lastContactState = [];
-    if (function_exists('apcu_fetch')) {
-        $cachedState = apcu_fetch($cacheKey, $success);
-        if ($success && is_array($cachedState)) {
-            $lastContactState = $cachedState;
-        }
-    } else {
-        $lastContactPath = __DIR__ . '/../storage/last-contact.json';
-        if (is_file($lastContactPath)) {
-            $rawState = file_get_contents($lastContactPath);
-            if ($rawState !== false && trim($rawState) !== '') {
-                $decodedState = json_decode($rawState, true);
-                if (is_array($decodedState)) {
-                    $lastContactState = $decodedState;
-                }
-            }
-        }
-    }
-
-    $timestamp = (int) floor(microtime(true) * 1000);
-    $lastContactState[$device] = [
-        'device' => $device,
-        'timestamp' => $timestamp,
-        'type' => $type,
-        'detail' => $detail,
-        'rssi' => $rssi,
-        'lfsHealth' => $lfsHealth,
-    ];
-
-    $writeOk = false;
-    if (function_exists('apcu_store')) {
-        $writeOk = apcu_store($cacheKey, $lastContactState, 86400);
-    } else {
-        $lastContactPath = __DIR__ . '/../storage/last-contact.json';
-        $writeOk = file_put_contents(
-            $lastContactPath,
-            json_encode($lastContactState, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
-            LOCK_EX
-        ) !== false;
-    }
-
-    if (!$writeOk) {
+    $lastContactState = new LastContactState(__DIR__ . '/../storage/last-contact.json');
+    if (!$lastContactState->record($device, $type, $detail, $rssi, $lfsHealth)) {
         webhook_response_fail(500, sprintf('Failed to persist last contact for %s', $device));
     }
 

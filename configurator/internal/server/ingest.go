@@ -278,19 +278,11 @@ func (s *tcpIngestServer) handleConn(conn net.Conn) {
 			if isConnectionClose(err) {
 				return
 			}
-			blocked := s.failures.recordFailure(remote, time.Now())
-			log.Printf("ingest: rejected frame from %s: %v", remote, err)
-			if blocked {
-				log.Printf("ingest: blacklisted %s after repeated failures", remoteHost(remote))
-			}
+			s.rejectRemote(remote, "frame", err)
 			return
 		}
 		if err := s.processPayload(payload, remote, time.Now()); err != nil {
-			blocked := s.failures.recordFailure(remote, time.Now())
-			log.Printf("ingest: rejected payload from %s: %v", remote, err)
-			if blocked {
-				log.Printf("ingest: blacklisted %s after repeated failures", remoteHost(remote))
-			}
+			s.rejectRemote(remote, "payload", err)
 			return
 		}
 		s.failures.clear(remote)
@@ -301,7 +293,19 @@ func isConnectionClose(err error) bool {
 	return err == io.EOF || err == net.ErrClosed
 }
 
-func (s *tcpIngestServer) processPayload(payload ingestcodec.Payload, remote string, receivedAt time.Time) error {
+func (s *tcpIngestServer) rejectRemote(remote string, subject string, err error) {
+	if s == nil || s.failures == nil {
+		log.Printf("ingest: rejected %s from %s: %v", subject, remote, err)
+		return
+	}
+	blocked := s.failures.recordFailure(remote, time.Now())
+	log.Printf("ingest: rejected %s from %s: %v", subject, remote, err)
+	if blocked {
+		log.Printf("ingest: blacklisted %s after repeated failures", remoteHost(remote))
+	}
+}
+
+func (s *tcpIngestServer) authenticatePayload(payload ingestcodec.Payload) error {
 	if s == nil {
 		return fmt.Errorf("ingest server is nil")
 	}
@@ -318,27 +322,41 @@ func (s *tcpIngestServer) processPayload(payload ingestcodec.Payload, remote str
 	if err := ingestcodec.VerifySignature(record.Key, payload); err != nil {
 		return err
 	}
-	if err := s.store.AcceptSequence(payload.Device, payload.Seq); err != nil {
-		return err
-	}
-	env := telemetryEnvelope{
-		Payload:    payload,
-		RemoteAddr: remote,
-		ReceivedAt: receivedAt,
-	}
-	if s.pipeline != nil && s.pipeline.enqueue(env) {
-		return nil
-	}
-	fallbackRecord := map[string]any{
+	return s.store.AcceptSequence(payload.Device, payload.Seq)
+}
+
+func buildIngestFallbackRecord(payload ingestcodec.Payload, remote string, receivedAt time.Time) map[string]any {
+	return map[string]any{
 		"received_at": receivedAt.UTC().Format(time.RFC3339Nano),
 		"remote_addr": remote,
 		"payload":     payload,
 		"reason":      "ingest queue full",
 	}
-	if err := s.store.AppendIngestFallback(fallbackRecord); err != nil {
-		log.Printf("ingest: failed to append fallback record: %v", err)
-	} else {
-		log.Printf("ingest: queued overflow fallback for device=%s seq=%d", payload.Device, payload.Seq)
+}
+
+func (s *tcpIngestServer) enqueueAcceptedPayload(payload ingestcodec.Payload, remote string, receivedAt time.Time) error {
+	env := telemetryEnvelope{
+		Payload:    payload,
+		RemoteAddr: remote,
+		ReceivedAt: receivedAt,
 	}
+	if s != nil && s.pipeline != nil && s.pipeline.enqueue(env) {
+		return nil
+	}
+	if s == nil || s.store == nil {
+		return fmt.Errorf("ingest store is nil")
+	}
+	if err := s.store.AppendIngestFallback(buildIngestFallbackRecord(payload, remote, receivedAt)); err != nil {
+		log.Printf("ingest: failed to append fallback record: %v", err)
+		return nil
+	}
+	log.Printf("ingest: queued overflow fallback for device=%s seq=%d", payload.Device, payload.Seq)
 	return nil
+}
+
+func (s *tcpIngestServer) processPayload(payload ingestcodec.Payload, remote string, receivedAt time.Time) error {
+	if err := s.authenticatePayload(payload); err != nil {
+		return err
+	}
+	return s.enqueueAcceptedPayload(payload, remote, receivedAt)
 }
