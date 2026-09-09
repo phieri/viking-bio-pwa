@@ -389,6 +389,12 @@ static bool wifi_link_is_up(void) {
 		   (link_state != CYW43_LINK_BADAUTH);
 }
 
+static void reset_network_notification_state(void) {
+	s_last_webhook_flame = false;
+	s_last_webhook_error = 0U;
+	http_webhook_reset_heartbeat_timer();
+}
+
 static void wifi_retry_reset(void) {
 	s_wifi_retry_delay_ms = WIFI_RETRY_INITIAL_MS;
 	s_wifi_retry_deadline = get_absolute_time();
@@ -609,6 +615,8 @@ int main(void) {
 		wifi_up = start_wifi_services(ssid, password, have_creds, &watchdog_on);
 		if (!wifi_up) {
 			s_wifi_retry_deadline = make_timeout_time_ms(s_wifi_retry_delay_ms);
+		} else {
+			reset_network_notification_state();
 		}
 	}
 
@@ -632,6 +640,7 @@ int main(void) {
 			if (start_wifi_services(ssid, password, have_creds, &watchdog_on)) {
 				wifi_up = true;
 				wifi_retry_reset();
+				reset_network_notification_state();
 				printf("WiFi link restored – resuming telemetry\n");
 			} else {
 				uint32_t retry_delay = s_wifi_retry_delay_ms;

@@ -11,6 +11,12 @@
 void http_webhook_init(void);
 
 /**
+ * Mark the connection as newly established so the next poll sends the initial
+ * heartbeat without waiting for the full interval.
+ */
+void http_webhook_reset_heartbeat_timer(void);
+
+/**
  * Override the configured webhook URL for the next request cycle.
  * @param url Absolute HTTP(S) webhook URL
  */

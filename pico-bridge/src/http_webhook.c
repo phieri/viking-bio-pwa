@@ -473,6 +473,10 @@ static void send_http_request(void) {
 	set_retry_wait();
 }
 
+void http_webhook_reset_heartbeat_timer(void) {
+	s_last_heartbeat_ms = 0;
+}
+
 void http_webhook_init(void) {
 	char url[WIFI_WEBHOOK_URL_MAX_LEN + 1] = {0};
 	s_url[0] = '\0';
