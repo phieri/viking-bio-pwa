@@ -14,6 +14,7 @@ const senderInput = document.getElementById('subscription-sender');
 const subscriptionYaml = document.getElementById('subscription-yaml');
 const statusBox = document.getElementById('status');
 const lastContactBox = document.getElementById('last-contact-status');
+const rssiBox = document.getElementById('rssi-status');
 let installPromptEvent = null;
 let lastOfflineNotificationAt = 0;
 
@@ -55,9 +56,13 @@ async function loadLastContactStatus() {
       ? devices.find((device) => String(device.device || '').toLowerCase() === selectedSender.toLowerCase())
       : null;
     const lastContact = selectedDevice ? selectedDevice.timestamp : data.lastContact;
+    const rssiValue = selectedDevice && Number.isFinite(Number(selectedDevice.rssi))
+      ? Number(selectedDevice.rssi)
+      : (Number.isFinite(Number(data.lastRssi)) ? Number(data.lastRssi) : null);
 
     if (!lastContact || !Number.isFinite(Number(lastContact))) {
       lastContactBox.textContent = 'No device heartbeat received yet.';
+      rssiBox.textContent = 'RSSI: unavailable';
       return;
     }
 
@@ -66,6 +71,7 @@ async function loadLastContactStatus() {
     if (isOffline) {
       const deviceLabel = selectedDevice && selectedDevice.device ? selectedDevice.device : 'Bridge device';
       lastContactBox.textContent = `${deviceLabel} appears to be offline.`;
+      rssiBox.textContent = rssiValue === null ? 'RSSI: unavailable' : `RSSI: ${rssiValue} dBm`;
       notifyOffline(deviceLabel);
       return;
     }
@@ -73,8 +79,10 @@ async function loadLastContactStatus() {
     const stamp = new Date(contactTimestamp);
     const label = Number.isNaN(stamp.getTime()) ? 'Unknown time' : stamp.toLocaleString();
     lastContactBox.textContent = `Last device contact: ${label}`;
+    rssiBox.textContent = rssiValue === null ? 'RSSI: unavailable' : `RSSI: ${rssiValue} dBm`;
   } catch (error) {
     lastContactBox.textContent = 'Heartbeat status unavailable.';
+    rssiBox.textContent = 'RSSI: unavailable';
   }
 }
 
