@@ -159,7 +159,7 @@ final class PushSender
                 'publicKey' => $this->vapidConfig->publicKey(),
                 'privateKey' => $this->vapidConfig->privateKey(),
             ],
-            'padding' => false,
+            'automatic_padding' => false,
         ]);
 
         $payload = $this->buildPayload($title, $body, $icon, array_merge($extra, ['urgency' => $normalizedUrgency]));
