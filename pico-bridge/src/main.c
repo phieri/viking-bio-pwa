@@ -36,6 +36,8 @@ volatile uint32_t event_flags = 0;
 #define SERIAL_LED_BLINK_MS 50
 #define USB_COMMAND_BUFFER_SIZE 160
 #define WIFI_CONNECT_TIMEOUT_MS 30000
+#define WIFI_RETRY_INITIAL_MS 1000U
+#define WIFI_RETRY_MAX_MS (24U * 60U * 60U * 1000U)
 #define IPV6_WAIT_TIMEOUT_MS 5000
 #define IPV6_POLL_INTERVAL_MS 50
 #define STARTUP_USB_WAIT_MS 2000
@@ -58,6 +60,10 @@ static bool s_led_blink_on = false;
 static bool s_status_led_available = false;
 static bool s_last_webhook_flame = false;
 static uint8_t s_last_webhook_error = 0;
+static uint32_t s_wifi_retry_delay_ms = WIFI_RETRY_INITIAL_MS;
+static absolute_time_t s_wifi_retry_deadline = {0};
+static bool s_dns_started = false;
+static bool wifi_link_is_up(void);
 
 static void bridge_status_led_set_state(bool enabled) {
 	if (s_status_led_available) {
@@ -66,8 +72,7 @@ static void bridge_status_led_set_state(bool enabled) {
 }
 
 static void led_update(void) {
-	bool wifi_up =
-		(netif_default != NULL) && netif_is_up(netif_default) && netif_is_link_up(netif_default);
+	bool wifi_up = wifi_link_is_up();
 
 	// Short blink overrides everything (serial data received)
 	if (!time_reached(s_serial_blink_end)) {
@@ -212,8 +217,7 @@ static bool handle_webhook_command(const char *arg) {
 static bool handle_status_command(const char *arg) {
 	(void)arg;
 
-	bool up =
-		(netif_default != NULL) && netif_is_up(netif_default) && netif_is_link_up(netif_default);
+	bool up = wifi_link_is_up();
 	printf("wifi: %s\n", up ? "connected" : "disconnected");
 	if (up) {
 		for (int i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++) {
@@ -375,6 +379,31 @@ static bool wifi_connect(const char *ssid, const char *password) {
 	return true;
 }
 
+static bool wifi_link_is_up(void) {
+	if ((netif_default == NULL) || !netif_is_up(netif_default) || !netif_is_link_up(netif_default)) {
+		return false;
+	}
+
+	int link_state = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+	return (link_state != CYW43_LINK_DOWN) && (link_state != CYW43_LINK_FAIL) &&
+		   (link_state != CYW43_LINK_BADAUTH);
+}
+
+static void wifi_retry_reset(void) {
+	s_wifi_retry_delay_ms = WIFI_RETRY_INITIAL_MS;
+	s_wifi_retry_deadline = get_absolute_time();
+}
+
+static void wifi_retry_schedule_next(void) {
+	uint32_t delay = s_wifi_retry_delay_ms;
+	if (s_wifi_retry_delay_ms < (WIFI_RETRY_MAX_MS / 2U)) {
+		s_wifi_retry_delay_ms *= 2U;
+	} else {
+		s_wifi_retry_delay_ms = WIFI_RETRY_MAX_MS;
+	}
+	s_wifi_retry_deadline = make_timeout_time_ms(delay);
+}
+
 static void reboot_via_watchdog(void) {
 	stdio_flush();
 	sleep_ms(POST_REBOOT_FLUSH_DELAY_MS);
@@ -412,6 +441,8 @@ static void init_bridge_components(void) {
 
 	wifi_config_init();
 	http_webhook_init();
+	s_dns_started = false;
+	wifi_retry_reset();
 }
 
 static bool init_wifi_stack(void) {
@@ -446,13 +477,20 @@ static bool load_wifi_credentials(char *ssid, size_t ssid_size, char *password,
 
 static bool start_wifi_services(const char *ssid, const char *password, bool have_creds,
 								bool *watchdog_on) {
-	if (!(have_creds && wifi_connect(ssid, password))) {
-		printf("\nWiFi not connected. Configure via USB serial:\n");
+	if (!have_creds) {
+		printf("\nWiFi not configured. Configure via USB serial:\n");
 		printf("  SSID=<ssid> then PASS=<password>\n\n");
 		return false;
 	}
+	if (!wifi_connect(ssid, password)) {
+		printf("WiFi link unavailable – retrying in background\n");
+		return false;
+	}
 
-	dns_sd_browser_start(on_configurator_discovered);
+	if (!s_dns_started) {
+		dns_sd_browser_start(on_configurator_discovered);
+		s_dns_started = true;
+	}
 
 	char srv_ip[WIFI_SERVER_IP_MAX_LEN + 1] = {0};
 	uint16_t srv_port = WIFI_SERVER_PORT_DEFAULT;
@@ -542,6 +580,7 @@ static void handle_timeout_event(bool wifi_up, bool *timeout_triggered, bool *fl
 }
 
 static void handle_broadcast_event(bool wifi_up, bool flame_on) {
+	(void)flame_on;
 	if ((event_flags & EVENT_BROADCAST) == 0) {
 		return;
 	}
@@ -566,13 +605,19 @@ int main(void) {
 	bool wifi_up = false;
 	bool watchdog_on = false;
 
-	wifi_up = start_wifi_services(ssid, password, have_creds, &watchdog_on);
+	if (have_creds) {
+		wifi_up = start_wifi_services(ssid, password, have_creds, &watchdog_on);
+		if (!wifi_up) {
+			s_wifi_retry_deadline = make_timeout_time_ms(s_wifi_retry_delay_ms);
+		}
+	}
 
 	struct repeating_timer timer;
 	init_periodic_timer(&timer);
 
 	printf("Initialization complete.%s\n",
-		   wifi_up ? " Bridging data..." : " Waiting for WiFi config.");
+		   wifi_up ? " Bridging data..." : (have_creds ? " Waiting for WiFi reconnect..."
+										   : " Waiting for WiFi config."));
 
 	uint8_t buffer[SERIAL_BUFFER_SIZE];
 	bool timeout_triggered = false;
@@ -581,6 +626,25 @@ int main(void) {
 	while (true) {
 		if (watchdog_on) {
 			watchdog_update();
+		}
+
+		if (have_creds && !wifi_up && time_reached(s_wifi_retry_deadline)) {
+			if (start_wifi_services(ssid, password, have_creds, &watchdog_on)) {
+				wifi_up = true;
+				wifi_retry_reset();
+				printf("WiFi link restored – resuming telemetry\n");
+			} else {
+				uint32_t retry_delay = s_wifi_retry_delay_ms;
+				printf("WiFi unavailable; retrying in %lu s\n",
+					   (unsigned long)(retry_delay / 1000U));
+				wifi_retry_schedule_next();
+			}
+		}
+
+		if (wifi_up && !wifi_link_is_up()) {
+			printf("WiFi link lost – scheduling reconnect\n");
+			wifi_up = false;
+			wifi_retry_reset();
 		}
 
 		// Networking (Wi-Fi + lwIP) is serviced by the CYW43 arch background
