@@ -14,10 +14,10 @@ The browser app handles VAPID subscriptions and sends operator push notification
 ```bash
 cd push-pwa
 composer install
-php -S 0.0.0.0:8000 -t public
+php -S [::]:8000 -t public
 ```
 
-Open `http://localhost:8000/` in a browser and generate the client YAML block.
+Open `http://[::1]:8000/` in a browser and generate the client YAML block.
 
 ## Webhook flow
 

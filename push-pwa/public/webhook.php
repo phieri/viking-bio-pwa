@@ -24,6 +24,20 @@ function webhook_response_fail(int $statusCode, string $reason): never
     exit;
 }
 
+function webhook_require_ipv6(): void
+{
+    $remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '';
+    if ($remoteAddress === '') {
+        return;
+    }
+
+    if (str_contains($remoteAddress, '.') || !filter_var($remoteAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        webhook_response_fail(403, 'IPv6-only webhook listener');
+    }
+}
+
+webhook_require_ipv6();
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     webhook_response_fail(405, 'Method not allowed');
 }
