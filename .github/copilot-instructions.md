@@ -253,7 +253,7 @@ packaged and served as a static site:
 ```bash
 cd push-pwa
 composer install
-php -S 0.0.0.0:8000 -t public
+php -S [::]:8000 -t public
 ```
 
 Treat `push-pwa/` as a separate app with its own package/deploy workflow and browser-specific

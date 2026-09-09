@@ -39,7 +39,7 @@ go build -o viking-bio-configurator ./cmd/configurator
 ```bash
 cd push-pwa
 composer install
-php -S 0.0.0.0:8000 -t public
+php -S [::]:8000 -t public
 ```
 
 See `architecture.md` for the runtime details and data flow.
