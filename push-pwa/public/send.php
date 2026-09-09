@@ -131,7 +131,7 @@ $result = $sender->send(
     $title,
     $bodyText,
     $icon,
-    ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt, 'priority' => $priority, 'urgency' => $urgency],
+    ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt],
     $priority,
     $senderValue
 );

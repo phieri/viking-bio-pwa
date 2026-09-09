@@ -161,7 +161,7 @@ final class PushSender
             ],
         ]);
 
-        $payload = $this->buildPayload($title, $body, $icon, array_merge($extra, ['priority' => $normalizedPriority, 'urgency' => $normalizedUrgency]));
+        $payload = $this->buildPayload($title, $body, $icon, array_merge($extra, ['urgency' => $normalizedUrgency]));
         $deliveryState = $this->queuePendingNotifications($webPush, $payload, $subscriptions, $normalizedPriority, $normalizedSender, $storage);
 
         return $this->processDeliveryReports($webPush->flush(), $deliveryState['pendingReports'], $deliveryState['failed'], $storage);

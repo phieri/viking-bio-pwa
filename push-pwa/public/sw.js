@@ -78,7 +78,7 @@ function normaliseNotificationTarget(targetUrl) {
 self.addEventListener('push', (event) => {
   const payload = event.data && event.data.json ? event.data.json() : { title: 'Viking Bio', body: 'A new burner update is available.' };
   const rawTimestamp = payload.timestamp;
-  const urgency = String(payload.urgency || payload.priority || 'normal').toLowerCase();
+  const urgency = String(payload.urgency || 'normal').toLowerCase();
   const options = {
     body: payload.body || 'New burner update',
     icon: payload.icon || '/icon.svg',
