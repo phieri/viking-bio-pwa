@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #ifndef LFS_HAL_H
 #define LFS_HAL_H
 

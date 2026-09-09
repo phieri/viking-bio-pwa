@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #include "pico/stdlib.h"
 #include "viking_bio_protocol.h"
 

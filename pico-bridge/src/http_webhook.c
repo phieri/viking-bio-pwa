@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>

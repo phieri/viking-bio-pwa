@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 /**
  * @file mbedtls_config.h
  * @brief mbedTLS configuration for Viking Bio Bridge firmware (Pico W)

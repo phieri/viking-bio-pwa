@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 // Static docs generator for the English and Swedish landing pages.
 // The generated HTML files in docs/en/, docs/sv/, and docs/index.html are committed build artifacts.
 // Regenerate from the repo root with: node docs/build.js

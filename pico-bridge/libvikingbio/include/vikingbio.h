@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #ifndef VIKINGBIO_H
 #define VIKINGBIO_H
 

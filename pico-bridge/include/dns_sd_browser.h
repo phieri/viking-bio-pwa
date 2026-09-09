@@ -1,3 +1,5 @@
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
+
 #ifndef DNS_SD_BROWSER_H
 #define DNS_SD_BROWSER_H
 
