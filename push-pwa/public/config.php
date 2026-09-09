@@ -13,7 +13,7 @@ session_set_cookie_params([
 ]);
 session_start();
 
-$uiUrl = getenv('PUSH_UI_URL') ?: (getenv('APP_URL') ?: \VikingBioPush\PushSender::uiUrl());
+$uiUrl = getenv('PUSH_UI_URL') ?: \VikingBioPush\PushSender::uiUrl();
 $uiUrl = \VikingBioPush\PushSender::normalizeUiTargetUrl($uiUrl, \VikingBioPush\PushSender::uiUrl());
 if (empty($_SESSION['push_send_token'])) {
     $_SESSION['push_send_token'] = bin2hex(random_bytes(32));

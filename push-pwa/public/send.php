@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$allowedOrigin = getenv('APP_URL') ?: (getenv('PUSH_UI_URL') ?: \VikingBioPush\PushSender::uiUrl());
+$allowedOrigin = getenv('PUSH_UI_URL') ?: \VikingBioPush\PushSender::uiUrl();
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $referrer = $_SERVER['HTTP_REFERER'] ?? '';
 $allowedHost = strtolower((string) (parse_url($allowedOrigin, PHP_URL_HOST) ?: 'localhost'));
