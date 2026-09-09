@@ -1,10 +1,13 @@
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "pico/cyw43_arch.h"
 #include "pico/time.h"
 #include "pico/stdlib.h"
 #include "lwip/dns.h"
 #include "lwip/ip_addr.h"
+#include "lwip/netif.h"
 #include "lwip/tcp.h"
 
 #include "http_webhook.h"
@@ -48,6 +51,23 @@ static size_t s_queue_count = 0;
 static uint64_t s_last_webhook_ms = 0;
 
 static bool queue_push(const char *json);
+
+static bool read_wifi_rssi(int *rssi_dbm) {
+	if (rssi_dbm == NULL) {
+		return false;
+	}
+	*rssi_dbm = INT_MIN;
+	if (netif_default == NULL || !netif_is_up(netif_default) || !netif_is_link_up(netif_default)) {
+		return false;
+	}
+
+	int rssi = cyw43_wifi_get_rssi(&cyw43_state, 0);
+	if (rssi >= 0) {
+		return false;
+	}
+	*rssi_dbm = rssi;
+	return true;
+}
 
 static void record_webhook_sent(void) {
 	s_last_webhook_ms = to_ms_since_boot(get_absolute_time());
@@ -324,6 +344,24 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 
 	if (!wifi_config_get_device_id(device, sizeof(device))) {
 		snprintf(device, sizeof(device), "unknown");
+	}
+
+	if (strcmp(type, "heartbeat") == 0) {
+		int rssi = INT_MIN;
+		bool have_rssi = read_wifi_rssi(&rssi);
+		int written;
+		if (have_rssi) {
+			written = snprintf(out, out_len,
+					"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%d}",
+					device, type, detail_text, rssi);
+		} else {
+			// The Wi‑Fi stack exposes RSSI in dBm only once the station link is up; keep
+			// heartbeat payloads valid by sending null when the value is unavailable.
+			written = snprintf(out, out_len,
+					"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":null}",
+					device, type, detail_text);
+		}
+		return written > 0 && written < (int)out_len;
 	}
 
 	int written = snprintf(out, out_len,

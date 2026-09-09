@@ -58,6 +58,7 @@ if (!is_array($payload)) {
 $device = is_string($payload['device'] ?? null) ? trim($payload['device']) : '';
 $type = is_string($payload['type'] ?? null) ? strtolower(trim($payload['type'])) : '';
 $detail = is_string($payload['detail'] ?? null) ? strtolower(trim($payload['detail'])) : '';
+$rssi = isset($payload['rssi']) && is_numeric($payload['rssi']) ? (int) $payload['rssi'] : null;
 $errorCode = (int) ($payload['err'] ?? 0);
 $temperature = isset($payload['temp']) && is_numeric($payload['temp']) ? (float) $payload['temp'] : null;
 
@@ -147,6 +148,7 @@ if ($type === 'heartbeat') {
         'timestamp' => $timestamp,
         'type' => $type,
         'detail' => $detail,
+        'rssi' => $rssi,
     ];
 
     $writeOk = false;

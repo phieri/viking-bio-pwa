@@ -16,6 +16,7 @@ if (function_exists('apcu_fetch')) {
     if (!is_file($statePath)) {
         echo json_encode([
             'lastContact' => null,
+            'lastRssi' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -25,6 +26,7 @@ if (function_exists('apcu_fetch')) {
     if ($raw === false || trim($raw) === '') {
         echo json_encode([
             'lastContact' => null,
+            'lastRssi' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -34,6 +36,7 @@ if (function_exists('apcu_fetch')) {
     if (!is_array($decoded)) {
         echo json_encode([
             'lastContact' => null,
+            'lastRssi' => null,
             'devices' => [],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         exit;
@@ -41,6 +44,7 @@ if (function_exists('apcu_fetch')) {
 }
 
 $latest = null;
+$latestRssi = null;
 $devices = [];
 foreach ($decoded as $device => $entry) {
     if (!is_array($entry)) {
@@ -52,20 +56,32 @@ foreach ($decoded as $device => $entry) {
         continue;
     }
 
+    $rssi = $entry['rssi'] ?? null;
+    if (is_numeric($rssi)) {
+        $rssi = (int) $rssi;
+    } else {
+        $rssi = null;
+    }
+
     $deviceTimestamp = (int) $timestamp;
     $devices[(string) $device] = [
         'device' => (string) ($entry['device'] ?? $device),
         'timestamp' => $deviceTimestamp,
         'type' => $entry['type'] ?? 'heartbeat',
         'detail' => $entry['detail'] ?? 'alive',
+        'rssi' => $rssi,
     ];
 
     if ($latest === null || $deviceTimestamp > $latest) {
         $latest = $deviceTimestamp;
+        $latestRssi = $rssi;
+    } elseif ($deviceTimestamp === $latest && $rssi !== null) {
+        $latestRssi = $rssi;
     }
 }
 
 echo json_encode([
     'lastContact' => $latest,
+    'lastRssi' => $latestRssi,
     'devices' => $devices,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
