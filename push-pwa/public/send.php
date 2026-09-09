@@ -110,13 +110,14 @@ if (!is_string($priorityLevelValue)) {
     $rawPriority = strtolower($priorityLevelValue);
 }
 
-$allowedPriorities = ['low', 'normal', 'high'];
+$allowedPriorities = ['very-low', 'low', 'normal', 'high'];
 if (!in_array($rawPriority, $allowedPriorities, true)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Priority must be one of low, normal, or high']);
+    echo json_encode(['error' => 'Priority must be one of very-low, low, normal, or high']);
     exit;
 }
 $priority = $rawPriority;
+$urgency = $priority;
 
 $rawSender = $data['sender'] ?? null;
 $senderValue = is_string($rawSender) ? trim($rawSender) : '';
@@ -130,9 +131,9 @@ $result = $sender->send(
     $title,
     $bodyText,
     $icon,
-    ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt, 'priority' => $priority],
+    ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt, 'priority' => $priority, 'urgency' => $urgency],
     $priority,
     $senderValue
 );
 
-echo json_encode(['ok' => true, 'priority' => $priority, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+echo json_encode(['ok' => true, 'priority' => $priority, 'urgency' => $urgency, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
