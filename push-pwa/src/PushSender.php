@@ -140,8 +140,12 @@ final class PushSender
 
     public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
     {
+        // The bridge/backend contract uses the generic "priority" term, but the Web Push
+        // API itself expects the field name "urgency" when sending to the browser push
+        // service. We normalize both values to the same four-level scale.
         $normalizedPriority = $this->normalizePriority($priority);
         $normalizedSender = $this->normalizeSender($sender);
+        $normalizedUrgency = $this->normalizeUrgency($normalizedPriority);
 
         $storage = new PushStorage($this->storagePath);
         $subscriptions = $storage->all();
@@ -157,7 +161,7 @@ final class PushSender
             ],
         ]);
 
-        $payload = $this->buildPayload($title, $body, $icon, $extra);
+        $payload = $this->buildPayload($title, $body, $icon, array_merge($extra, ['urgency' => $normalizedUrgency]));
         $deliveryState = $this->queuePendingNotifications($webPush, $payload, $subscriptions, $normalizedPriority, $normalizedSender, $storage);
 
         return $this->processDeliveryReports($webPush->flush(), $deliveryState['pendingReports'], $deliveryState['failed'], $storage);
@@ -174,6 +178,18 @@ final class PushSender
         return match ($normalizedPriority) {
             'very-low', 'low', 'normal', 'high' => $normalizedPriority,
             default => throw new \InvalidArgumentException('Priority must be one of very-low, low, normal, or high'),
+        };
+    }
+
+    private function normalizeUrgency(?string $priority): ?string
+    {
+        if ($priority === null) {
+            return null;
+        }
+
+        return match ($priority) {
+            'very-low', 'low', 'normal', 'high' => $priority,
+            default => throw new \InvalidArgumentException('Urgency must be one of very-low, low, normal, or high'),
         };
     }
 
@@ -222,12 +238,18 @@ final class PushSender
             $pendingReports[] = $delivery['endpoint'];
 
             try {
+                $notificationOptions = ['TTL' => 86400];
+                $webPushUrgency = $this->normalizeUrgency($requestedPriority);
+                if ($webPushUrgency !== null) {
+                    $notificationOptions['urgency'] = $webPushUrgency;
+                }
+
                 $webPush->sendNotification(
                     $delivery['endpoint'],
                     $payload,
                     $delivery['publicKey'],
                     $delivery['auth'],
-                    ['TTL' => 2419200]
+                    $notificationOptions
                 );
             } catch (\Throwable $throwable) {
                 if ($this->isPermanentThrowableError($throwable)) {

@@ -122,6 +122,7 @@ $alert = match ($type) {
 $title = $alert['title'];
 $message = $alert['message'];
 $priority = $alert['priority'];
+$urgency = $priority;
 
 if ($temperature !== null && $type !== 'error') {
     $message .= sprintf(' Temperature %.1f°C.', $temperature);
@@ -191,7 +192,6 @@ $result = $sender->send(
         'tag' => 'viking-bio-' . $type,
         'url' => PushSender::uiUrl(),
         'timestamp' => (int) floor(microtime(true) * 1000),
-        'priority' => $priority,
         'device' => $device,
         'type' => $type,
         'detail' => $detail,

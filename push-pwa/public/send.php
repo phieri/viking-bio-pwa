@@ -103,20 +103,20 @@ $icon = is_string($data['icon'] ?? null) ? $data['icon'] : '/icon.svg';
 $safeUiUrl = \VikingBioPush\PushSender::uiUrl();
 $url = is_string($data['url'] ?? null) ? $data['url'] : $safeUiUrl;
 $url = \VikingBioPush\PushSender::normalizeUiTargetUrl($url, $safeUiUrl);
-$priorityLevelValue = $data['priority'] ?? null;
-if (!is_string($priorityLevelValue)) {
-    $rawPriority = 'normal';
+$priority = $data['priority'] ?? 'normal';
+if (!is_string($priority)) {
+    $priority = 'normal';
 } else {
-    $rawPriority = strtolower($priorityLevelValue);
+    $priority = strtolower(trim($priority));
 }
 
-$allowedPriorities = ['low', 'normal', 'high'];
-if (!in_array($rawPriority, $allowedPriorities, true)) {
+$allowedPriorities = ['very-low', 'low', 'normal', 'high'];
+if (!in_array($priority, $allowedPriorities, true)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Priority must be one of low, normal, or high']);
+    echo json_encode(['error' => 'Priority must be one of very-low, low, normal, or high']);
     exit;
 }
-$priority = $rawPriority;
+$urgency = $priority;
 
 $rawSender = $data['sender'] ?? null;
 $senderValue = is_string($rawSender) ? trim($rawSender) : '';
@@ -130,9 +130,9 @@ $result = $sender->send(
     $title,
     $bodyText,
     $icon,
-    ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt, 'priority' => $priority],
+    ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt],
     $priority,
     $senderValue
 );
 
-echo json_encode(['ok' => true, 'priority' => $priority, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+echo json_encode(['ok' => true, 'priority' => $priority, 'urgency' => $urgency, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
