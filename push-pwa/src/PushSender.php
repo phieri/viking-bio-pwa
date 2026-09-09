@@ -238,7 +238,7 @@ final class PushSender
             $pendingReports[] = $delivery['endpoint'];
 
             try {
-                $notificationOptions = ['TTL' => 2419200];
+                $notificationOptions = ['TTL' => 86400];
                 $webPushUrgency = $this->normalizeUrgency($requestedPriority);
                 if ($webPushUrgency !== null) {
                     $notificationOptions['urgency'] = $webPushUrgency;
