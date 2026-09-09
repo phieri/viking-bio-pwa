@@ -227,7 +227,7 @@ final class PushSender
                     $payload,
                     $delivery['publicKey'],
                     $delivery['auth'],
-                    ['TTL' => 2419200]
+                    ['TTL' => 25 * 60 * 60]
                 );
             } catch (\Throwable $throwable) {
                 if ($this->isPermanentThrowableError($throwable)) {
