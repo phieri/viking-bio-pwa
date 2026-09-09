@@ -1,6 +1,6 @@
-/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
-
 <?php
+
+/* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
 
 declare(strict_types=1);
 
