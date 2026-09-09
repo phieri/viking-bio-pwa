@@ -56,7 +56,7 @@ that proves the relevant behaviour:
 │   ├── include/                     # Firmware public headers
 │   ├── src/
 │   │   ├── main.c                   # Main loop, USB commands, Wi-Fi startup
-│   │   ├── http_client.c            # Signed TCP ingest client
+│   │   ├── tcp_client.c             # Signed TCP ingest client
 │   │   ├── wifi_config.c            # Encrypted Wi‑Fi/server/token storage
 │   │   ├── lfs_hal.c                # LittleFS flash backend
 │   │   ├── dns_sd_browser.c         # Passive mDNS/DNS-SD listener for proxy discovery
@@ -291,7 +291,7 @@ notification config.
 ### Firmware config or networking changes
 
 - Wi‑Fi/server/token persistence lives in `pico-bridge/src/wifi_config.c`.
-- Signed TCP ingest client logic lives in `pico-bridge/src/http_client.c`.
+- Signed TCP ingest client logic lives in `pico-bridge/src/tcp_client.c`.
 - mDNS discovery logic lives in `pico-bridge/src/dns_sd_browser.c`.
 - USB command behaviour lives in `pico-bridge/src/main.c`.
 

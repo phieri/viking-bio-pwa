@@ -9,7 +9,7 @@
 #include "lwip/ip6_addr.h"
 #include "serial_handler.h"
 #include "vikingbio.h"
-#include "http_client.h"
+#include "tcp_client.h"
 #include "http_webhook.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
@@ -252,7 +252,7 @@ static bool handle_status_command(const char *arg) {
 	printf("  webhook: %s\n",
 		   wifi_config_load_webhook_url(webhook_url, sizeof(webhook_url)) ? "(set)" : "not set");
 
-	printf("  telemetry: %s\n", http_client_is_active() ? "active" : "idle");
+	printf("  telemetry: %s\n", tcp_client_is_active() ? "active" : "idle");
 
 	return false;
 }
@@ -339,7 +339,7 @@ static void on_configurator_discovered(const char *ip6addr, uint16_t port) {
 	}
 	char device_key[WIFI_DEVICE_KEY_MAX_LEN + 1] = {0};
 	wifi_config_load_device_key(device_key, sizeof(device_key));
-	http_client_init(ip6addr, port, device_key[0] ? device_key : NULL);
+	tcp_client_init(ip6addr, port, device_key[0] ? device_key : NULL);
 }
 
 bool periodic_timer_callback(struct repeating_timer *t) {
@@ -499,7 +499,7 @@ static bool start_wifi_services(const char *ssid, const char *password, bool hav
 	wifi_config_load_device_key(device_key, sizeof(device_key));
 	if (srv_ip[0] != '\0') {
 		printf("Configurator server: %s:%d\n", srv_ip, srv_port);
-		http_client_init(srv_ip, srv_port, device_key[0] ? device_key : NULL);
+		tcp_client_init(srv_ip, srv_port, device_key[0] ? device_key : NULL);
 	} else {
 		printf("Configurator server not configured – use SERVER=<ip> via USB serial\n");
 	}
@@ -555,7 +555,7 @@ static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up
 		}
 	}
 	if (wifi_up) {
-		http_client_send_data(&new_data);
+		tcp_client_send_data(&new_data);
 	}
 }
 
@@ -574,7 +574,7 @@ static void handle_timeout_event(bool wifi_up, bool *timeout_triggered, bool *fl
 			if (http_webhook_is_configured()) {
 				http_webhook_send_alert(&stale, "error", "stale");
 			}
-			http_client_send_data(&stale);
+			tcp_client_send_data(&stale);
 		}
 	}
 }
@@ -587,7 +587,7 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 	event_flags &= ~EVENT_BROADCAST;
 	if (wifi_up) {
 		cyw43_arch_lwip_begin();
-		http_client_poll();
+		tcp_client_poll();
 		http_webhook_poll();
 		cyw43_arch_lwip_end();
 	}
