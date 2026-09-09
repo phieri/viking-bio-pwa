@@ -32,7 +32,7 @@ final class PushSender
 
     public static function uiUrl(): string
     {
-        $configuredUrl = getenv('PUSH_UI_URL') ?: getenv('APP_URL');
+        $configuredUrl = getenv('PUSH_UI_URL');
         if (is_string($configuredUrl) && trim($configuredUrl) !== '') {
             $normalizedConfiguredUrl = trim($configuredUrl);
             return self::normalizeUiTargetUrl($normalizedConfiguredUrl, $normalizedConfiguredUrl);
