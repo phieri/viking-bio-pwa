@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-proxy:
+  build-configurator:
     name: Build and Test Go Configurator
     runs-on: ubuntu-latest
     permissions:
@@ -60,8 +60,8 @@ jobs:
     - name: "Smoke-test: ingest listener accepts signed telemetry"
       run: |
         set -euo pipefail
-        mkdir -p /tmp/proxy-data
-        cat > /tmp/proxy-data/devices.json <<'JSON'
+        mkdir -p /tmp/configurator-data
+        cat > /tmp/configurator-data/devices.json <<'JSON'
         {
           "ci-device": {
             "key": "ci-secret",
@@ -70,7 +70,7 @@ jobs:
           }
         }
         JSON
-        DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 configurator/dist/linux_amd64/viking-bio-configurator &
+        DATA_DIR=/tmp/configurator-data MDNS_DISABLE=1 configurator/dist/linux_amd64/viking-bio-configurator &
         SERVER_PID=$!
         sleep 2
         python - <<'PY'
@@ -105,7 +105,7 @@ jobs:
         python - <<'PY'
         import json
 
-        with open("/tmp/proxy-data/devices.json", "r", encoding="utf-8") as f:
+        with open("/tmp/configurator-data/devices.json", "r", encoding="utf-8") as f:
             devices = json.load(f)
         assert devices["ci-device"]["last_seq"] == 1, devices
         PY
