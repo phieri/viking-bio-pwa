@@ -121,7 +121,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 
 	titleLabel := widget.NewLabelWithStyle("Viking Bio – Device Configurator",
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	versionLabel := widget.NewLabelWithStyle("Version: "+appversion.String(),
+	versionLabel := widget.NewLabelWithStyle("Configurator: "+appversion.String(),
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	statusLabel := widget.NewLabel("Loading device status...")
@@ -160,6 +160,9 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		}
 		if status.DeviceID != "" {
 			sb.WriteString("Device:    " + status.DeviceID + "\n")
+		}
+		if status.FirmwareVersion != "" {
+			sb.WriteString("Firmware:  " + status.FirmwareVersion + "\n")
 		}
 		if status.Server != "" {
 			sb.WriteString(fmt.Sprintf("Server:    %s:%d\n", status.Server, status.Port))
@@ -237,6 +240,9 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			}
 			if status.DeviceID != "" {
 				sb.WriteString("  Device:    " + status.DeviceID + "\n")
+			}
+			if status.FirmwareVersion != "" {
+				sb.WriteString("  Firmware:  " + status.FirmwareVersion + "\n")
 			}
 			if status.Server != "" {
 				sb.WriteString(fmt.Sprintf("  Server:    %s:%d\n", status.Server, status.Port))

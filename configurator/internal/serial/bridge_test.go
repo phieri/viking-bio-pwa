@@ -12,6 +12,7 @@ func TestParseStatusHandlesRuntimeFields(t *testing.T) {
 		"wifi: connected",
 		"  IPv6[0]: fd00::1234",
 		"  country: SE",
+		"  firmware: v1.2.3",
 		"  server:  fd00::1:9000",
 		"  device:  pico-1234",
 		"  device key: (set)",
@@ -33,6 +34,9 @@ func TestParseStatusHandlesRuntimeFields(t *testing.T) {
 	}
 	if status.DeviceID != "pico-1234" {
 		t.Fatalf("expected device ID pico-1234, got %q", status.DeviceID)
+	}
+	if status.FirmwareVersion != "v1.2.3" {
+		t.Fatalf("expected firmware version v1.2.3, got %q", status.FirmwareVersion)
 	}
 	if status.DeviceKey != "(set)" {
 		t.Fatalf("expected device key marker, got %q", status.DeviceKey)

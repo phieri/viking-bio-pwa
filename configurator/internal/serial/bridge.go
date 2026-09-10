@@ -26,15 +26,16 @@ type PortInfo struct {
 
 // StatusResult holds parsed output from the Pico STATUS command.
 type StatusResult struct {
-	Connected bool
-	Addresses []string
-	Country   string
-	DeviceID  string
-	Server    string
-	Port      int
-	Telemetry string
-	DeviceKey string
-	Webhook   string
+	Connected       bool
+	Addresses       []string
+	Country         string
+	DeviceID        string
+	FirmwareVersion string
+	Server          string
+	Port            int
+	Telemetry       string
+	DeviceKey       string
+	Webhook         string
 }
 
 // Bridge communicates with the Pico W over USB serial.
@@ -168,6 +169,8 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 			r.Country = value
 		case "device":
 			r.DeviceID = value
+		case "firmware", "version":
+			r.FirmwareVersion = value
 		case "server":
 			if strings.EqualFold(value, "not configured") {
 				r.Server = ""
