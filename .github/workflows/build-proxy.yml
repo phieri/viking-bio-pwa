@@ -3,14 +3,18 @@ name: Build and Test Configurator
 on:
   push:
     branches: [ main, develop ]
-    paths:
-      - 'configurator/**'
-      - '.github/workflows/build-proxy.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'pico-bridge/**'
+      - 'push-pwa/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'configurator/**'
-      - '.github/workflows/build-proxy.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'pico-bridge/**'
+      - 'push-pwa/**'
   workflow_dispatch:
 
 jobs:
