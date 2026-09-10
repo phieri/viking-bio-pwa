@@ -8,6 +8,7 @@ const OFFLINE_HEARTBEATS_THRESHOLD = 3;
 const DEVICE_OFFLINE_THRESHOLD_MS = HEARTBEAT_INTERVAL_MS * OFFLINE_HEARTBEATS_THRESHOLD;
 const installBanner = document.getElementById('install-banner');
 const installButton = document.getElementById('install-button');
+const yamlGenerator = document.getElementById('yaml-generator');
 const enablePushButton = document.getElementById('enable-push');
 const sendTestButton = document.getElementById('send-test');
 const copyButton = document.getElementById('copy-yaml');
@@ -45,6 +46,14 @@ function setStatus(message, type = '') {
   statusBox.className = `status ${type}`.trim();
 }
 
+function updateYamlGeneratorVisibility(hasHeartbeat) {
+  if (!yamlGenerator) {
+    return;
+  }
+
+  yamlGenerator.classList.toggle('hidden', hasHeartbeat);
+}
+
 async function loadLastContactStatus() {
   try {
     const response = await fetch('/status.php', { headers: { Accept: 'application/json' } });
@@ -70,10 +79,12 @@ async function loadLastContactStatus() {
       lastContactBox.textContent = 'No device heartbeat received yet.';
       rssiBox.textContent = 'RSSI: unavailable';
       lfsBox.textContent = 'LittleFS: unavailable';
+      updateYamlGeneratorVisibility(false);
       return;
     }
 
     const contactTimestamp = Number(lastContact);
+    updateYamlGeneratorVisibility(true);
     const isOffline = Date.now() - contactTimestamp > DEVICE_OFFLINE_THRESHOLD_MS;
     if (isOffline) {
       const deviceLabel = selectedDevice && selectedDevice.device ? selectedDevice.device : 'Bridge device';

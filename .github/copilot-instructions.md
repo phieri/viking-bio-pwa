@@ -15,8 +15,8 @@ There are four active components:
 4. **`push-pwa/`** - browser push notification frontend. It registers browser subscriptions,
    keeps VAPID metadata, and sends operator-facing push notifications.
 
-The active runtime architecture is: burner -> Pico bridge -> proxy ingest -> browser push app.
-Older docs, memories, and stale README-era notes may still mention a dashboard in `proxy/`,
+The active runtime architecture is: burner -> Pico bridge -> configurator ingest -> browser push app.
+Older docs, memories, and stale README-era notes may still mention an older runtime directory,
 old Node.js paths, or legacy webhook flows; verify against the current code and CI workflow
 before acting.
 
@@ -34,7 +34,7 @@ that proves the relevant behaviour:
 - For firmware work, verify the toolchain prerequisites before attempting a local build; the CI
   workflow requires Pico SDK and ARM cross-compilation tools.
 - For `push-pwa/`, treat it as a distinct workflow with its own packaging and browser-push setup,
-  not as part of the Go proxy runtime.
+  not as part of the Go configurator runtime.
 - Treat stale documentation as a risk: confirm behaviour against the current code and workflow
   files rather than older docs that describe the retired dashboard or legacy webhook model.
 
@@ -47,7 +47,7 @@ that proves the relevant behaviour:
 │   ├── dependabot.yml               # Dependency updates
 │   └── workflows/
 │       ├── build-firmware.yml       # C firmware build for pico_w / pico2_w
-│       ├── build-proxy.yml          # Go proxy lint/test/build/smoke tests
+│       ├── build-configurator.yml          # Go configurator lint/test/build/smoke tests
 │       ├── build-push-pwa.yml       # Push PWA packaging workflow
 │       └── pages.yml                # Demo/site publish workflow
 ├── pico-bridge/
@@ -59,7 +59,7 @@ that proves the relevant behaviour:
 │   │   ├── tcp_client.c             # Signed TCP ingest client
 │   │   ├── wifi_config.c            # Encrypted Wi‑Fi/server/token storage
 │   │   ├── lfs_hal.c                # LittleFS flash backend
-│   │   ├── dns_sd_browser.c         # Passive mDNS/DNS-SD listener for proxy discovery
+│   │   ├── dns_sd_browser.c         # Passive mDNS/DNS-SD listener for configurator discovery
 │   │   └── ...
 │   └── platform/
 │       ├── lwipopts.h               # lwIP options for IPv6 + TLS client
@@ -70,12 +70,12 @@ that proves the relevant behaviour:
 │   ├── internal/
 │   │   ├── config/                  # Environment parsing and validation
 │   │   ├── configure/               # Fyne GUI for local bridge setup
-│   │   ├── mdns/                    # Proxy mDNS advertisement
+│   │   ├── mdns/                    # Configurator mDNS advertisement
 │   │   ├── serial/                  # USB serial bridge for Pico configurator
 │   │   ├── server/                  # HTTP API and ingest handlers
 │   │   ├── storage/                 # Device registry and runtime state
 │   │   └── ...
-│   ├── README.md                    # Go proxy runtime documentation
+│   ├── README.md                    # Go configurator runtime documentation
 │   ├── Makefile                     # build/test/run shortcuts
 │   └── go.mod                       # Go module definition
 ├── push-pwa/
@@ -101,7 +101,7 @@ Viking Bio 20 ──UART──► Pico W firmware
                          ├── passive mDNS listener for _viking-bio._tcp
                          └── bridge-owned outbound alert target
 
-Go configurator (proxy)
+Go configurator
 ├── TCP ingest listener (INGEST_TCP_PORT)  signed framed telemetry from Pico
 ├── local API (HTTP/HTTPS) for operational state, metrics, and config helpers
 ├── USB provisioning flow for Wi‑Fi/server/device key setup
@@ -114,21 +114,21 @@ Browser push app (push-pwa)
 └── sends browser push notifications for burner alerts
 ```
 
-### Proxy details
+### Configurator details
 
 - Main entry point is `configurator/cmd/configurator/main.go`.
 - The ingest listener and runtime state live in `configurator/internal/server/ingest.go` and `handlers.go`.
 - The configurator does not serve a browser dashboard or legacy HTTP API routes.
-- The mDNS advertises the proxy as `_viking-bio._tcp` on the ingest port from the
+- The mDNS advertises the configurator as `_viking-bio._tcp` on the ingest port from the
   `mdns` package; there is no browser-facing HTTP API in the configurator.
 - `MDNS_DISABLE=1` disables mDNS advertisement and is used in CI smoke-test runs.
-- The proxy no longer owns browser push delivery; browser notifications are handled by the
+- The configurator no longer owns browser push delivery; browser notifications are handled by the
   separate `push-pwa/` app.
 
 ### Push PWA details
 
 - `push-pwa/` is the browser-facing subscription and delivery app for VAPID/web-push alerts.
-- It is a separate runtime from the Go proxy and not a `configurator/public` dashboard.
+- It is a separate runtime from the Go configurator and not a `configurator/public` dashboard.
 - Changes to browser subscription logic, UI, or notification payload handling belong under
   `push-pwa/` rather than `configurator/internal/server`.
 
@@ -149,11 +149,11 @@ Browser push app (push-pwa)
 
 ## Build, test, and validation
 
-### Proxy
+### Configurator
 
-The proxy is a Go module in `configurator/` (`module github.com/phieri/viking-bio-pwa/configurator`) and
-currently targets Go 1.26. The CI workflow in `.github/workflows/build-proxy.yml` is the
-source of truth for proxy validation.
+The configurator is a Go module in `configurator/` (`module github.com/phieri/viking-bio-pwa/configurator`) and
+currently targets Go 1.26. The CI workflow in `.github/workflows/build-configurator.yml` is the
+source of truth for configurator validation.
 
 On Linux, install the Fyne GUI dependencies before building the configurator path:
 
@@ -179,17 +179,17 @@ make run
 make test        # runs go test ./...
 ```
 
-The current smoke test starts the proxy, provisions a device record, and verifies that a signed
+The current smoke test starts the configurator, provisions a device record, and verifies that a signed
 framed TCP payload is accepted on `::1:9000` without requiring any legacy HTTP route:
 
 ```bash
-mkdir -p /tmp/proxy-data
-cat > /tmp/proxy-data/devices.json <<'JSON'
+mkdir -p /tmp/configurator-data
+cat > /tmp/configurator-data/devices.json <<'JSON'
 {
   "ci-device": { "key": "ci-secret", "last_seq": 0, "updated_at": 0 }
 }
 JSON
-DATA_DIR=/tmp/proxy-data MDNS_DISABLE=1 /tmp/viking-bio-configurator &
+DATA_DIR=/tmp/configurator-data MDNS_DISABLE=1 /tmp/viking-bio-configurator &
 SERVER_PID=$!
 sleep 2
 python - <<'PY'
@@ -224,7 +224,7 @@ sleep 1
 python - <<'PY'
 import json
 
-with open("/tmp/proxy-data/devices.json", "r", encoding="utf-8") as f:
+with open("/tmp/configurator-data/devices.json", "r", encoding="utf-8") as f:
     devices = json.load(f)
 assert devices["ci-device"]["last_seq"] == 1, devices
 PY
@@ -261,13 +261,13 @@ notification config.
 
 ## Where to make changes
 
-### Proxy HTTP/API changes
+### Configurator HTTP/API changes
 
 - Add or update routes in `configurator/internal/server/server.go`.
 - Implement logic in `configurator/internal/server/handlers.go`.
 - Update or add tests in `configurator/internal/server/*_test.go`.
 
-### Proxy configuration changes
+### Configurator configuration changes
 
 - Update parsing and validation in `configurator/internal/config/config.go`.
 - Keep `configurator/README.md` aligned with any new env vars or runtime behaviour.
@@ -299,25 +299,25 @@ notification config.
 
 - The Pico bridge connects to `INGEST_TCP_PORT` (default `9000`) using a signed framed TCP
   connection; `POST /api/machine-data` has been removed and returns `404`.
-- The proxy binds to `[::]:<port>` and prefers IPv6.
-- The proxy does not serve a dashboard at `/`; the server intentionally returns `404` for
+- The configurator binds to `[::]:<port>` and prefers IPv6.
+- The configurator does not serve a dashboard at `/`; the server intentionally returns `404` for
   browser-root requests.
 - For the Pico USB `SERVER=` command, use the bare IPv6 address without brackets.
-- `MDNS_DISABLE=1` disables the proxy mDNS advertisement and is used by CI smoke tests.
-- Browser notifications are handled by the separate `push-pwa/` app, not by the Go proxy.
+- `MDNS_DISABLE=1` disables the configurator mDNS advertisement and is used by CI smoke tests.
+- Browser notifications are handled by the separate `push-pwa/` app, not by the Go configurator.
 - `configurator/public` and related dashboard assets are not the active user-facing app; do not treat
   them as the current dashboard flow unless you are working in a legacy branch.
 
 ## Common pitfalls
 
-1. **Do not assume the proxy is a dashboard service.** The active runtime is headless and API-only.
+1. **Do not assume the configurator is a dashboard service.** The active runtime is headless and API-only.
 2. **Do not treat `push-pwa/` as part of `configurator/`.** It is a separate browser push app and has its
    own workflow.
 3. **Do not trust stale docs blindly.** Older text may still mention a dashboard, Node.js, or the
    legacy webhook route `/api/machine-data`.
-4. **When changing proxy routes, update tests too.** Existing tests are small and fast.
-5. **mDNS discovery on the Pico is passive.** If the Pico connects after the proxy is already
-   running, restart the proxy to force a fresh unsolicited announcement.
+4. **When changing configurator routes, update tests too.** Existing tests are small and fast.
+5. **mDNS discovery on the Pico is passive.** If the Pico connects after the configurator is already
+   running, restart the configurator to force a fresh unsolicited announcement.
 6. **Do not call `cyw43_arch_poll()` in the firmware main loop.** Networking runs in a CYW43
    background thread on core 1.
 
@@ -330,24 +330,24 @@ not installed, so a local firmware build could not be started immediately.
 
 **Workaround:**
 
-- For proxy-only tasks, validate with the Go commands above.
+- For configurator-only tasks, validate with the Go commands above.
 - For firmware tasks, follow `.github/workflows/build-firmware.yml`: install `cmake`,
 `gcc-arm-none-eabi`, `libnewlib-arm-none-eabi`, `build-essential`, fetch Pico SDK 2.3.1,
   and export `PICO_SDK_PATH` before running CMake.
 
 ### 2. CI/local smoke tests can fail in restricted environments without multicast support
 
-The proxy advertises mDNS by default, which is unnecessary in CI and can be noisy or unreliable
+The configurator advertises mDNS by default, which is unnecessary in CI and can be noisy or unreliable
 in restricted environments.
 
 **Workaround:**
 
-- Run proxy smoke tests with `MDNS_DISABLE=1`, matching the CI workflow.
+- Run configurator smoke tests with `MDNS_DISABLE=1`, matching the CI workflow.
 
 ### 3. Stale docs can mislead the agent about the current runtime
 
 Older repo text may still describe a dashboard in `configurator/`, legacy browser-push logic in the
-proxy, or webhook delivery owned by the configurator.
+configurator, or webhook delivery owned by the configurator.
 
 **Workaround:**
 
@@ -355,13 +355,13 @@ proxy, or webhook delivery owned by the configurator.
   current workflow files before patching.
 - Treat `push-pwa/` as the browser push app and `configurator/` as the headless Go runtime.
 
-### 4. Pico auto-discovery may appear broken when the proxy was already running
+### 4. Pico auto-discovery may appear broken when the configurator was already running
 
 The Pico only listens for unsolicited mDNS announcements and does not send queries.
 
 **Workaround:**
 
-- Restart the proxy after the Pico has connected to Wi‑Fi so the proxy emits a fresh
+- Restart the configurator after the Pico has connected to Wi‑Fi so the configurator emits a fresh
   `_viking-bio._tcp` announcement.
 
 ## Code style
