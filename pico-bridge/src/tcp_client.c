@@ -311,12 +311,10 @@ static void start_connect(void) {
 		return;
 	}
 	s_state = TCP_STATE_RESOLVING;
-	s_state = TCP_STATE_RESOLVING;
 	err_t err = dns_gethostbyname(s_host, &s_server_addr, dns_found_cb, NULL);
 	if (err == ERR_OK) {
 		do_connect();
 	} else if (err != ERR_INPROGRESS) {
-		printf("tcp_client: DNS error %d\n", (int)err);
 		printf("tcp_client: DNS error %d\n", (int)err);
 		schedule_retry();
 	}
