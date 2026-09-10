@@ -12,6 +12,6 @@ import (
 
 // RunGUI is not available in this build (CGo is disabled). Falls back to the TUI.
 func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*server.State) {
-	tui := NewTUI(bridge, store)
+	tui := NewTUI(bridge, store, telemetryState...)
 	tui.Run()
 }
