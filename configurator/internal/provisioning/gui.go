@@ -527,6 +527,8 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	telemetryStatus := widget.NewLabel("Waiting for telemetry...")
 	telemetryStatus.Wrapping = fyne.TextWrapWord
 	telemetryStatus.TextStyle = fyne.TextStyle{Monospace: true}
+	var lastErrorNotification float64
+	var lastErrorNotificationSet bool
 	telemetryRefresh := func() {
 		if telemetryStateValue == nil {
 			telemetryStatus.SetText("Waiting for telemetry...\nThe server is not connected to a live telemetry stream.")
@@ -536,6 +538,19 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		if snapshot.UpdatedAt == 0 {
 			telemetryStatus.SetText("Waiting for telemetry...\nNo data has been received yet.")
 			return
+		}
+		if snapshot.Err != 0 {
+			if !lastErrorNotificationSet || lastErrorNotification != snapshot.Err {
+				a.SendNotification(fyne.NewNotification(
+					"Viking Bio – burner error",
+					fmt.Sprintf("New burner error code: %.0f", snapshot.Err),
+				))
+				lastErrorNotification = snapshot.Err
+				lastErrorNotificationSet = true
+			}
+		} else {
+			lastErrorNotification = 0
+			lastErrorNotificationSet = false
 		}
 		telemetryStatus.SetText(strings.TrimRight(fmt.Sprintf(
 			"Flame: %t\nFan: %.1f\nTemp: %.1f°C\nErr: %.0f\nValid: %t\nFlame seconds: %d\nUpdated: %s",

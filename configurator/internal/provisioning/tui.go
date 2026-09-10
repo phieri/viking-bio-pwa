@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
+	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 	appversion "github.com/phieri/viking-bio-pwa/configurator/internal/version"
 )
@@ -41,17 +43,23 @@ func color(s, c string) string {
 
 // TUI provides the interactive device configurator menu.
 type TUI struct {
-	bridge  *serial.Bridge
-	store   *storage.Store
-	scanner *bufio.Scanner
+	bridge         *serial.Bridge
+	store          *storage.Store
+	scanner        *bufio.Scanner
+	telemetryState *server.State
 }
 
 // NewTUI creates a TUI attached to the given bridge.
-func NewTUI(bridge *serial.Bridge, store *storage.Store) *TUI {
+func NewTUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*server.State) *TUI {
+	var state *server.State
+	if len(telemetryState) > 0 {
+		state = telemetryState[0]
+	}
 	return &TUI{
-		bridge:  bridge,
-		store:   store,
-		scanner: bufio.NewScanner(os.Stdin),
+		bridge:         bridge,
+		store:          store,
+		scanner:        bufio.NewScanner(os.Stdin),
+		telemetryState: state,
 	}
 }
 
@@ -90,6 +98,7 @@ func (t *TUI) printMenu() {
 	fmt.Println(color("  5.", colorYellow) + " Set webhook URL")
 	fmt.Println(color("  6.", colorYellow) + " Provision telemetry device key")
 	fmt.Println(color("  7.", colorYellow) + " Clear all credentials")
+	fmt.Println(color("  8.", colorYellow) + " Show live telemetry")
 	fmt.Println(color("  0.", colorRed) + " Exit")
 	fmt.Println()
 }
@@ -155,6 +164,29 @@ func (t *TUI) showStatus() {
 	if status.Webhook != "" {
 		fmt.Println("  Webhook:  " + normaliseConfiguredValue(status.Webhook))
 	}
+	fmt.Println()
+}
+
+func (t *TUI) showTelemetry() {
+	if t.telemetryState == nil {
+		fmt.Println(color("Live telemetry is unavailable; the configurator is not connected to a live telemetry stream.", colorYellow))
+		return
+	}
+	fmt.Println()
+	fmt.Println(color("Live burner telemetry:", colorBold))
+	snapshot := t.telemetryState.Snapshot()
+	if snapshot.UpdatedAt == 0 {
+		fmt.Println(color("  Waiting for telemetry... No data has been received yet.", colorYellow))
+		fmt.Println()
+		return
+	}
+	fmt.Printf("  Flame: %t\n", snapshot.Flame)
+	fmt.Printf("  Fan: %.1f\n", snapshot.Fan)
+	fmt.Printf("  Temp: %.1f°C\n", snapshot.Temp)
+	fmt.Printf("  Err: %.0f\n", snapshot.Err)
+	fmt.Printf("  Valid: %t\n", snapshot.Valid)
+	fmt.Printf("  Flame seconds: %d\n", snapshot.FlameSecs)
+	fmt.Printf("  Updated: %s\n", time.UnixMilli(snapshot.UpdatedAt).Format(time.RFC3339))
 	fmt.Println()
 }
 
@@ -269,6 +301,8 @@ func (t *TUI) Run() {
 			t.provisionDeviceKey()
 		case "7":
 			t.clearCredentials()
+		case "8":
+			t.showTelemetry()
 		case "0", "q", "quit", "exit":
 			fmt.Println(color("Bye!", colorCyan))
 			return

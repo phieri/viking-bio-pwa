@@ -85,7 +85,7 @@ func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*se
 				RunGUI(bridge, store, telemetryState...)
 				return nil
 			}
-			NewTUI(bridge, store).Run()
+			NewTUI(bridge, store, telemetryState...).Run()
 			return nil
 		}
 		return err
@@ -102,6 +102,6 @@ func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*se
 		return nil
 	}
 
-	NewTUI(bridge, store).Run()
+	NewTUI(bridge, store, telemetryState...).Run()
 	return nil
 }
