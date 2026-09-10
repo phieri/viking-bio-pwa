@@ -77,20 +77,37 @@ function normaliseNotificationTarget(targetUrl) {
   }
 }
 
+async function forwardHeartbeatToClients(payload) {
+  const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clientsList) {
+    client.postMessage({ type: 'heartbeat', payload });
+  }
+}
+
 self.addEventListener('push', (event) => {
   const payload = event.data && event.data.json ? event.data.json() : { title: 'Viking Bio', body: 'A new burner update is available.' };
   const rawTimestamp = payload.timestamp;
   const urgency = String(payload.urgency || 'normal').toLowerCase();
+
+  if (payload && payload.type === 'heartbeat') {
+    event.waitUntil(forwardHeartbeatToClients(payload));
+    return;
+  }
+
   const options = {
     body: payload.body || 'New burner update',
     icon: payload.icon || '/icon.svg',
     badge: payload.icon || '/icon.svg',
-    tag: payload.tag || 'viking-bio-alert',
+    tag: urgency === 'low' ? 'cleaningReminder' : (payload.tag || 'viking-bio-alert'),
     data: { url: normaliseNotificationTarget(payload.url || payload.uiUrl || '/') },
   };
 
   if (urgency === 'high') {
     options.vibrate = [100, 50, 100];
+  }
+
+  if (urgency === 'low') {
+    options.silent = true;
   }
 
   if (rawTimestamp != null && Number.isFinite(Number(rawTimestamp))) {

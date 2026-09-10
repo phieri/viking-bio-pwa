@@ -130,7 +130,7 @@ final class PushSender
             'Time for your weekly burner cleaning reminder.',
             '/icons/broom.svg',
             [
-                'tag' => 'viking-bio-cleaning-reminder',
+                'tag' => 'cleaningReminder',
                 'url' => self::uiUrl(),
                 'timestamp' => $sentAt,
                 'priority' => 'low',

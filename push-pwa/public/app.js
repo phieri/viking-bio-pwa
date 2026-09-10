@@ -54,6 +54,22 @@ function updateYamlGeneratorVisibility(hasHeartbeat) {
   yamlGenerator.classList.toggle('hidden', hasHeartbeat);
 }
 
+function applyHeartbeatUpdate(payload) {
+  if (!payload || payload.type !== 'heartbeat') {
+    return;
+  }
+
+  const rssiValue = Number.isFinite(Number(payload.rssi)) ? Number(payload.rssi) : null;
+  const lfsHealth = Object.prototype.hasOwnProperty.call(payload, 'lfsHealth') ? payload.lfsHealth : null;
+  const rawTimestamp = Number(payload.timestamp);
+  const stamp = Number.isFinite(rawTimestamp) ? new Date(rawTimestamp) : new Date();
+  const label = Number.isNaN(stamp.getTime()) ? 'Unknown time' : stamp.toLocaleString();
+
+  lastContactBox.textContent = `Last device contact: ${label}`;
+  rssiBox.textContent = rssiValue === null ? 'RSSI: unavailable' : `RSSI: ${rssiValue} dBm`;
+  lfsBox.textContent = lfsHealth === null ? 'LittleFS: unavailable' : `LittleFS: ${lfsHealth ? 'healthy' : 'degraded'}`;
+}
+
 async function loadLastContactStatus() {
   try {
     const response = await fetch('/status.php', { headers: { Accept: 'application/json' } });
@@ -124,7 +140,16 @@ async function registerServiceWorker() {
     throw new Error('Service workers are not supported in this browser.');
   }
 
-  await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  if (!navigator.serviceWorker.controller) {
+    await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  }
+
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const payload = event.data && typeof event.data === 'object' ? (event.data.payload || event.data) : null;
+    if (payload && payload.type === 'heartbeat') {
+      applyHeartbeatUpdate(payload);
+    }
+  });
 }
 
 async function fetchPublicKey() {
