@@ -9,6 +9,7 @@ const DEVICE_OFFLINE_THRESHOLD_MS = HEARTBEAT_INTERVAL_MS * OFFLINE_HEARTBEATS_T
 const installBanner = document.getElementById('install-banner');
 const installButton = document.getElementById('install-button');
 const yamlGenerator = document.getElementById('yaml-generator');
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 const enablePushButton = document.getElementById('enable-push');
 const sendTestButton = document.getElementById('send-test');
 const copyButton = document.getElementById('copy-yaml');
@@ -21,6 +22,23 @@ const rssiBox = document.getElementById('rssi-status');
 const lfsBox = document.getElementById('lfs-status');
 let installPromptEvent = null;
 let lastOfflineNotificationAt = 0;
+
+function syncThemeColor() {
+  if (!themeColorMeta) {
+    return;
+  }
+
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  themeColorMeta.content = prefersDark ? '#020817' : '#f8fafc';
+}
+
+const colorSchemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+if (typeof colorSchemeMedia.addEventListener === 'function') {
+  colorSchemeMedia.addEventListener('change', syncThemeColor);
+} else if (typeof colorSchemeMedia.addListener === 'function') {
+  colorSchemeMedia.addListener(syncThemeColor);
+}
+syncThemeColor();
 
 function notifyOffline(deviceLabel) {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
