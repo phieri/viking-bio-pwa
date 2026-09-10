@@ -7,12 +7,14 @@ on:
       - '**.md'
       - 'docs/**'
       - 'configurator/**'
+      - 'push-pwa/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - 'configurator/**'
+      - 'push-pwa/**'
   workflow_dispatch:
 
 env:

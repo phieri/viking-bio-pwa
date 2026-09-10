@@ -3,14 +3,18 @@ name: Build and Package Push PWA
 on:
   push:
     branches: [ main, develop ]
-    paths:
-      - 'push-pwa/**'
-      - '.github/workflows/build-push-pwa.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'configurator/**'
+      - 'pico-bridge/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'push-pwa/**'
-      - '.github/workflows/build-push-pwa.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'configurator/**'
+      - 'pico-bridge/**'
   workflow_dispatch:
 
 jobs:
