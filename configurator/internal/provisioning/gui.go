@@ -7,7 +7,6 @@ package provisioning
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -18,7 +17,6 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
@@ -107,47 +105,6 @@ func wifiRegionLabel(countryCode string) string {
 	return "Worldwide (XX)"
 }
 
-func prefersDarkMode() bool {
-	switch runtime.GOOS {
-	case "darwin":
-		out, err := exec.Command("defaults", "read", "-g", "AppleInterfaceStyle").CombinedOutput()
-		return err == nil && strings.Contains(strings.ToLower(string(out)), "dark")
-	case "windows":
-		out, err := exec.Command(
-			"powershell",
-			"-NoProfile",
-			"-NonInteractive",
-			"-Command",
-			"$value = (Get-ItemProperty -Path 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize' -Name AppsUseLightTheme -ErrorAction SilentlyContinue).AppsUseLightTheme; if ($null -eq $value) { exit 1 }; if ($value -eq 0) { Write-Output 'dark' } else { Write-Output 'light' }",
-		).CombinedOutput()
-		return err == nil && strings.Contains(strings.ToLower(string(out)), "dark")
-	case "linux":
-		checkCommands := [][]string{
-			{"gsettings", "get", "org.gnome.desktop.interface", "color-scheme"},
-			{"gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"},
-			{"gsettings", "get", "org.gnome.desktop.interface", "theme-name"},
-			{"kreadconfig6", "--file", "kdeglobals", "--group", "General", "--key", "ColorScheme"},
-		}
-		for _, command := range checkCommands {
-			if len(command) == 0 {
-				continue
-			}
-			out, err := exec.Command(command[0], command[1:]...).CombinedOutput()
-			if err != nil {
-				continue
-			}
-			value := strings.ToLower(strings.TrimSpace(string(out)))
-			if strings.Contains(value, "dark") || strings.Contains(value, "night") || strings.Contains(value, "adwaita-dark") {
-				return true
-			}
-			if strings.Contains(value, "light") {
-				return false
-			}
-		}
-	}
-	return false
-}
-
 // RunGUI starts the Fyne-based device configurator GUI and blocks until the
 // window is closed. It must be called from the main goroutine (or a goroutine
 // that has been locked to the OS thread with runtime.LockOSThread).
@@ -157,11 +114,6 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	defer runtime.UnlockOSThread()
 
 	a := fyneapp.New()
-	if prefersDarkMode() {
-		a.Settings().SetTheme(theme.DarkTheme())
-	} else {
-		a.Settings().SetTheme(theme.LightTheme())
-	}
 	var openWindows atomic.Int32
 	openWindows.Store(2)
 	provisioningWindow := a.NewWindow("Viking Bio – Provisioning over USB")
