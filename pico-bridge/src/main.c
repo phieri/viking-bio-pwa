@@ -245,6 +245,7 @@ static bool handle_status_command(const char *arg) {
 	if (wifi_config_get_device_id(device_id, sizeof(device_id))) {
 		printf("  device:  %s\n", device_id);
 	}
+	printf("  firmware: %s\n", version_get_firmware());
 
 	char device_key[WIFI_DEVICE_KEY_MAX_LEN + 1];
 	printf("  device key: %s\n",

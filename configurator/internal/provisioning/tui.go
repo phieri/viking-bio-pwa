@@ -140,6 +140,9 @@ func (t *TUI) showStatus() {
 	if status.DeviceID != "" {
 		fmt.Println("  Device:   " + status.DeviceID)
 	}
+	if status.FirmwareVersion != "" {
+		fmt.Println("  Firmware: " + status.FirmwareVersion)
+	}
 	if status.Server != "" {
 		fmt.Printf("  Server:   %s:%d\n", status.Server, status.Port)
 	}
