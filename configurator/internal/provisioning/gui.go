@@ -6,6 +6,7 @@ package provisioning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -60,6 +61,10 @@ func wifiRegionOptions(localizer provisioningLocalizer) []string {
 		options = append(options, localizer.regionLabel(code))
 	}
 	return options
+}
+
+func localizedError(localizer provisioningLocalizer, key string, args ...any) error {
+	return errors.New(localizer.Text(key, args...))
 }
 
 // RunGUI starts the Fyne-based device configurator GUI and blocks until the
@@ -178,7 +183,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			}
 			ssid := strings.TrimSpace(ssidEntry.Text)
 			if ssid == "" {
-				dialog.ShowError(fmt.Errorf(localizer.Text("error.blank_ssid")), provisioningWindow)
+				dialog.ShowError(localizedError(localizer, "error.blank_ssid"), provisioningWindow)
 				return
 			}
 			go func() {
@@ -259,7 +264,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			}
 			addr := strings.TrimSpace(addrEntry.Text)
 			if addr == "" {
-				dialog.ShowError(fmt.Errorf(localizer.Text("error.blank_server")), provisioningWindow)
+				dialog.ShowError(localizedError(localizer, "error.blank_server"), provisioningWindow)
 				return
 			}
 			port := strings.TrimSpace(portEntry.Text)
@@ -304,7 +309,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			}
 			url := strings.TrimSpace(urlEntry.Text)
 			if url == "" || (!strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://")) {
-				dialog.ShowError(fmt.Errorf(localizer.Text("error.invalid_webhook")), provisioningWindow)
+				dialog.ShowError(localizedError(localizer, "error.invalid_webhook"), provisioningWindow)
 				return
 			}
 			go func() {
@@ -334,7 +339,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				return
 			}
 			if status.DeviceID == "" {
-				msg := fmt.Errorf(localizer.Text("error.device_id_missing"))
+				msg := localizedError(localizer, "error.device_id_missing")
 				appendLog("Error: " + msg.Error())
 				dialog.ShowError(msg, provisioningWindow)
 				return

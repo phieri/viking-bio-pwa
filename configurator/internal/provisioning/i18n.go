@@ -656,23 +656,6 @@ func (l provisioningLocalizer) LanguageName(code string) string {
 	return supportedProvisioningLanguageNames[defaultProvisioningLanguage]
 }
 
-func (l provisioningLocalizer) languageTag() language.Tag {
-	switch l.language {
-	case "sv":
-		return language.Swedish
-	case "no":
-		return language.Norwegian
-	case "fi":
-		return language.Finnish
-	case "da":
-		return language.Danish
-	case "is":
-		return language.Icelandic
-	default:
-		return language.English
-	}
-}
-
 func (l provisioningLocalizer) regionLabel(countryCode string) string {
 	countryCode = strings.ToUpper(strings.TrimSpace(countryCode))
 	if countryCode == "" || countryCode == "XX" {
