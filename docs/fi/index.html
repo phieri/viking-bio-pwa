@@ -52,7 +52,7 @@
                 <span class="arrow">→</span>
                 <span>Pico W</span>
                 <span class="arrow">→</span>
-                <span>Headless Go-ajonaikainen ympäristö</span>
+                <span>Go runtime with GUI + TUI</span>
               </div>
               <ul>
                 <li>UART-lukeminen kattilasta</li>
@@ -117,7 +117,7 @@
               <p>Sillan asennus voidaan tehdä sarjaportin kautta GUI- tai terminaalipohjaisella konfiguraattorilla, mikä tekee asennuksesta helppoa.</p>
             </div>
             <div class="feature-item">
-              <h3>Headless-paikallinen ajojärjestelmä</h3>
+              <h3>Local runtime with GUI/TUI</h3>
               <p>Ajonaikainen järjestelmä on rakennettu paikalliseen, laitekeskeiseen malliin: Go-palvelu tarjoaa API:t ja USB-asetukset, kun taas selainilmoitukset käsitellään erillisessä push-pwa-sovelluksessa.</p>
             </div>
             <div class="feature-item">
@@ -141,13 +141,13 @@
           <div>
             <p class="eyebrow">Arkkitehtuuri</p>
             <h2>Yksinkertainen kerroksellinen virta, selkeä vastuunjako ja paikallisesti toimiva malli</h2>
-            <p>Järjestelmä erottaa laitteeseen liittyvän sillan headless Go-ajonaikaisesta ympäristöstä ja erillisestä selainpush-sovelluksesta. Pico lukee kattilatiedot ja lähettää allekirjoitettua telemetriaa samaan luotettuun paikalliseen verkkoon. Tämä Go-prosessi tarjoaa API:t ja USB-asennusvirran, kun taas silta keskittyy mittaukseen, tiedon vastaanottoon ja hälytyksiin.</p>
+            <p>Järjestelmä erottaa laitteeseen liittyvän sillan Go-ajonaikaisesta ympäristöstä ja erillisestä selainpush-sovelluksesta. Pico lukee kattilatiedot ja lähettää allekirjoitettua telemetriaa samaan luotettuun paikalliseen verkkoon. Tämä Go-prosessi tarjoaa API:t ja USB-asennusvirran, kun taas silta keskittyy mittaukseen, tiedon vastaanottoon ja hälytyksiin.</p>
           </div>
           <div class="stack">
             <div class="stack-item"><span>1</span><span>Kattilan sarjadata</span></div>
             <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W -laiteohjelmisto</span></div>
             <div class="stack-item"><span>3</span><span>Allekirjoitettu TCP-ingest</span></div>
-            <div class="stack-item"><span>4</span><span>Headless Go-ajonaikainen ympäristö + paikalliset API:t</span></div>
+            <div class="stack-item"><span>4</span><span>Go runtime with GUI + TUI + local APIs</span></div>
             <div class="stack-item"><span>5</span><span>push-pwa-selainilmoitukset</span></div>
           </div>
         </div>

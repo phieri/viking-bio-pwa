@@ -16,9 +16,10 @@ make build
 
 ## Run
 
-The configurator is a headless service with no command-line flags. Start it
-directly or deploy it as a system service (see the systemd and Windows Service
-sections below):
+The configurator runs as a local Go service and can also launch a desktop GUI or
+interactive terminal TUI for provisioning when an interactive session is available.
+Start it directly or deploy it as a system service (see the systemd and Windows
+Service sections below):
 
 ```bash
 # Start the ingest listener on port 9000

@@ -6,7 +6,7 @@ Viking Bio Networking connects a Viking Bio 20 pellet burner to a Pico bridge, a
 
 - `pico-bridge/` – Raspberry Pi Pico W / Pico 2 W firmware for UART capture, LittleFS config, and signed telemetry ingest.
 - `pico-bridge/libvikingbio/` – shared protocol parser.
-- `configurator/` – headless Go runtime for telemetry ingest, USB provisioning, and device state.
+- `configurator/` – Go runtime with a desktop GUI and terminal TUI for telemetry ingest, USB provisioning, and device state.
 - `push-pwa/` – browser push app for VAPID subscriptions and operator alerts.
 
 ## Architecture
