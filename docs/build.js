@@ -31,7 +31,10 @@ const pageCatalog = {
     navAria: 'Main navigation',
     langAria: 'Language switcher',
     showcaseAria: 'Configurator and hardware overview',
-    showcaseConfiguratorLabel: 'Configurator placeholder',
+    showcaseConfiguratorLabel: 'Browser notifications',
+    showcaseNotificationLabel: 'Browser notifications',
+    showcaseNotificationCaption:
+      'This phone-style demo shows the separate browser app used to receive burner alerts, reminders, and delivery tests over notifications.',
     showcasePicoLabel: 'Pico placeholder',
     nav: ['Overview', 'Features', 'Architecture', 'Project'],
     heroEyebrow: 'Pellet burner monitoring',
@@ -74,9 +77,9 @@ const pageCatalog = {
     featureUSBTitle: 'USB provisioning',
     featureUSBBody:
       'Bridge setup can happen over serial with a GUI or terminal-based configurator, making installation straightforward.',
-    featureNetworkTitle: 'Local runtime with desktop app + terminal setup',
+    featureNetworkTitle: 'Browser notifications',
     featureNetworkBody:
-      'The runtime is built around a local device-first model: the Go service exposes APIs and USB setup, while browser notifications are handled by the separate push-pwa app.',
+      'The runtime is built around a local-first model: the Go service exposes APIs and USB setup, while the separate push-pwa app handles browser notifications for burner alerts and reminders.',
     featureMDNSTitle: 'mDNS discovery',
     featureMDNSBody:
       'The bridge listens for mDNS announcements from the configurator, allowing automatic service discovery on a home network without manual configuration.',
@@ -536,6 +539,64 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
+const pushPwaPublicDir = path.join(root, '..', 'push-pwa', 'public');
+const pushPwaHtml = fs.readFileSync(path.join(pushPwaPublicDir, 'index.html'), 'utf8');
+const pushPwaCss = fs.readFileSync(path.join(pushPwaPublicDir, 'style.css'), 'utf8');
+const pushPwaAppJs = fs.readFileSync(path.join(pushPwaPublicDir, 'app.js'), 'utf8');
+
+function buildPushPwaDemoDocument() {
+  const demoScript = `
+    (function () {
+      function applyDemoValues() {
+        const senderField = document.getElementById('subscription-sender');
+        if (senderField) senderField.value = 'viking-bio-01';
+
+        const priorityField = document.getElementById('subscription-priority');
+        if (priorityField) priorityField.value = 'normal';
+
+        const languageField = document.getElementById('app-language');
+        if (languageField) languageField.value = 'en';
+
+        const notificationLow = document.getElementById('notification-level-low');
+        if (notificationLow) notificationLow.checked = true;
+        const notificationNormal = document.getElementById('notification-level-normal');
+        if (notificationNormal) notificationNormal.checked = true;
+        const notificationHigh = document.getElementById('notification-level-high');
+        if (notificationHigh) notificationHigh.checked = true;
+
+        const yamlBox = document.getElementById('subscription-yaml');
+        if (yamlBox) {
+          yamlBox.value = 'sender: viking-bio-01\npriority: normal\nnotificationLevel:\n  low: true\n  normal: true\n  high: true\n';
+        }
+
+        const lastContact = document.getElementById('last-contact-status');
+        if (lastContact) lastContact.textContent = 'Last device contact: 08:45';
+
+        const rssi = document.getElementById('rssi-status');
+        if (rssi) rssi.textContent = 'RSSI: -51 dBm';
+
+        const lfs = document.getElementById('lfs-status');
+        if (lfs) lfs.textContent = 'LittleFS: healthy';
+
+        const status = document.getElementById('status');
+        if (status) status.textContent = 'Demo data loaded';
+
+        const installBanner = document.getElementById('install-banner');
+        if (installBanner) installBanner.classList.add('hidden');
+      }
+
+      window.addEventListener('DOMContentLoaded', applyDemoValues);
+      setTimeout(applyDemoValues, 0);
+    })();
+  `;
+
+  return pushPwaHtml
+    .replace(/<link rel="stylesheet" href="\/style.css">/i, '<style>' + pushPwaCss + '</style>')
+    .replace(/<script src="\/app.js" defer><\/script>/i, '<script>' + pushPwaAppJs + demoScript + '</script>');
+}
+
+const notificationDemoIframe = buildPushPwaDemoDocument();
+
 function renderPage(data) {
   const anchors = ['overview', 'features', 'architecture', 'project'];
   const nav = data.nav
@@ -609,9 +670,11 @@ function renderPage(data) {
  
       <section class="section showcase" aria-label="${escapeHtml(data.showcaseAria)}">
         <div class="container showcase-grid">
-          <figure class="media-card placeholder">
-            <span>${escapeHtml(data.showcaseConfiguratorLabel)}</span>
-            <figcaption>${escapeHtml(data.showcaseConfiguratorCaption)}</figcaption>
+          <figure class="media-card phone-card">
+            <div class="device-frame">
+              <iframe class="phone-screen" title="${escapeHtml(data.showcaseNotificationLabel)}" srcdoc="${escapeHtml(notificationDemoIframe)}"></iframe>
+            </div>
+            <figcaption>${escapeHtml(data.showcaseNotificationCaption)}</figcaption>
           </figure>
           <figure class="media-card placeholder">
             <span>${escapeHtml(data.showcasePicoLabel)}</span>

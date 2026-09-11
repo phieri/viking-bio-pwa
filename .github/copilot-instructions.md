@@ -133,6 +133,9 @@ Browser push app (push-pwa)
 - It is a separate runtime from the Go configurator and not a `configurator/public` dashboard.
 - Changes to browser subscription logic, UI, or notification payload handling belong under
   `push-pwa/` rather than `configurator/internal/server`.
+- For marketing/demo previews, read the live `push-pwa/public/index.html`, inline its actual
+  `style.css` and `app.js`, and patch the resulting document with demo values at build time rather
+  than maintaining a second hand-copied PWA GUI in `docs/build.js`.
 
 ### Firmware details
 
