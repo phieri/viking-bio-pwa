@@ -1,0 +1,9 @@
+---
+import MarketingPage from '../../components/MarketingPage.astro';
+import { localeContent, supportedLanguages } from '../../content/site';
+
+const lang = 'sv';
+const details = localeContent[lang];
+---
+
+<MarketingPage lang={lang} details={details} supportedLanguages={supportedLanguages} />

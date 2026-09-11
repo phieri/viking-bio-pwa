@@ -1,0 +1,161 @@
+---
+import '../styles.css';
+const { lang, details, supportedLanguages } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const sectionIds = ['overview', 'features', 'architecture', 'project'];
+if (details.nav.length !== sectionIds.length) {
+  throw new Error(`Locale navigation mismatch for ${lang}: expected ${sectionIds.length}, got ${details.nav.length}`);
+}
+const widget = details.widget ?? {
+  setup: 'Local setup',
+  bridge: 'Bridge',
+  online: 'Online',
+  telemetry: 'Telemetry',
+  signed: 'Signed',
+  config: 'Config',
+  ready: 'Ready',
+  wifi: 'Wi‑Fi',
+  stable: 'Stable',
+  fan: 'Fan',
+  flame: 'Flame',
+  healthy: 'Healthy',
+  state: 'State',
+  idle: 'Idle',
+};
+const architectureSteps = details.architectureSteps ?? [
+  'Burner serial data',
+  'Pico W / Pico 2 W firmware',
+  'Signed TCP ingest',
+  'Go runtime + local APIs',
+  'Browser notifications',
+];
+const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, href: `${base}${code}/` }));
+---
+
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={details.metaDescription} />
+    <link rel="canonical" href={new URL(`${base}${lang}/`, Astro.site || 'https://phieri.github.io').href} />
+    <title>{details.title}</title>
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href={base} aria-label={details.brandAria}>
+          <span class="brand-mark">V</span>
+          <span>{details.footerBrand}</span>
+        </a>
+        <nav class="nav-links" aria-label="Main navigation">
+          {details.nav.map((label, index) => <a href={`#${sectionIds[index]}`}>{label}</a>)}
+        </nav>
+        <nav class="lang-switcher" aria-label="Language switcher">
+          {navLinks.map(({ code, label, href }) => (
+            <a href={href} class:list={[code === lang && 'is-active']} aria-current={code === lang ? 'page' : undefined}>{label}</a>
+          ))}
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="overview">
+        <div class="hero-grid">
+          <div>
+            <span class="eyebrow">{details.heroEyebrow}</span>
+            <h1>{details.heroTitle}</h1>
+            <p class="lead">{details.heroLead}</p>
+            <div class="actions">
+              <a class="button primary" href="#project">{details.ctaExplore}</a>
+              <a class="button secondary" href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noreferrer">{details.ctaSource}</a>
+            </div>
+          </div>
+          <div class="showcase" aria-label="Configurator and hardware overview">
+            <div class="showcase-window">
+              <div class="window-header">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </div>
+              <div class="device-grid">
+                <div class="card">
+                  <h3>{widget.setup}</h3>
+                  <ul class="status-list">
+                    <li><span>{widget.bridge}</span><strong>{widget.online}</strong></li>
+                    <li><span>{widget.telemetry}</span><strong>{widget.signed}</strong></li>
+                    <li><span>{widget.config}</span><strong>{widget.ready}</strong></li>
+                    <li><span>{widget.wifi}</span><strong>{widget.stable}</strong></li>
+                  </ul>
+                </div>
+                <div class="card">
+                  <h3>{widget.telemetry}</h3>
+                  <div class="metric">+19.4°C</div>
+                  <ul class="status-list">
+                    <li><span>{widget.fan}</span><strong>42%</strong></li>
+                    <li><span>{widget.flame}</span><strong>{widget.healthy}</strong></li>
+                    <li><span>{widget.state}</span><strong>{widget.idle}</strong></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="section-header">
+          <div class="eyebrow">{details.overviewEyebrow}</div>
+          <h2>{details.overviewTitle}</h2>
+        </div>
+        <div class="summary-grid">
+          <article class="tile">
+            <h3>{details.featureTelemetryTitle}</h3>
+            <p>{details.featureTelemetryBody}</p>
+          </article>
+          <article class="tile">
+            <h3>{details.featureUSBTitle}</h3>
+            <p>{details.featureUSBBody}</p>
+          </article>
+          <article class="tile">
+            <h3>{details.featureNetworkTitle}</h3>
+            <p>{details.featureNetworkBody}</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="architecture">
+        <div class="section-header">
+          <div class="eyebrow">{details.architectureEyebrow}</div>
+          <h2>{details.architectureTitle}</h2>
+          <p class="lead">{details.architectureBody}</p>
+        </div>
+        <div class="architecture-grid">
+          {architectureSteps.map((step) => <div class="architecture-step">{step}</div>)}
+        </div>
+      </section>
+
+      <section class="section" id="project">
+        <div class="section-header">
+          <div class="eyebrow">{details.projectEyebrow}</div>
+          <h2>{details.projectTitle}</h2>
+        </div>
+        <div class="project-grid">
+          <article class="tile">
+            <p>{details.projectBody1}</p>
+          </article>
+          <article class="tile">
+            <p>{details.projectBody2}</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <span>{details.footerBrand}</span>
+        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noreferrer">{details.footerGitHub}</a>
+      </div>
+    </footer>
+  </body>
+</html>

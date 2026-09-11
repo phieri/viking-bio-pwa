@@ -41,6 +41,12 @@ push-pwa/.env
 push-pwa/storage/*.json
 push-pwa/storage/*.yml
 
+# Marketing site build output
+# Built HTML is generated in CI and uploaded as a Pages artifact rather than committed.
+docs/node_modules/
+docs/dist/
+docs/.astro/
+
 # IDE files
 .vscode/
 .idea/
