@@ -193,9 +193,11 @@ final class PushTranslations
             $body .= $lfsHealth ? self::message($language, 'suffix.lfs.healthy') : self::message($language, 'suffix.lfs.degraded');
         }
         if ($type === 'heartbeat' && is_array($summary)) {
-            $flameOnPct = $summary['flameOnPct'] ?? null;
-            if (is_numeric($flameOnPct)) {
-                $body .= ' Flame active ' . (string) round((float) $flameOnPct) . '% of the previous interval.';
+            $flameOnMs = is_numeric($summary['flameOnMs'] ?? null) ? (float) $summary['flameOnMs'] : null;
+            $windowMs = is_numeric($summary['windowMs'] ?? null) ? (float) $summary['windowMs'] : null;
+            if ($flameOnMs !== null && $windowMs !== null && $windowMs > 0.0) {
+                $flameOnPct = (int) round(max(0.0, min(100.0, ($flameOnMs / $windowMs) * 100.0)));
+                $body .= ' Flame active ' . (string) $flameOnPct . '% of the previous interval.';
             }
         }
 

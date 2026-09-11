@@ -52,7 +52,6 @@ final class LastContactState
         $latest = null;
         $latestRssi = null;
         $latestLfsHealth = null;
-        $latestFlameOnPct = null;
         $latestFlameOnMs = null;
         $latestWindowMs = null;
         $devices = [];
@@ -69,7 +68,6 @@ final class LastContactState
 
             $rssi = $this->normalizeRssi($entry['rssi'] ?? null);
             $lfsHealth = $this->normalizeLfsHealth($entry);
-            $flameOnPct = $this->normalizePercent($entry['flameOnPct'] ?? null);
             $flameOnMs = $this->normalizeInt($entry['flameOnMs'] ?? null);
             $windowMs = $this->normalizeInt($entry['windowMs'] ?? null);
             $deviceTimestamp = (int) $timestamp;
@@ -80,7 +78,6 @@ final class LastContactState
                 'detail' => $entry['detail'] ?? 'alive',
                 'rssi' => $rssi,
                 'lfsHealth' => $lfsHealth,
-                'flameOnPct' => $flameOnPct,
                 'flameOnMs' => $flameOnMs,
                 'windowMs' => $windowMs,
             ];
@@ -89,7 +86,6 @@ final class LastContactState
                 $latest = $deviceTimestamp;
                 $latestRssi = $rssi;
                 $latestLfsHealth = $lfsHealth;
-                $latestFlameOnPct = $flameOnPct;
                 $latestFlameOnMs = $flameOnMs;
                 $latestWindowMs = $windowMs;
                 continue;
@@ -101,9 +97,6 @@ final class LastContactState
                 }
                 if ($lfsHealth !== null) {
                     $latestLfsHealth = $lfsHealth;
-                }
-                if ($flameOnPct !== null) {
-                    $latestFlameOnPct = $flameOnPct;
                 }
                 if ($flameOnMs !== null) {
                     $latestFlameOnMs = $flameOnMs;
@@ -118,25 +111,10 @@ final class LastContactState
             'lastContact' => $latest,
             'lastRssi' => $latestRssi,
             'lastLfsHealth' => $latestLfsHealth,
-            'lastFlameOnPct' => $latestFlameOnPct,
             'lastFlameOnMs' => $latestFlameOnMs,
             'lastWindowMs' => $latestWindowMs,
             'devices' => $devices,
         ];
-    }
-
-    private function normalizePercent(mixed $value): ?int
-    {
-        if (!is_numeric($value)) {
-            return null;
-        }
-
-        $numeric = (float) $value;
-        if ($numeric < 0.0 || $numeric > 100.0) {
-            return null;
-        }
-
-        return (int) round($numeric);
     }
 
     private function normalizeInt(mixed $value): ?int
