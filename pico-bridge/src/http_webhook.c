@@ -113,16 +113,19 @@ static void commit_heartbeat_summary(uint64_t now_ms, bool flame_on) {
 		s_last_flame_state = flame_on;
 		s_last_flame_state_known = true;
 		s_last_flame_transition_ms = now_ms;
+		if (flame_on && s_last_heartbeat_ms > 0ULL) {
+			s_flame_on_ms_since_last_heartbeat = now_ms - s_last_heartbeat_ms;
+		} else {
+			s_flame_on_ms_since_last_heartbeat = 0ULL;
+		}
 		return;
 	}
 
 	if (s_last_flame_state) {
 		s_flame_on_ms_since_last_heartbeat += now_ms - s_last_flame_transition_ms;
 	}
-	if (s_last_heartbeat_ms > 0ULL) {
-		s_last_flame_transition_ms = now_ms;
-		s_last_flame_state = flame_on;
-	}
+	s_last_flame_transition_ms = now_ms;
+	s_last_flame_state = flame_on;
 }
 
 static bool queue_heartbeat(void) {
@@ -403,13 +406,11 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 			window_ms = WEBHOOK_HEARTBEAT_INTERVAL_MS;
 		}
 		uint32_t flame_on_pct = 0U;
-		if (window_ms > 0ULL) {
-			uint64_t percent = (s_flame_on_ms_since_last_heartbeat * 100ULL) / window_ms;
-			if (percent > 100ULL) {
-				percent = 100ULL;
-			}
-			flame_on_pct = (uint32_t)percent;
+		uint64_t percent = (s_flame_on_ms_since_last_heartbeat * 100ULL) / window_ms;
+		if (percent > 100ULL) {
+			percent = 100ULL;
 		}
+		flame_on_pct = (uint32_t)percent;
 		int written;
 		const char *rssi_value = have_rssi ? "" : "null";
 		char rssi_buf[32];
