@@ -236,6 +236,43 @@ h3 {
   text-align: center;
 }
 
+.phone-card {
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(17, 37, 55, 0.96), rgba(9, 19, 29, 0.96));
+}
+
+.device-frame {
+  position: relative;
+  width: min(100%, 340px);
+  margin: 0 auto;
+  padding: 0.7rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 2rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
+  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.35);
+}
+
+.device-frame::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0.55rem;
+  width: 28%;
+  height: 0.45rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.phone-screen {
+  display: block;
+  width: 100%;
+  min-height: 500px;
+  border: 0;
+  border-radius: 1.4rem;
+  background: #09131d;
+}
+
 .panel-card {
   width: min(100%, 420px);
   padding: 1.5rem;

@@ -66,9 +66,160 @@
  
       <section class="section showcase" aria-label="Stillingarhjálp og tæknivönding">
         <div class="container showcase-grid">
-          <figure class="media-card placeholder">
-            <span>Stillingarhjálp staðgengill</span>
-            <figcaption>Staðbundið stillingarviðmót heldur uppsetningu, þjónustuskipulag og ástandsathugun í einu skrifborðsflæði.</figcaption>
+          <figure class="media-card phone-card">
+            <div class="device-frame">
+              <iframe class="phone-screen" title="Browser notifications" srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+  &lt;head&gt;
+    &lt;meta charset=&quot;utf-8&quot; /&gt;
+    &lt;style&gt;
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --panel: rgba(15, 23, 42, 0.97);
+        --card: rgba(15, 29, 43, 0.96);
+        --muted: #b8c0ce;
+        --text: #e7edf5;
+        --accent: #f5aa2f;
+        --outline: rgba(148, 163, 184, 0.2);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(180deg, #0b1722 0%, #0a1320 100%);
+        font-family: Inter, &quot;Segoe UI&quot;, sans-serif;
+        color: var(--text);
+      }
+      .demo-shell {
+        width: min(100%, 360px);
+        padding: 1rem;
+      }
+      .phone {
+        width: 100%;
+        border-radius: 28px;
+        border: 1px solid var(--outline);
+        background: linear-gradient(180deg, rgba(15, 29, 43, 0.96), rgba(9, 19, 29, 0.96));
+        box-shadow: 0 18px 40px rgba(2, 6, 23, 0.38);
+        padding: 1rem;
+      }
+      .eyebrow {
+        margin: 0 0 0.6rem;
+        color: var(--accent);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0 0 0.9rem;
+        font-size: 1.8rem;
+        line-height: 1.1;
+        letter-spacing: -0.05em;
+      }
+      label {
+        display: block;
+        margin: 0.7rem 0 0.35rem;
+        color: var(--muted);
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      select, input {
+        width: 100%;
+        border: 1px solid var(--outline);
+        border-radius: 10px;
+        padding: 0.72rem 0.8rem;
+        background: rgba(148, 163, 184, 0.08);
+        color: var(--text);
+        font: inherit;
+      }
+      .toggle-group {
+        display: grid;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+        padding: 0.2rem 0;
+      }
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        color: var(--text);
+        font-size: 0.82rem;
+      }
+      .toggle input {
+        width: 1rem;
+        height: 1rem;
+        accent-color: var(--accent);
+      }
+      .button-row {
+        margin-top: 0.9rem;
+        display: flex;
+        gap: 0.5rem;
+      }
+      button {
+        flex: 1;
+        border: none;
+        border-radius: 999px;
+        padding: 0.72rem 0.8rem;
+        font: inherit;
+        font-weight: 700;
+      }
+      .primary {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        color: #0b1320;
+      }
+      .secondary {
+        background: rgba(148, 163, 184, 0.08);
+        border: 1px solid var(--outline);
+        color: var(--text);
+      }
+      .status {
+        margin-top: 0.9rem;
+        padding: 0.7rem 0.8rem;
+        border-radius: 10px;
+        background: rgba(96, 165, 250, 0.09);
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        color: var(--text);
+        font-size: 0.74rem;
+      }
+    &lt;/style&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div class=&quot;demo-shell&quot;&gt;
+      &lt;div class=&quot;phone&quot;&gt;
+        &lt;p class=&quot;eyebrow&quot;&gt;Viking Bio&lt;/p&gt;
+        &lt;h1&gt;Burner alerts&lt;/h1&gt;
+
+        &lt;label for=&quot;language&quot;&gt;Language&lt;/label&gt;
+        &lt;select id=&quot;language&quot;&gt;&lt;option&gt;English&lt;/option&gt;&lt;/select&gt;
+
+        &lt;label for=&quot;sender&quot;&gt;Sender ID&lt;/label&gt;
+        &lt;input id=&quot;sender&quot; value=&quot;viking-bio-01&quot; /&gt;
+
+        &lt;label&gt;Notification levels&lt;/label&gt;
+        &lt;div class=&quot;toggle-group&quot;&gt;
+          &lt;label class=&quot;toggle&quot;&gt;&lt;input type=&quot;checkbox&quot; checked /&gt; cleaning reminder&lt;/label&gt;
+          &lt;label class=&quot;toggle&quot;&gt;&lt;input type=&quot;checkbox&quot; checked /&gt; flame&lt;/label&gt;
+          &lt;label class=&quot;toggle&quot;&gt;&lt;input type=&quot;checkbox&quot; checked /&gt; error&lt;/label&gt;
+        &lt;/div&gt;
+
+        &lt;label for=&quot;priority&quot;&gt;Test alert priority&lt;/label&gt;
+        &lt;select id=&quot;priority&quot;&gt;&lt;option&gt;normal&lt;/option&gt;&lt;option&gt;low&lt;/option&gt;&lt;option&gt;high&lt;/option&gt;&lt;/select&gt;
+
+        &lt;div class=&quot;button-row&quot;&gt;
+          &lt;button class=&quot;primary&quot;&gt;Send test alert&lt;/button&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&quot;status&quot;&gt;Last device contact: 08:45&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/body&gt;
+&lt;/html&gt;"></iframe>
+            </div>
+            <figcaption>This phone-style demo shows the separate browser app used to receive burner alerts, reminders, and delivery tests over notifications.</figcaption>
           </figure>
           <figure class="media-card placeholder">
             <span>Pico staðgengill</span>
