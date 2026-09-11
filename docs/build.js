@@ -27,6 +27,12 @@ const pageCatalog = {
     title: 'Viking Bio Integration',
     metaDescription:
       'Viking Bio integration for monitoring and managing pellet burner telemetry with a Pico-based bridge and local configurator.',
+    brandAria: 'Viking Bio home',
+    navAria: 'Main navigation',
+    langAria: 'Language switcher',
+    showcaseAria: 'Configurator and hardware overview',
+    showcaseConfiguratorLabel: 'Configurator placeholder',
+    showcasePicoLabel: 'Pico placeholder',
     nav: ['Overview', 'Features', 'Architecture', 'Project'],
     heroEyebrow: 'Pellet burner monitoring',
     heroTitle: 'Turn a Viking Bio 20 into a connected, observable heating system',
@@ -103,6 +109,12 @@ const pageCatalog = {
     title: 'Viking Bio Integration',
     metaDescription:
       'Viking Bio-integration för att övervaka och hantera telemetri från pelletsbrännare med en Pico-baserad brygga och lokal konfigurator.',
+    brandAria: 'Viking Bio startsida',
+    navAria: 'Huvudnavigering',
+    langAria: 'Språkval',
+    showcaseAria: 'Konfigurator och hårdvaruöversikt',
+    showcaseConfiguratorLabel: 'Konfiguratorplatshållare',
+    showcasePicoLabel: 'Pico-platshållare',
     nav: ['Översikt', 'Funktioner', 'Arkitektur', 'Projekt'],
     heroEyebrow: 'Pellettbrännarmonitorering',
     heroTitle: 'Gör en Viking Bio 20 till ett uppkopplat, observerbart värmesystem',
@@ -173,6 +185,334 @@ const pageCatalog = {
       'Fokus ligger på ärlig driftkontroll: håll data lokalt, verifiera enheten i kanten och erbjuda ett pålitligt konfigurationsflöde utan att vara beroende av en hostad produkt eller molnbackend.',
     footerBrand: 'Viking Bio Integration',
     footerGitHub: 'GitHub'
+  },
+  no: {
+    lang: 'no',
+    title: 'Viking Bio Integration',
+    metaDescription:
+      'Viking Bio-integrasjon for å overvåke og administrere pelletbrenseltelemetri med en Pico-basert bro og lokal konfigurasjon.',
+    brandAria: 'Viking Bio startside',
+    navAria: 'Hovednavigasjon',
+    langAria: 'Språkvalg',
+    showcaseAria: 'Konfigurasjon og maskinvareoversikt',
+    showcaseConfiguratorLabel: 'Konfigurasjon platsholder',
+    showcasePicoLabel: 'Pico platsholder',
+    nav: ['Oversikt', 'Funksjoner', 'Arkitektur', 'Prosjekt'],
+    heroEyebrow: 'Overvåkning av pelletfyr',
+    heroTitle: 'Gjør en Viking Bio 20 til et koblet, observerbart varmesystem',
+    heroLead:
+      'Dette prosjektet kombinerer en Raspberry Pi Pico-bro, signert telemetri og en lokal Go-konfigurator for å overvåke brennerens helse, spore driftstilstand og forenkle oppsett på hjemmenettverk eller eiendom.',
+    showcaseTitle: 'Lokal installasjon fra skrivebordet',
+    showcaseConfiguratorAlt:
+      'Viking Bio konfigurasjonsskjerm som viser enhetsstatus, Wi‑Fi-konfigurasjon og lokale oppsettshandlinger.',
+    showcaseConfiguratorCaption:
+      'Det lokale konfigurasjonsskjermet samler oppstart, provisionering og statuskontroll i ett skrivebordsflyt.',
+    showcasePicoAlt: 'Illustrasjon av Raspberry Pi Pico 2 W for den lokale brennerbroen.',
+    showcasePicoCaption:
+      'Pico 2 W fungerer som den lille, lavenergibroen mellom brenneren og den lokale runtime-en.',
+    ctaExplore: 'Utforsk prosjektet',
+    ctaSource: 'Vis kildekode',
+    sourceAria: 'Vis kildekode på GitHub (åpnes i ny fane)',
+    footerGitHubAria: 'Viking Bio-prosjekt på GitHub (åpnes i ny fane)',
+    panelLabel: 'Telemetriflyt',
+    panelConfigurator: 'Headless Go-runtime',
+    panelItem1: 'UART-lesing fra brennerutdata',
+    panelItem2: 'Signert TCP-strøm til lokal runtime',
+    panelItem3: 'Lokal API + USB-oppsettsflyt',
+    overviewEyebrow: 'Oversikt',
+    overviewTitle: 'Bygget for pålitelighet, synlighet og lokalt eierskap',
+    cardBridgeTitle: 'Pålitelig bro',
+    cardBridgeBody:
+      'En Pico W / Pico 2 W-firmware leser brennerens UART-strøm, lagrer Wi‑Fi- og tjenerinnstillinger lokalt og videreformidler signert telemetri over en stabil TCP-tilkobling.',
+    cardControlTitle: 'Lokal kontrollplane',
+    cardControlBody:
+      'Go-konfiguratoren håndterer onboarding, brostatus og lokal runtime uten å bli avhengig av ekstern nettjeneste eller hostet webapp.',
+    cardInsightTitle: 'Driftsinnsikt',
+    cardInsightBody:
+      'Prosjektet er designet for å vise brennerstatus og feilsituasjoner gjennom et lokalt API og en separat browser-push-app, uten å tilby et dashboard i roten.',
+    featuresEyebrow: 'Funksjoner',
+    featuresTitle: 'Alt du trenger for å gjøre en brenner smartere uten å miste kontrollen',
+    featureTelemetryTitle: 'Signert telemetri',
+    featureTelemetryBody:
+      'Hver melding er autentisert med en enhetsnøkkel, slik at den lokale tjeneren kan verifisere innkommende brennerdata.',
+    featureUSBTitle: 'USB-oppsett',
+    featureUSBBody:
+      'Bro-oppsett kan skje via seriel port med grafisk eller terminalbasert konfigurasjon, som gjør installasjonen enkel.',
+    featureNetworkTitle: 'Headless lokal runtime',
+    featureNetworkBody:
+      'Runtimeen er bygget rundt en lokal, enhetsorientert modell: Go-tjenesten eksponerer API-er og USB-oppsett, mens nettvarsel håndteres av den separate push-pwa-appen.',
+    featureMDNSTitle: 'mDNS-oppdagelse',
+    featureMDNSBody:
+      'Broen lyttes etter mDNS-varsler fra konfiguratoren, som gjør automatisk tjenesteoppdagelse på hjemmenettverk mulig uten manuell konfigurasjon.',
+    featureStateTitle: 'Varig tilstand',
+    featureStateBody:
+      'Wi‑Fi-opplysninger, tjenerinnstillinger og enhetsidentitet lagres i lokal flashbasert lagring.',
+    featureHardwareTitle: 'Åpen maskinva',
+    featureHardwareBody:
+      'Repoet er bevisst gjennomskuelig: firmware, protokolllogikk, runtime og konfigurasjonsverktøy ligger samlet.',
+    architectureEyebrow: 'Arkitektur',
+    architectureTitle: 'Enkelt lagdelt flyt, tydelig ansvar og lokal-first design',
+    architectureBody:
+      'Systemet skiller broen som er nær hardwaren fra den headless Go-runtimeen og den separate browser-push-appen. Picoen leser brennerdata og sender signert telemetri til en Go-prosess på samme lokale nettverk. Den prosessen eksponerer API og USB-konfigurasjonsflyt, mens broen holder fokus på måling, ingest og varsling.',
+    stack1: 'Seriedata fra brenneren',
+    stack2: 'Pico W / Pico 2 W firmware',
+    stack3: 'Signert TCP-ingest',
+    stack4: 'Headless Go-runtime + lokale API-er',
+    stack5: 'push-pwa nettvarsler',
+    projectEyebrow: 'Prosjekt',
+    projectTitle: 'Bygget for eiere, integratorer og skapere som vil ha en praktisk brennermonitor',
+    projectBody1:
+      'Dette repoet er et komplett integrasjonsprosjekt for Viking Bio 20 pelletbrenneren: firmware, protokollanalyse, lokal runtime og en egen browser-push-app for operatørvarsler. Det er designet for å være forståelig, utvidbart og enkelt å kjøre på liten lokal maskinvare eller hjemmenettverk.',
+    projectBody2:
+      'Fokuset er på ærlig operasjonell kontroll: hold data lokalt, verifiser enheten i kanten og gi et pålitelig konfigurasjonsflyt uten å være avhengig av et hostet produkt eller cloud-backend.',
+    footerBrand: 'Viking Bio Integration',
+    footerGitHub: 'GitHub'
+  },
+  fi: {
+    lang: 'fi',
+    title: 'Viking Bio Integration',
+    metaDescription:
+      'Viking Bio -integraatio pelletikattilan telemetrian seuraamiseen ja hallintaan Pico-pohjaisen silta- ja paikallisen konfiguraattorin avulla.',
+    brandAria: 'Viking Bio etusivu',
+    navAria: 'Päävalikko',
+    langAria: 'Kielivalikko',
+    showcaseAria: 'Konfiguraattori ja laitteisto',
+    showcaseConfiguratorLabel: 'Konfiguraattori-paikanpitäjä',
+    showcasePicoLabel: 'Pico-paikanpitäjä',
+    nav: ['Yleiskatsaus', 'Ominaisuudet', 'Arkkitehtuuri', 'Projekti'],
+    heroEyebrow: 'Pellettikattilan valvonta',
+    heroTitle: 'Tee Viking Bio 20:stä yhdistetty ja nähtävä lämmitysjärjestelmä',
+    heroLead:
+      'Tämä projekti yhdistää Raspberry Pi Pico -sillan, allekirjoitetun telemetrian ja paikallisen Go-konfiguraattorin, jotta kattilan terveyttä voidaan seurata, käyttötilaa analysoida ja asennus helpottuu kodin tai kiinteistön verkossa.',
+    showcaseTitle: 'Paikallinen asennus työpöydältä',
+    showcaseConfiguratorAlt:
+      'Viking Bio -konfiguraattorin käyttöliittymä, jossa näkyvät laitteen tila, Wi‑Fi-asetukset ja paikalliset toiminnot.',
+    showcaseConfiguratorCaption:
+      'Paikallinen konfiguraattori pitää verkon asennuksen, provisionoinnin ja tilan tarkastelun yhdessä työpöytävirrassa.',
+    showcasePicoAlt: 'Raspberry Pi Pico 2 W -piirin kuva paikalliselle kattilasiltaosalle.',
+    showcasePicoCaption:
+      'Pico 2 W toimii pienenä, energiatehokkaana sillana kattilan ja paikallisen ajonaikaisen ympäristön välillä.',
+    ctaExplore: 'Tutustu projektiin',
+    ctaSource: 'Näytä lähdekoodi',
+    sourceAria: 'Näytä lähdekoodi GitHubissa (avautuu uuteen välilehteen)',
+    footerGitHubAria: 'Viking Bio -projekti GitHubissa (avautuu uuteen välilehteen)',
+    panelLabel: 'Telemetriavirta',
+    panelConfigurator: 'Headless Go-ajonaikainen ympäristö',
+    panelItem1: 'UART-lukeminen kattilasta',
+    panelItem2: 'Allekirjoitettu TCP-virta paikalliseen ajonaikaiseen ympäristöön',
+    panelItem3: 'Paikallinen API + USB-provisionointivirta',
+    overviewEyebrow: 'Yleiskatsaus',
+    overviewTitle: 'Rakennettu luotettavuuteen, näkyvyyteen ja paikalliseen omistajuuteen',
+    cardBridgeTitle: 'Luotettava silta',
+    cardBridgeBody:
+      'Pico W / Pico 2 W -ohjelmisto lukee kattilan UART-virran, tallentaa Wi‑Fi- ja palvelinasetukset paikallisesti ja välittää allekirjoitettua telemetriaa vakaalla TCP-yhteydellä.',
+    cardControlTitle: 'Paikallinen ohjaustaso',
+    cardControlBody:
+      'Go-konfiguraattori hallitsee käyttöönottoa, sillan tilaa ja paikallista ajonaikaista ympäristöä ilman riippuvuutta etäpalvelusta tai isännöidystä web-sovelluksesta.',
+    cardInsightTitle: 'Toimintatiedot',
+    cardInsightBody:
+      'Projekti on suunniteltu näyttämään kattilan tila ja virheet paikallisen API:n ja erillisen selainpush-sovelluksen kautta ilman, että juuria palvelta tuodaan dashboardia.',
+    featuresEyebrow: 'Ominaisuudet',
+    featuresTitle: 'Kaikki mitä tarvitaan, jotta kattila tulee älykkäämmäksi ilman hallinnan menettämistä',
+    featureTelemetryTitle: 'Allekirjoitettu telemetria',
+    featureTelemetryBody:
+      'Jokainen viesti on autentikoitu laiteavaimella, joten paikallinen palvelin voi tarkistaa tulevat kattilatiedot.',
+    featureUSBTitle: 'USB-provisionointi',
+    featureUSBBody:
+      'Sillan asennus voidaan tehdä sarjaportin kautta GUI- tai terminaalipohjaisella konfiguraattorilla, mikä tekee asennuksesta helppoa.',
+    featureNetworkTitle: 'Headless-paikallinen ajojärjestelmä',
+    featureNetworkBody:
+      'Ajonaikainen järjestelmä on rakennettu paikalliseen, laitekeskeiseen malliin: Go-palvelu tarjoaa API:t ja USB-asetukset, kun taas selainilmoitukset käsitellään erillisessä push-pwa-sovelluksessa.',
+    featureMDNSTitle: 'mDNS-haku',
+    featureMDNSBody:
+      'Silta kuuntelee mDNS-ilmoituksia konfiguraattorilta, mikä mahdollistaa automaattisen palveluiden löytämisen kotiverkossa ilman manuaalista konfiguraatiota.',
+    featureStateTitle: 'Pysyvä tila',
+    featureStateBody:
+      'Wi‑Fi-kirjaukset, palvelinasetukset ja laiteiden identiteetit säilytetään paikallisessa flash-pohjaisessa tallennustilassa.',
+    featureHardwareTitle: 'Avoin laitepolku',
+    featureHardwareBody:
+      'Tietovarasto on tarkoituksella läpinäkyvä: laiteohjelmisto, protokollilogiikka, ajonaikainen ympäristö ja konfigurointityökalut ovat yhdessä.',
+    architectureEyebrow: 'Arkkitehtuuri',
+    architectureTitle: 'Yksinkertainen kerroksellinen virta, selkeä vastuunjako ja paikallisesti toimiva malli',
+    architectureBody:
+      'Järjestelmä erottaa laitteeseen liittyvän sillan headless Go-ajonaikaisesta ympäristöstä ja erillisestä selainpush-sovelluksesta. Pico lukee kattilatiedot ja lähettää allekirjoitettua telemetriaa samaan luotettuun paikalliseen verkkoon. Tämä Go-prosessi tarjoaa API:t ja USB-asennusvirran, kun taas silta keskittyy mittaukseen, tiedon vastaanottoon ja hälytyksiin.',
+    stack1: 'Kattilan sarjadata',
+    stack2: 'Pico W / Pico 2 W -laiteohjelmisto',
+    stack3: 'Allekirjoitettu TCP-ingest',
+    stack4: 'Headless Go-ajonaikainen ympäristö + paikalliset API:t',
+    stack5: 'push-pwa-selainilmoitukset',
+    projectEyebrow: 'Projekti',
+    projectTitle: 'Rakennettu omistajille, integraattoreille ja tekijöille, jotka haluavat käytännöllisen kattilavalvonnan',
+    projectBody1:
+      'Tämä tietovarasto on täydellinen integraatioprojekti Viking Bio 20 -pelletikattilalle: laiteohjelmisto, protokollan jäsentäminen, paikallinen ajonaikainen ympäristö ja erillinen selainpush-sovellus operaattorihälytyksiin. Se on suunniteltu ymmärrettäväksi, laajennettavaksi ja helposti ajettavaksi pienellä paikallisella laitteella tai kotiverkossa.',
+    projectBody2:
+      'Keskiössä on rehellinen operatiivinen hallinta: pidä data paikallisesti, varmista laite reunassa ja tarjoa luotettava konfigurointivirtuaali ilman riippuvuutta isännöidyssä tuotteessa tai pilvipalvelussa.',
+    footerBrand: 'Viking Bio Integration',
+    footerGitHub: 'GitHub'
+  },
+  da: {
+    lang: 'da',
+    title: 'Viking Bio Integration',
+    metaDescription:
+      'Viking Bio-integration til overvågning og styring af pelletbrændertelemetri med en Pico-baseret bro og lokal konfigurator.',
+    brandAria: 'Viking Bio startside',
+    navAria: 'Hovednavigation',
+    langAria: 'Sprogskifter',
+    showcaseAria: 'Konfigurator og hardwareoversigt',
+    showcaseConfiguratorLabel: 'Konfigurator pladsholder',
+    showcasePicoLabel: 'Pico pladsholder',
+    nav: ['Oversigt', 'Funktioner', 'Arkitektur', 'Projekt'],
+    heroEyebrow: 'Overvågning af pelletsbrænder',
+    heroTitle: 'Gør en Viking Bio 20 til et forbundet, observerbart varmesystem',
+    heroLead:
+      'Dette projekt kombinerer en Raspberry Pi Pico-bro, signeret telemetri og en lokal Go-konfigurator for at overvåge brænderens tilstand, spore driftsstatus og forenkle opsætning på hjemmet eller ejendommen.',
+    showcaseTitle: 'Lokal opsætning fra skrivebordet',
+    showcaseConfiguratorAlt:
+      'Viking Bio-konfigurationsvisning, der viser enhedens status, Wi‑Fi-konfiguration og lokale opsætningshandlinger.',
+    showcaseConfiguratorCaption:
+      'Det lokale konfigurationsflow samler opstart, provisionering og statuskontrol i et enkelt skrivebordsflow.',
+    showcasePicoAlt: 'Illustration af Raspberry Pi Pico 2 W til den lokale brænderbro.',
+    showcasePicoCaption:
+      'Pico 2 W fungerer som den lille, energieffektive bro mellem brænderen og den lokale runtime.',
+    ctaExplore: 'Udforsk projektet',
+    ctaSource: 'Vis kildekode',
+    sourceAria: 'Vis kildekode på GitHub (åbner i ny fane)',
+    footerGitHubAria: 'Viking Bio-projekt på GitHub (åbner i ny fane)',
+    panelLabel: 'Telemetriflow',
+    panelConfigurator: 'Headless Go-runtime',
+    panelItem1: 'UART-læsning fra brænderens output',
+    panelItem2: 'Signeret TCP-stream til lokal runtime',
+    panelItem3: 'Lokalt API + USB-provisioneringsflow',
+    overviewEyebrow: 'Oversigt',
+    overviewTitle: 'Bygget til pålidelighed, synlighed og lokalt ejerskab',
+    cardBridgeTitle: 'Pålidelig bro',
+    cardBridgeBody:
+      'En Pico W / Pico 2 W-firmware læser brænderens UART-strøm, gemmer Wi‑Fi- og serverindstillinger lokalt og videresender signeret telemetri via en stabil TCP-forbindelse.',
+    cardControlTitle: 'Lokal kontrolplan',
+    cardControlBody:
+      'Go-konfiguratoren håndterer onboarding, brostatus og lokal runtime uden at skabe afhængighed af en ekstern tjeneste eller hostet webapp.',
+    cardInsightTitle: 'Driftsindsigt',
+    cardInsightBody:
+      'Projektet er designet til at vise brænderstatus og fejl via et lokalt API og en separat browser-push-app uden at serve et dashboard i roden.',
+    featuresEyebrow: 'Funktioner',
+    featuresTitle: 'Alt, hvad der skal til for at gøre en brænder smartere uden at miste kontrollen',
+    featureTelemetryTitle: 'Signeret telemetri',
+    featureTelemetryBody:
+      'Hver meddelelse er autentificeret med en enhedsnykkel, så den lokale server kan verificere indkommende brænderdata.',
+    featureUSBTitle: 'USB-provisionering',
+    featureUSBBody:
+      'Broopsætning kan ske via seriel port med GUI eller terminalbaseret konfigurator, hvilket gør installationen enkel.',
+    featureNetworkTitle: 'Headless lokal runtime',
+    featureNetworkBody:
+      'Runtimeen er bygget omkring en lokal, enhedsorienteret model: Go-tjenesten eksponerer API’er og USB-oprettelse, mens browsernotifikationer håndteres af den separate push-pwa-app.',
+    featureMDNSTitle: 'mDNS-opdagelse',
+    featureMDNSBody:
+      'Broen lytter efter mDNS-meddelelser fra konfiguratoren, hvilket muliggør automatisk tjenesteopdagelse på hjemmenetværk uden manuel konfiguration.',
+    featureStateTitle: 'Bestående tilstand',
+    featureStateBody:
+      'Wi‑Fi-legitimationsoplysninger, serverindstillinger og enhedsidentitet lagres lokalt i flash-baseret lager.',
+    featureHardwareTitle: 'Åben hardwarevej',
+    featureHardwareBody:
+      'Repoet er bevidst gennemsigtigt: firmware, protokolparsering, runtime og konfigurationsværktøjer ligger sammen.',
+    architectureEyebrow: 'Arkitektur',
+    architectureTitle: 'Simpelt lagdelt flow, tydeligt ansvar og lokal-first design',
+    architectureBody:
+      'Systemet adskiller hardware-nære broen fra den headless Go-runtime og den separate browser-push-app. Picoen læser brænderdata og strømmer signeret telemetri til en Go-proces på samme lokale netværk. Den proces eksponerer API og USB-konfigurationsflow, mens broen holder fokus på måling, ingest og advarselslevering.',
+    stack1: 'Seriedata fra brænderen',
+    stack2: 'Pico W / Pico 2 W firmware',
+    stack3: 'Signeret TCP-ingest',
+    stack4: 'Headless Go-runtime + lokale API’er',
+    stack5: 'push-pwa browsernotifikationer',
+    projectEyebrow: 'Projekt',
+    projectTitle: 'Bygget til ejere, integratorer og gør-det-selv-entusiaster, der vil have en praktisk brændermonitor',
+    projectBody1:
+      'Dette repo er et komplet integrationsprojekt til Viking Bio 20 pelletbrænderen: firmware, protokolanalyse, lokal runtime og en separat browser-push-app til operatøralarmer. Det er designet til at være forståeligt, udvideligt og nemt at køre på lille lokal hardware eller hjemmenetværk.',
+    projectBody2:
+      'Fokus er ærlig driftskontrol: hold data lokalt, verificér enheden i kanten og lever et pålideligt konfigurationsflow uden at være afhængig af et hostet produkt eller cloud-backend.',
+    footerBrand: 'Viking Bio Integration',
+    footerGitHub: 'GitHub'
+  },
+  is: {
+    lang: 'is',
+    title: 'Viking Bio Integration',
+    metaDescription:
+      'Viking Bio-samþætting til eftirlits og stjórnun á pelletsofntelemetríu með Pico-byggðri brú og staðbundnum stillingarhjálp.',
+    brandAria: 'Viking Bio heimasíða',
+    navAria: 'Aðalvalmynd',
+    langAria: 'Tungumálaval',
+    showcaseAria: 'Stillingarhjálp og tæknivönding',
+    showcaseConfiguratorLabel: 'Stillingarhjálp staðgengill',
+    showcasePicoLabel: 'Pico staðgengill',
+    nav: ['Yfirlit', 'Eiginleikar', 'Bygging', 'Verkefni'],
+    heroEyebrow: 'Eftirlit með pelletsofni',
+    heroTitle: 'Gerðu Viking Bio 20 að tengdu, sérhannaðri hitakerfi',
+    heroLead:
+      'Þetta verkefni sameinar Raspberry Pi Pico-brú, undirritaða telemetríu og staðbundna Go-stillingarhjálp til að fylgjast með heilsu ofnsins, rekja aðgerðarástand og einfalda uppsetningu á heimavelli eða fasteign.',
+    showcaseTitle: 'Staðbundin uppsetning frá skjáborðinu',
+    showcaseConfiguratorAlt:
+      'Viking Bio stillingarviðmót sem sýnir stöðu tækis, Wi‑Fi-stillingar og staðbundnar aðgerðir.',
+    showcaseConfiguratorCaption:
+      'Staðbundið stillingarviðmót heldur uppsetningu, þjónustuskipulag og ástandsathugun í einu skrifborðsflæði.',
+    showcasePicoAlt: 'Teikning af Raspberry Pi Pico 2 W fyrir staðbundna ofnabrú.',
+    showcasePicoCaption:
+      'Pico 2 W virkar sem litla, orkusparandi brú milli ofnsins og staðbundins keyrsluumhverfis.',
+    ctaExplore: 'Skoða verkefnið',
+    ctaSource: 'Sjá kóða',
+    sourceAria: 'Sjá kóða á GitHub (opnast í nýjum flipa)',
+    footerGitHubAria: 'Viking Bio-verkefni á GitHub (opnast í nýjum flipa)',
+    panelLabel: 'Telemetríuflæði',
+    panelConfigurator: 'Headless Go-keyrsluumhverfi',
+    panelItem1: 'UART-lesning frá ofninum',
+    panelItem2: 'Undirritað TCP-flæði til staðbundins keyrsluumhverfis',
+    panelItem3: 'Staðbundið API + USB-uppsetningarflæði',
+    overviewEyebrow: 'Yfirlit',
+    overviewTitle: 'Byggt fyrir áreiðanleika, sýnileika og staðbundið eignarhald',
+    cardBridgeTitle: 'Áreiðanleg brú',
+    cardBridgeBody:
+      'Pico W / Pico 2 W firmware les úr UART-flæði ofnsins, geymir Wi‑Fi- og þjónustustillingar staðbundið og sendir undirritaða telemetríu yfir stöðuga TCP-tengingu.',
+    cardControlTitle: 'Staðbundinn stjórnplani',
+    cardControlBody:
+      'Go-stillingarhjálpin sér um uppsetningu, brúarstöðu og staðbundið keyrsluumhverfi án þess að þurfa fjarlægan þjónustu eða hýst webforrit.',
+    cardInsightTitle: 'Rekstrarupplýsingar',
+    cardInsightBody:
+      'Verkefnið er hannað til að sýna stöðu ofns og bilanir með staðbundnu API og sjálfstæðu vafra-push-forriti án þess að bjóða upp á dashboard í rótinni.',
+    featuresEyebrow: 'Eiginleikar',
+    featuresTitle: 'Allt sem þarf til að gera ofn skynsamari án þess að tapa stjórninni',
+    featureTelemetryTitle: 'Undirrituð telemetría',
+    featureTelemetryBody:
+      'Hver skilaboð eru auðkennd með tæki-lyklinum svo staðbundinn þjónn geti staðfest innkomandi gögn frá ofninum.',
+    featureUSBTitle: 'USB-uppsetning',
+    featureUSBBody:
+      'Brúaruppsetning getur farið fram yfir raðtengi með GUI eða skeljaprófunarstillingu, sem einfaldar uppsetningu.',
+    featureNetworkTitle: 'Headless staðbundið keyrsluumhverfi',
+    featureNetworkBody:
+      'Keyrsluumhverfið er byggt á staðbundnu, tæki-fókusuðu líkani: Go-þjónustan leggur fyrir API og USB-uppsetningu, en vafra-tilkynningar eru meðhöndlaðar af sérstöku push-pwa-forriti.',
+    featureMDNSTitle: 'mDNS-uppgötvun',
+    featureMDNSBody:
+      'Brúin hlustar eftir mDNS-tilkynningum frá stillingarhjálpinni, sem gerir sjálfvirka þjónustuleit á heimavefneti án handvirkrar stillingar.',
+    featureStateTitle: 'Varanlegur ástand',
+    featureStateBody:
+      'Wi‑Fi-lykilorð, þjónustustillingar og auðkenni tækja eru geymd í staðbundnu flash-safni.',
+    featureHardwareTitle: 'Opinn vélbúnaðargangur',
+    featureHardwareBody:
+      'Geymslan er viljandi gegnsæ: firmware, samskiptalogik, keyrsluumhverfi og stillingarverkfæri liggja saman.',
+    architectureEyebrow: 'Bygging',
+    architectureTitle: 'Einfalt lögskipt flæði, skýr ábyrgð og staðbundið hönnunarmót',
+    architectureBody:
+      'Kerfið aðskilur vélbúnaðarlega brúna frá headless Go-keyrsluumhverfinu og sjálfstæðu vafra-push-forriti. Pico les ofngögn og streymir undirrituðu telemetríu til Go-ferlis á sama staðbundna neti. Sú vinna kemur með API og USB-uppsetningarflæði en brúin heldur fókus á mælingar, innflutning og viðvaranir.',
+    stack1: 'Raðgögn frá ofninum',
+    stack2: 'Pico W / Pico 2 W firmware',
+    stack3: 'Undirritað TCP-ingest',
+    stack4: 'Headless Go-keyrsluumhverfi + staðbundin API',
+    stack5: 'push-pwa vafra-tilkynningar',
+    projectEyebrow: 'Verkefni',
+    projectTitle: 'Byggt fyrir eigendur, samþættingaraðila og hagnýta skapara sem vilja hagnýta ofnstjórnun',
+    projectBody1:
+      'Þetta geymslurými er fullkomið samþættingarverkefni fyrir Viking Bio 20 pelletsofninn: firmware, samskiptumgjöf, staðbundið keyrsluumhverfi og sértakt vafra-push-forrit fyrir rekstrarviðvaranir. Það er hannað til að vera skiljanlegt, framlengjanlegt og auðvelt að keyra á litlu staðbundnu tæki eða heimaneti.',
+    projectBody2:
+      'Fókusinn er heiðarleg rekstrarstjórnun: haltu gögnum á staðnum, staðfestu tækið í jaðrinum og bjóððu upp á áreiðanlegt stillingarflæði án þess að treysta á hýst vörur eða skýjabakenda.',
+    footerBrand: 'Viking Bio Integration',
+    footerGitHub: 'GitHub'
   }
 };
 
@@ -224,14 +564,14 @@ function renderPage(data) {
   <body id="top">
     <header class="topbar">
       <div class="container nav">
-        <a class="brand" href="#top" aria-label="Viking Bio home">
+        <a class="brand" href="#top" aria-label="${escapeHtml(data.brandAria)}">
           <span class="brand-mark">V</span>
           <span>Viking Bio</span>
         </a>
-        <nav class="nav-links" aria-label="Main navigation">
+        <nav class="nav-links" aria-label="${escapeHtml(data.navAria)}">
           ${nav}
         </nav>
-        <nav class="nav-links" aria-label="Language switcher">
+        <nav class="nav-links" aria-label="${escapeHtml(data.langAria)}">
           ${languageLinks}
         </nav>
       </div>
@@ -277,14 +617,14 @@ function renderPage(data) {
         </div>
       </section>
  
-      <section class="section showcase" aria-label="Configurator and hardware overview">
+      <section class="section showcase" aria-label="${escapeHtml(data.showcaseAria)}">
         <div class="container showcase-grid">
           <figure class="media-card placeholder">
-            <span>Configurator placeholder</span>
+            <span>${escapeHtml(data.showcaseConfiguratorLabel)}</span>
             <figcaption>${escapeHtml(data.showcaseConfiguratorCaption)}</figcaption>
           </figure>
           <figure class="media-card placeholder">
-            <span>Pico placeholder</span>
+            <span>${escapeHtml(data.showcasePicoLabel)}</span>
             <figcaption>${escapeHtml(data.showcasePicoCaption)}</figcaption>
           </figure>
         </div>
