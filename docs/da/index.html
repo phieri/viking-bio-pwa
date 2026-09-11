@@ -52,7 +52,7 @@
                 <span class="arrow">→</span>
                 <span>Pico W</span>
                 <span class="arrow">→</span>
-                <span>Headless Go-runtime</span>
+                <span>Go runtime with GUI + TUI</span>
               </div>
               <ul>
                 <li>UART-læsning fra brænderens output</li>
@@ -117,7 +117,7 @@
               <p>Broopsætning kan ske via seriel port med GUI eller terminalbaseret konfigurator, hvilket gør installationen enkel.</p>
             </div>
             <div class="feature-item">
-              <h3>Headless lokal runtime</h3>
+              <h3>Local runtime with GUI/TUI</h3>
               <p>Runtimeen er bygget omkring en lokal, enhedsorienteret model: Go-tjenesten eksponerer API’er og USB-oprettelse, mens browsernotifikationer håndteres af den separate push-pwa-app.</p>
             </div>
             <div class="feature-item">
@@ -141,13 +141,13 @@
           <div>
             <p class="eyebrow">Arkitektur</p>
             <h2>Simpelt lagdelt flow, tydeligt ansvar og lokal-first design</h2>
-            <p>Systemet adskiller hardware-nære broen fra den headless Go-runtime og den separate browser-push-app. Picoen læser brænderdata og strømmer signeret telemetri til en Go-proces på samme lokale netværk. Den proces eksponerer API og USB-konfigurationsflow, mens broen holder fokus på måling, ingest og advarselslevering.</p>
+            <p>Systemet adskiller hardware-nære broen fra den Go-runtime og den separate browser-push-app. Picoen læser brænderdata og strømmer signeret telemetri til en Go-proces på samme lokale netværk. Den proces eksponerer API og USB-konfigurationsflow, mens broen holder fokus på måling, ingest og advarselslevering.</p>
           </div>
           <div class="stack">
             <div class="stack-item"><span>1</span><span>Seriedata fra brænderen</span></div>
             <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W firmware</span></div>
             <div class="stack-item"><span>3</span><span>Signeret TCP-ingest</span></div>
-            <div class="stack-item"><span>4</span><span>Headless Go-runtime + lokale API’er</span></div>
+            <div class="stack-item"><span>4</span><span>Go runtime with GUI + TUI + local APIs</span></div>
             <div class="stack-item"><span>5</span><span>push-pwa browsernotifikationer</span></div>
           </div>
         </div>
