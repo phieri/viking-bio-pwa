@@ -85,6 +85,24 @@ if (array_key_exists('lfs_ok', $payload) && is_bool($payload['lfs_ok'])) {
 }
 $errorCode = (int) ($payload['err'] ?? 0);
 $temperature = isset($payload['temp']) && is_numeric($payload['temp']) ? (float) $payload['temp'] : null;
+$flameOnPct = null;
+if (array_key_exists('flame_on_pct', $payload) && is_numeric($payload['flame_on_pct'])) {
+    $flameOnPct = (int) round((float) $payload['flame_on_pct']);
+} elseif (array_key_exists('flameOnPct', $payload) && is_numeric($payload['flameOnPct'])) {
+    $flameOnPct = (int) round((float) $payload['flameOnPct']);
+}
+$flameOnMs = null;
+if (array_key_exists('flame_on_ms', $payload) && is_numeric($payload['flame_on_ms'])) {
+    $flameOnMs = (int) $payload['flame_on_ms'];
+} elseif (array_key_exists('flameOnMs', $payload) && is_numeric($payload['flameOnMs'])) {
+    $flameOnMs = (int) $payload['flameOnMs'];
+}
+$windowMs = null;
+if (array_key_exists('window_ms', $payload) && is_numeric($payload['window_ms'])) {
+    $windowMs = (int) $payload['window_ms'];
+} elseif (array_key_exists('windowMs', $payload) && is_numeric($payload['windowMs'])) {
+    $windowMs = (int) $payload['windowMs'];
+}
 
 if ($device === '' || $type === '') {
     webhook_response_fail(400, 'device and type are required');
@@ -97,20 +115,24 @@ $priority = match ($type) {
     default => 'normal',
 };
 
+$summary = [];
 if ($type === 'heartbeat') {
+    $summary['flameOnPct'] = $flameOnPct;
+    $summary['flameOnMs'] = $flameOnMs;
+    $summary['windowMs'] = $windowMs;
+
     $lastContactState = new LastContactState(__DIR__ . '/../storage/last-contact.json');
-    if (!$lastContactState->record($device, $type, $detail, $rssi, $lfsHealth)) {
+    if (!$lastContactState->record($device, $type, $detail, $rssi, $lfsHealth, $summary)) {
         webhook_response_fail(500, sprintf('Failed to persist last contact for %s', $device));
     }
 
     error_log(sprintf('webhook.php: heartbeat stored for %s (%s/%s)', $device, $type, $detail));
-    webhook_response_ok();
 }
 
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
 $icon = PushSender::notificationIcon($type, $detail);
 $result = $sender->sendTranslated(
-    static fn (string $language, array $subscription): array => PushTranslations::webhookAlert($language, $type, $detail, $device, $errorCode, $temperature, $lfsHealth),
+    static fn (string $language, array $subscription): array => PushTranslations::webhookAlert($language, $type, $detail, $device, $errorCode, $temperature, $lfsHealth, $summary),
     $icon,
     [
         'tag' => 'viking-bio-' . $type,

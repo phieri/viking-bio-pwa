@@ -155,7 +155,7 @@ final class PushTranslations
     /**
      * @return array{title:string,body:string}
      */
-    public static function webhookAlert(string $language, string $type, string $detail, string $device, int $errorCode, ?float $temperature, ?bool $lfsHealth): array
+    public static function webhookAlert(string $language, string $type, string $detail, string $device, int $errorCode, ?float $temperature, ?bool $lfsHealth, ?array $summary = null): array
     {
         $key = 'alert.default';
         if ($type === 'flame') {
@@ -191,6 +191,12 @@ final class PushTranslations
         }
         if ($type === 'heartbeat' && $lfsHealth !== null) {
             $body .= $lfsHealth ? self::message($language, 'suffix.lfs.healthy') : self::message($language, 'suffix.lfs.degraded');
+        }
+        if ($type === 'heartbeat' && is_array($summary)) {
+            $flameOnPct = $summary['flameOnPct'] ?? null;
+            if (is_numeric($flameOnPct)) {
+                $body .= ' Flame active ' . (string) round((float) $flameOnPct) . '% of the previous interval.';
+            }
         }
 
         return [
