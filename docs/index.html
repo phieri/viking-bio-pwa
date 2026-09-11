@@ -1,5 +1,3 @@
-<!-- Copyright (C) 2026 Philip Eriksson. All rights reserved. -->
-
 <!DOCTYPE html>
 <html lang="mul">
   <head>
@@ -11,12 +9,26 @@
   </head>
   <body>
     <noscript>
-      <p><a href="./en/">English</a> | <a href="./sv/">Svenska</a></p>
+      <p><a href="./en/">English</a> | <a href="./sv/">Svenska</a> | <a href="./no/">Norsk</a> | <a href="./fi/">Suomi</a> | <a href="./da/">Dansk</a> | <a href="./is/">Íslenska</a></p>
     </noscript>
     <script>
       (function () {
-        var preferred = navigator.language && navigator.language.toLowerCase().indexOf('sv') === 0 ? 'sv' : 'en';
-        window.location.replace(preferred === 'sv' ? './sv/' : './en/');
+        var locales = {
+          en: 'en', 'en-us': 'en', 'en-gb': 'en',
+          sv: 'sv', 'sv-se': 'sv',
+          no: 'no', nb: 'no', nn: 'no',
+          fi: 'fi',
+          da: 'da',
+          is: 'is'
+        };
+        var language = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+        var preferred = locales[language] || 'en';
+        if (language.indexOf('sv') === 0) preferred = 'sv';
+        if (language.indexOf('no') === 0 || language.indexOf('nb') === 0 || language.indexOf('nn') === 0) preferred = 'no';
+        if (language.indexOf('fi') === 0) preferred = 'fi';
+        if (language.indexOf('da') === 0) preferred = 'da';
+        if (language.indexOf('is') === 0) preferred = 'is';
+        window.location.replace('./' + preferred + '/');
       })();
     </script>
   </body>

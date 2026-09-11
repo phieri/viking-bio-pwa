@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Viking Bio -integraatio pellettipolttimen telemetrian seurantaan ja hallintaan Pico-pohjaisella sillalla ja paikallisella konfiguraattorilla." />
+    <title>Viking Bio Integration</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body id="top">
+    <header class="topbar">
+      <div class="container nav">
+        <a class="brand" href="#top" aria-label="Viking Bio home">
+          <span class="brand-mark">V</span>
+          <span>Viking Bio</span>
+        </a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a href="#overview">Yleiskatsaus</a>
+          <a href="#features">Ominaisuudet</a>
+          <a href="#architecture">Arkkitehtuuri</a>
+          <a href="#project">Projekti</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero-grid">
+          <div>
+            <p class="eyebrow">Pellettipolttimen seuranta</p>
+            <h1>Tee Viking Bio 20:stä kytketty, havainnoitava lämmitysjärjestelmä</h1>
+            <p class="lead">Tämä projekti yhdistää Raspberry Pi Pico -sillan, allekirjoitetun telemetrian ja paikallisen Go-konfiguraattorin, jotta polttimen terveyttä, käyttötilaa ja asennusta voidaan hallita kotiverkossa tai kiinteistössä.</p>
+            <div class="cta-row">
+              <a class="button primary" href="#overview">Tutustu projektiin</a>
+              <a
+                class="button secondary"
+                href="https://github.com/phieri/viking-bio-pwa"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Näytä lähdekoodi GitHubissa (avautuu uuteen välilehteen)"
+              >
+                Näytä lähdekoodi
+              </a>
+            </div>
+          </div>
+          <div class="hero-panel">
+            <div class="panel-card">
+              <span class="panel-label">Telemetriajakot</span>
+              <div class="flow-block">
+                <span>Viking Bio 20</span>
+                <span class="arrow">→</span>
+                <span>Pico W</span>
+                <span class="arrow">→</span>
+                <span>Headless Go-runtime</span>
+              </div>
+              <ul>
+                <li>UART-keruu polttimelta</li>
+                <li>Allekirjoitettu TCP-virta paikalliseen runtimeen</li>
+                <li>Paikallinen API + USB-provisionointi</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+ 
+      <section class="section showcase" aria-label="Configurator and hardware overview">
+        <div class="container showcase-grid">
+          <figure class="media-card placeholder">
+            <span>Configurator placeholder</span>
+            <figcaption>Paikallinen konfiguraattori pitää asennuksen, provisionoinnin ja tilan tarkastelun yhdessä työpöytäytössä.</figcaption>
+          </figure>
+          <figure class="media-card placeholder">
+            <span>Pico placeholder</span>
+            <figcaption>Pico 2 W toimii pienenä, energiatehokkaana sillana polttimen ja paikallisen ajon välillä.</figcaption>
+          </figure>
+        </div>
+      </section>
+ 
+      <section id="overview" class="section">
+        <div class="container">
+          <div class="section-heading">
+            <p class="eyebrow">Yleiskatsaus</p>
+            <h2>Rakennettu luotettavuuteen, näkyvyyteen ja paikalliseen omistajuuteen</h2>
+          </div>
+          <div class="cards three-up">
+            <article class="info-card">
+              <h3>Luotettava silta</h3>
+              <p>Pico W / Pico 2 W -laite lukee polttimen UART-virran, tallentaa Wi‑Fi- ja palvelinasetukset paikallisesti ja välittää allekirjoitettua telemetriaa vakaalla TCP-yhteydellä.</p>
+            </article>
+            <article class="info-card">
+              <h3>Paikallinen ohjaustaso</h3>
+              <p>Go-konfiguraattori hallitsee käyttöönottoa, sillan tilaa ja paikallista runtimea ilman riippuvuutta etäpalvelusta tai hosted-web-sovelluksesta.</p>
+            </article>
+            <article class="info-card">
+              <h3>Toiminta-aistimus</h3>
+              <p>Projekti on suunniteltu näyttämään polttimen tila ja virheet paikallisen API:n ja erillisen selaimella toimivan push-sovelluksen kautta ilman juuritasolla sijaitsevaa dashboardia.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="section alt">
+        <div class="container">
+          <div class="section-heading narrow">
+            <p class="eyebrow">Ominaisuudet</p>
+            <h2>Kaikki, mitä tarvitaan tekemään polttimesta fiksumpi ilman hallinnan menetystä</h2>
+          </div>
+
+          <div class="feature-list">
+            <div class="feature-item">
+              <h3>Allekirjoitettu telemetria</h3>
+              <p>Jokainen viesti on autentisoitu laiteavaimella, jotta paikallinen palvelin voi vahvistaa saapuvan datan.</p>
+            </div>
+            <div class="feature-item">
+              <h3>USB-provisionointi</h3>
+              <p>Silta voidaan konfiguroida sarjaportin kautta GUI:lla tai terminaalipohjaisella konfiguraattorilla, mikä tekee asennuksesta yksinkertaisen.</p>
+            </div>
+            <div class="feature-item">
+              <h3>Headless paikallinen runtime</h3>
+              <p>Runtime on rakennettu paikallisen laitteen ympärille: Go-palvelu tarjoaa API:t ja USB-asetukset, kun taas selaimen ilmoitukset käsitellään erillisessä push-pwa-sovelluksessa.</p>
+            </div>
+            <div class="feature-item">
+              <h3>mDNS-löytö</h3>
+              <p>Silta kuuntelee konfiguraattorin mDNS-ilmoituksia, mahdollistaen automaattisen palvelun löytämisen kotiverkossa ilman manuaalista konfigurointia.</p>
+            </div>
+            <div class="feature-item">
+              <h3>Pysyvä tila</h3>
+              <p>Wi‑Fi-kirjaukset, palvelinasetukset ja laite-identiteetti tallennetaan paikalliseen flash-pohjaiseen tallennustilaan.</p>
+            </div>
+            <div class="feature-item">
+              <h3>Avoin laitteisto-polku</h3>
+              <p>Repo on tarkoituksellisesti läpinäkyvä: firmware, protokollalogiikka, runtime ja konfiguraatiotyökalut elävät yhdessä.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="architecture" class="section">
+        <div class="container architecture-grid">
+          <div>
+            <p class="eyebrow">Arkkitehtuuri</p>
+            <h2>Yksinkertainen kerroksinen virtaus, selkeä omistajuus ja paikallisuus</h2>
+            <p>Järjestelmä erottaa laitteistosillan päällimmäisestä Go-runtimesta ja erillisestä browser-push-sovelluksesta. Pico lukee polttimen dataa ja lähettää allekirjoitettua telemetriaa Go-prosessiin samalla luotettavassa paikallisessa verkossa. Tämä prosessi tarjoaa API:n ja USB-konfiguraation, kun taas silta keskittyy mittaukseen, ingestiin ja hälytyksiin.</p>
+          </div>
+          <div class="stack">
+            <div class="stack-item"><span>1</span><span>Polttimen sarjadata</span></div>
+            <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W firmware</span></div>
+            <div class="stack-item"><span>3</span><span>Allekirjoitettu TCP-ingest</span></div>
+            <div class="stack-item"><span>4</span><span>Headless Go-runtime + paikalliset API:t</span></div>
+            <div class="stack-item"><span>5</span><span>push-pwa-selaimen ilmoitukset</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="project" class="section alt" aria-labelledby="project-title">
+        <div class="container">
+          <div class="project-panel">
+            <div>
+              <p class="eyebrow">Projekti</p>
+              <h2 id="project-title">Rakennettu omistajille, integraattoreille ja tekijöille, jotka haluavat käytännöllisen polttimen monitorin</h2>
+            </div>
+            <div class="project-copy">
+              <p>Tämä repo on täydellinen integraatioprojekti Viking Bio 20 -pellettipolttimelle: firmware, protokollan käsittely, paikallinen runtime ja erillinen browser-push-sovellus operaattorihälytyksille. Se on suunniteltu ymmärrettäväksi, laajennettavaksi ja helposti ajettavaksi pienellä paikallisella laitteella tai kotiverkossa.</p>
+              <p>Painopiste on rehellinen operatiivinen hallinta: pidä data paikallisesti, varmista laite reunassa ja tarjoa luotettava konfiguraatiovirta ilman riippuvuutta isännöidyltä tuotteelta tai cloud-backendilta.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-row">
+        <span>Viking Bio Integration</span>
+        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="Viking Bio -projekti GitHubissa (avautuu uuteen välilehteen)">GitHub</a>
+      </div>
+    </footer>
+  </body>
+</html>

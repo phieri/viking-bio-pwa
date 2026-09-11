@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/phieri/viking-bio-pwa/configurator/internal/i18n"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
@@ -47,6 +48,11 @@ type TUI struct {
 	store          *storage.Store
 	scanner        *bufio.Scanner
 	telemetryState *server.State
+	locale         string
+}
+
+func (t *TUI) text(key string) string {
+	return i18n.Lookup(t.locale, key)
 }
 
 // NewTUI creates a TUI attached to the given bridge.
@@ -60,6 +66,7 @@ func NewTUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		store:          store,
 		scanner:        bufio.NewScanner(os.Stdin),
 		telemetryState: state,
+		locale:         i18n.ResolveLocale(os.Getenv("LANG")),
 	}
 }
 
@@ -84,22 +91,22 @@ func formatHeaderLine(content string) string {
 func (t *TUI) printHeader() {
 	fmt.Println()
 	fmt.Println(color("╔"+strings.Repeat("═", 36)+"╗", colorCyan))
-	fmt.Println(formatHeaderLine("Viking Bio – Device Configurator"))
-	fmt.Println(formatHeaderLine("Version: " + appversion.String()))
+	fmt.Println(formatHeaderLine(t.text("app.title")))
+	fmt.Println(formatHeaderLine(fmt.Sprintf(t.text("app.version"), appversion.String())))
 	fmt.Println(color("╚"+strings.Repeat("═", 36)+"╝", colorCyan))
 	fmt.Println()
 }
 
 func (t *TUI) printMenu() {
-	fmt.Println(color("  1.", colorYellow) + " Show device status")
-	fmt.Println(color("  2.", colorYellow) + " Configure WiFi (SSID + password)")
-	fmt.Println(color("  3.", colorYellow) + " Set Wi-Fi country code")
-	fmt.Println(color("  4.", colorYellow) + " Set server address & port")
-	fmt.Println(color("  5.", colorYellow) + " Set webhook URL")
-	fmt.Println(color("  6.", colorYellow) + " Provision telemetry device key")
-	fmt.Println(color("  7.", colorYellow) + " Clear all credentials")
-	fmt.Println(color("  8.", colorYellow) + " Show live telemetry")
-	fmt.Println(color("  0.", colorRed) + " Exit")
+	fmt.Println(color("  1.", colorYellow) + " " + t.text("menu.show_status"))
+	fmt.Println(color("  2.", colorYellow) + " " + t.text("menu.configure_wifi"))
+	fmt.Println(color("  3.", colorYellow) + " " + t.text("menu.set_country"))
+	fmt.Println(color("  4.", colorYellow) + " " + t.text("menu.set_server"))
+	fmt.Println(color("  5.", colorYellow) + " " + t.text("menu.set_webhook"))
+	fmt.Println(color("  6.", colorYellow) + " " + t.text("menu.provision_key"))
+	fmt.Println(color("  7.", colorYellow) + " " + t.text("menu.clear_credentials"))
+	fmt.Println(color("  8.", colorYellow) + " " + t.text("menu.show_telemetry"))
+	fmt.Println(color("  0.", colorRed) + " " + t.text("menu.exit"))
 	fmt.Println()
 }
 
@@ -134,11 +141,11 @@ func (t *TUI) showStatus() {
 		return
 	}
 	fmt.Println()
-	fmt.Println(color("Device Status:", colorBold))
+	fmt.Println(color(t.text("status.device"), colorBold))
 	if status.Connected {
-		fmt.Println("  WiFi:     " + color("connected", colorGreen))
+		fmt.Println("  WiFi:     " + color(t.text("status.connected"), colorGreen))
 	} else {
-		fmt.Println("  WiFi:     " + color("not connected", colorRed))
+		fmt.Println("  WiFi:     " + color(t.text("status.disconnected"), colorRed))
 	}
 	for _, addr := range status.Addresses {
 		fmt.Println("  Address:  " + addr)
@@ -169,14 +176,14 @@ func (t *TUI) showStatus() {
 
 func (t *TUI) showTelemetry() {
 	if t.telemetryState == nil {
-		fmt.Println(color("Live telemetry is unavailable; the configurator is not connected to a live telemetry stream.", colorYellow))
+		fmt.Println(color(t.text("telemetry.unavailable"), colorYellow))
 		return
 	}
 	fmt.Println()
-	fmt.Println(color("Live burner telemetry:", colorBold))
+	fmt.Println(color(t.text("telemetry.title"), colorBold))
 	snapshot := t.telemetryState.Snapshot()
 	if snapshot.UpdatedAt == 0 {
-		fmt.Println(color("  Waiting for telemetry... No data has been received yet.", colorYellow))
+		fmt.Println(color("  "+t.text("status.waiting"), colorYellow))
 		fmt.Println()
 		return
 	}
@@ -191,12 +198,12 @@ func (t *TUI) showTelemetry() {
 }
 
 func (t *TUI) configureWiFi() {
-	ssid := t.readLine("SSID: ")
+	ssid := t.readLine(t.text("form.ssid") + ": ")
 	if ssid == "" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.text("action.cancelled"), colorYellow))
 		return
 	}
-	password := t.readLine("Password: ")
+	password := t.readLine(t.text("form.password") + ": ")
 	t.sendAndPrint("SSID=" + ssid)
 	t.sendSilent("PASS=" + password) // password not echoed to stdout
 	fmt.Println(color("Credentials saved. Device will reboot.", colorGreen))
@@ -213,12 +220,12 @@ func (t *TUI) setCountry() {
 }
 
 func (t *TUI) setServer() {
-	addr := t.readLine("Server IP/hostname: ")
+	addr := t.readLine(t.text("form.server_address") + ": ")
 	if addr == "" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.text("action.cancelled"), colorYellow))
 		return
 	}
-	port := t.readLine("Server port [9000]: ")
+	port := t.readLine(t.text("form.port") + " [9000]: ")
 	if port == "" {
 		port = "9000"
 	}
@@ -227,9 +234,9 @@ func (t *TUI) setServer() {
 }
 
 func (t *TUI) setWebhook() {
-	url := t.readLine("Webhook URL (http:// or https://): ")
+	url := t.readLine(t.text("form.webhook_url") + " (http:// or https://): ")
 	if url == "" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.text("action.cancelled"), colorYellow))
 		return
 	}
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
@@ -273,7 +280,7 @@ func (t *TUI) provisionDeviceKey() {
 func (t *TUI) clearCredentials() {
 	confirm := t.readLine("Type YES to confirm clearing all credentials: ")
 	if confirm != "YES" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.text("action.cancelled"), colorYellow))
 		return
 	}
 	t.sendAndPrint("CLEAR")
@@ -285,7 +292,7 @@ func (t *TUI) Run() {
 	t.printHeader()
 	for {
 		t.printMenu()
-		choice := t.readLine(color("Choice: ", colorBold))
+		choice := t.readLine(color(t.text("menu.choice"), colorBold))
 		switch choice {
 		case "1":
 			t.showStatus()

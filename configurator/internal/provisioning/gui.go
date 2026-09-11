@@ -7,6 +7,7 @@ package provisioning
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/phieri/viking-bio-pwa/configurator/internal/i18n"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
@@ -113,18 +115,21 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	locale := i18n.ResolveLocale(os.Getenv("LANG"))
+	text := func(key string) string { return i18n.Lookup(locale, key) }
+
 	a := fyneapp.New()
 	var openWindows atomic.Int32
 	openWindows.Store(2)
-	provisioningWindow := a.NewWindow("Viking Bio – Provisioning over USB")
+	provisioningWindow := a.NewWindow(text("app.provisioning.title"))
 	provisioningWindow.Resize(fyne.NewSize(680, 480))
 
-	titleLabel := widget.NewLabelWithStyle("Viking Bio – Device Configurator",
+	titleLabel := widget.NewLabelWithStyle(text("app.title"),
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	versionLabel := widget.NewLabelWithStyle("Configurator: "+appversion.String(),
+	versionLabel := widget.NewLabelWithStyle(fmt.Sprintf(text("app.version"), appversion.String()),
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	statusLabel := widget.NewLabel("Loading device status...")
+	statusLabel := widget.NewLabel(text("status.loading"))
 	statusLabel.Wrapping = fyne.TextWrapWord
 	statusLabel.TextStyle = fyne.TextStyle{Monospace: true}
 	offlineMode := bridge == nil || strings.TrimSpace(bridge.PortName()) == ""
@@ -148,9 +153,9 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		var sb strings.Builder
 		sb.WriteString("WiFi:      ")
 		if status.Connected {
-			sb.WriteString("connected\n")
+			sb.WriteString(text("status.connected") + "\n")
 		} else {
-			sb.WriteString("not connected\n")
+			sb.WriteString(text("status.disconnected") + "\n")
 		}
 		for _, addr := range status.Addresses {
 			sb.WriteString("Address:   " + addr + "\n")
@@ -217,7 +222,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	}
 
 	// ── Show device status ────────────────────────────────────────────────
-	btnStatus := widget.NewButton("Show device status", func() {
+	btnStatus := widget.NewButton(text("menu.show_status"), func() {
 		appendLog("→ STATUS")
 		go func() {
 			status, err := bridge.GetStatus()
@@ -261,7 +266,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Configure WiFi ───────────────────────────────────────────────────
-	btnWiFi := widget.NewButton("Configure WiFi", func() {
+	btnWiFi := widget.NewButton(text("menu.configure_wifi"), func() {
 		ssidEntry := widget.NewEntry()
 		ssidEntry.SetPlaceHolder("MyNetwork")
 		passEntry := widget.NewPasswordEntry()
@@ -269,11 +274,11 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 
 		form := &widget.Form{
 			Items: []*widget.FormItem{
-				{Text: "SSID", Widget: ssidEntry},
-				{Text: "Password", Widget: passEntry},
+				{Text: text("form.ssid"), Widget: ssidEntry},
+				{Text: text("form.password"), Widget: passEntry},
 			},
 		}
-		d := dialog.NewCustomConfirm("Configure WiFi", "Save", "Cancel", form, func(confirmed bool) {
+		d := dialog.NewCustomConfirm(text("menu.configure_wifi"), text("action.save"), text("action.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
@@ -310,7 +315,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Set country code ─────────────────────────────────────────────────
-	btnCountry := widget.NewButton("Set country code", func() {
+	btnCountry := widget.NewButton(text("menu.set_country"), func() {
 		regionSelect := widget.NewSelect(supportedWiFiRegions, nil)
 		regionSelect.SetSelected("Worldwide (XX)")
 		if bridge != nil {
@@ -320,9 +325,9 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		}
 
 		form := &widget.Form{
-			Items: []*widget.FormItem{{Text: "Wi-Fi region", Widget: regionSelect}},
+			Items: []*widget.FormItem{{Text: text("form.wifi_region"), Widget: regionSelect}},
 		}
-		d := dialog.NewCustomConfirm("Set Wi-Fi country code", "Set", "Cancel", form, func(confirmed bool) {
+		d := dialog.NewCustomConfirm(text("menu.set_country"), text("action.set"), text("action.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
@@ -344,17 +349,17 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Set server address & port ─────────────────────────────────────────
-	btnServer := widget.NewButton("Set server address & port", func() {
+	btnServer := widget.NewButton(text("menu.set_server"), func() {
 		addrEntry := widget.NewEntry()
 		addrEntry.SetPlaceHolder("192.168.1.10 or fd00::1")
 		portEntry := widget.NewEntry()
 		portEntry.SetText("9000")
 
 		form := widget.NewForm(
-			widget.NewFormItem("Server IP/hostname", addrEntry),
-			widget.NewFormItem("Port", portEntry),
+			widget.NewFormItem(text("form.server_address"), addrEntry),
+			widget.NewFormItem(text("form.port"), portEntry),
 		)
-		d := dialog.NewCustomConfirm("Set server", "Set", "Cancel", form, func(confirmed bool) {
+		d := dialog.NewCustomConfirm(text("menu.set_server"), text("action.set"), text("action.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
@@ -394,12 +399,12 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Set webhook URL ──────────────────────────────────────────────────
-	btnWebhook := widget.NewButton("Set webhook URL", func() {
+	btnWebhook := widget.NewButton(text("menu.set_webhook"), func() {
 		urlEntry := widget.NewEntry()
 		urlEntry.SetPlaceHolder("https://hooks.example.com/secret")
 
-		form := widget.NewForm(widget.NewFormItem("Webhook URL", urlEntry))
-		d := dialog.NewCustomConfirm("Set webhook URL", "Set", "Cancel", form, func(confirmed bool) {
+		form := widget.NewForm(widget.NewFormItem(text("form.webhook_url"), urlEntry))
+		d := dialog.NewCustomConfirm(text("menu.set_webhook"), text("action.set"), text("action.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
@@ -425,7 +430,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Provision telemetry device key ──────────────────────────────────
-	btnProvision := widget.NewButton("Provision telemetry device key", func() {
+	btnProvision := widget.NewButton(text("menu.provision_key"), func() {
 		go func() {
 			appendLog("→ STATUS (reading device ID)")
 			status, err := bridge.GetStatus()
@@ -468,8 +473,8 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Clear all credentials ────────────────────────────────────────────
-	btnClear := widget.NewButton("Clear all credentials", func() {
-		dialog.ShowConfirm("Clear credentials",
+	btnClear := widget.NewButton(text("menu.clear_credentials"), func() {
+		dialog.ShowConfirm(text("menu.clear_credentials"),
 			"This will erase all stored credentials and reboot the device.\nAre you sure?",
 			func(confirmed bool) {
 				if !confirmed {
@@ -493,7 +498,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Close ────────────────────────────────────────────────────────────
-	btnClose := widget.NewButton("Close", func() {
+	btnClose := widget.NewButton(text("button.close"), func() {
 		provisioningWindow.Close()
 	})
 
@@ -517,26 +522,26 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	)
 	provisioningWindow.SetContent(content)
 
-	monitorWindow := a.NewWindow("Viking Bio – Network Telemetry")
+	monitorWindow := a.NewWindow(text("app.monitor.title"))
 	monitorWindow.Resize(fyne.NewSize(420, 320))
 	telemetryStateValue := (*server.State)(nil)
 	if len(telemetryState) > 0 {
 		telemetryStateValue = telemetryState[0]
 	}
-	telemetryTitle := widget.NewLabelWithStyle("Network telemetry", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	telemetryStatus := widget.NewLabel("Waiting for telemetry...")
+	telemetryTitle := widget.NewLabelWithStyle(text("telemetry.title"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	telemetryStatus := widget.NewLabel(text("status.waiting"))
 	telemetryStatus.Wrapping = fyne.TextWrapWord
 	telemetryStatus.TextStyle = fyne.TextStyle{Monospace: true}
 	var lastErrorNotification float64
 	var lastErrorNotificationSet bool
 	telemetryRefresh := func() {
 		if telemetryStateValue == nil {
-			telemetryStatus.SetText("Waiting for telemetry...\nThe server is not connected to a live telemetry stream.")
+			telemetryStatus.SetText(text("status.waiting") + "\nThe server is not connected to a live telemetry stream.")
 			return
 		}
 		snapshot := telemetryStateValue.Snapshot()
 		if snapshot.UpdatedAt == 0 {
-			telemetryStatus.SetText("Waiting for telemetry...\nNo data has been received yet.")
+			telemetryStatus.SetText(text("status.waiting"))
 			return
 		}
 		if snapshot.Err != 0 {
