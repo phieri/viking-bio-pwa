@@ -85,12 +85,6 @@ if (array_key_exists('lfs_ok', $payload) && is_bool($payload['lfs_ok'])) {
 }
 $errorCode = (int) ($payload['err'] ?? 0);
 $temperature = isset($payload['temp']) && is_numeric($payload['temp']) ? (float) $payload['temp'] : null;
-$flameOnPct = null;
-if (array_key_exists('flame_on_pct', $payload) && is_numeric($payload['flame_on_pct'])) {
-    $flameOnPct = (int) round((float) $payload['flame_on_pct']);
-} elseif (array_key_exists('flameOnPct', $payload) && is_numeric($payload['flameOnPct'])) {
-    $flameOnPct = (int) round((float) $payload['flameOnPct']);
-}
 $flameOnMs = null;
 if (array_key_exists('flame_on_ms', $payload) && is_numeric($payload['flame_on_ms'])) {
     $flameOnMs = (int) $payload['flame_on_ms'];
@@ -117,7 +111,6 @@ $priority = match ($type) {
 
 $summary = [];
 if ($type === 'heartbeat') {
-    $summary['flameOnPct'] = $flameOnPct;
     $summary['flameOnMs'] = $flameOnMs;
     $summary['windowMs'] = $windowMs;
 

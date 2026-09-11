@@ -405,12 +405,6 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 		if (window_ms == 0ULL) {
 			window_ms = WEBHOOK_HEARTBEAT_INTERVAL_MS;
 		}
-		uint32_t flame_on_pct = 0U;
-		uint64_t percent = (s_flame_on_ms_since_last_heartbeat * 100ULL) / window_ms;
-		if (percent > 100ULL) {
-			percent = 100ULL;
-		}
-		flame_on_pct = (uint32_t)percent;
 		int written;
 		const char *rssi_value = have_rssi ? "" : "null";
 		char rssi_buf[32];
@@ -419,10 +413,9 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 			rssi_value = rssi_buf;
 		}
 		written = snprintf(out, out_len,
-				"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%s,\"lfs_ok\":%s,\"flame_on_pct\":%u,\"flame_on_ms\":%llu,\"window_ms\":%llu}",
+				"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%s,\"lfs_ok\":%s,\"flame_on_ms\":%llu,\"window_ms\":%llu}",
 				device, type, detail_text, rssi_value,
 				lfs_healthy ? "true" : "false",
-				flame_on_pct,
 				(unsigned long long)s_flame_on_ms_since_last_heartbeat,
 				(unsigned long long)window_ms);
 		return written > 0 && written < (int)out_len;
