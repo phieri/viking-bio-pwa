@@ -22,10 +22,10 @@ final class LastContactState
         }
     }
 
-    public function record(string $device, string $type, string $detail, ?int $rssi, ?bool $lfsHealth): bool
+    public function record(string $device, string $type, string $detail, ?int $rssi, ?bool $lfsHealth, ?array $extra = null): bool
     {
         $state = $this->load();
-        $state[$device] = [
+        $entry = [
             'device' => $device,
             'timestamp' => (int) floor(microtime(true) * 1000),
             'type' => $type,
@@ -34,6 +34,16 @@ final class LastContactState
             'lfsHealth' => $lfsHealth,
         ];
 
+        if (is_array($extra)) {
+            foreach ($extra as $key => $value) {
+                if ($key === 'device' || $key === 'timestamp' || $key === 'type' || $key === 'detail' || $key === 'rssi' || $key === 'lfsHealth') {
+                    continue;
+                }
+                $entry[$key] = $value;
+            }
+        }
+
+        $state[$device] = $entry;
         return $this->write($state);
     }
 
@@ -42,6 +52,9 @@ final class LastContactState
         $latest = null;
         $latestRssi = null;
         $latestLfsHealth = null;
+        $latestFlameOnPct = null;
+        $latestFlameOnMs = null;
+        $latestWindowMs = null;
         $devices = [];
 
         foreach ($this->load() as $device => $entry) {
@@ -56,6 +69,9 @@ final class LastContactState
 
             $rssi = $this->normalizeRssi($entry['rssi'] ?? null);
             $lfsHealth = $this->normalizeLfsHealth($entry);
+            $flameOnPct = $this->normalizePercent($entry['flameOnPct'] ?? null);
+            $flameOnMs = $this->normalizeInt($entry['flameOnMs'] ?? null);
+            $windowMs = $this->normalizeInt($entry['windowMs'] ?? null);
             $deviceTimestamp = (int) $timestamp;
             $devices[(string) $device] = [
                 'device' => (string) ($entry['device'] ?? $device),
@@ -64,12 +80,18 @@ final class LastContactState
                 'detail' => $entry['detail'] ?? 'alive',
                 'rssi' => $rssi,
                 'lfsHealth' => $lfsHealth,
+                'flameOnPct' => $flameOnPct,
+                'flameOnMs' => $flameOnMs,
+                'windowMs' => $windowMs,
             ];
 
             if ($latest === null || $deviceTimestamp > $latest) {
                 $latest = $deviceTimestamp;
                 $latestRssi = $rssi;
                 $latestLfsHealth = $lfsHealth;
+                $latestFlameOnPct = $flameOnPct;
+                $latestFlameOnMs = $flameOnMs;
+                $latestWindowMs = $windowMs;
                 continue;
             }
 
@@ -80,6 +102,15 @@ final class LastContactState
                 if ($lfsHealth !== null) {
                     $latestLfsHealth = $lfsHealth;
                 }
+                if ($flameOnPct !== null) {
+                    $latestFlameOnPct = $flameOnPct;
+                }
+                if ($flameOnMs !== null) {
+                    $latestFlameOnMs = $flameOnMs;
+                }
+                if ($windowMs !== null) {
+                    $latestWindowMs = $windowMs;
+                }
             }
         }
 
@@ -87,8 +118,30 @@ final class LastContactState
             'lastContact' => $latest,
             'lastRssi' => $latestRssi,
             'lastLfsHealth' => $latestLfsHealth,
+            'lastFlameOnPct' => $latestFlameOnPct,
+            'lastFlameOnMs' => $latestFlameOnMs,
+            'lastWindowMs' => $latestWindowMs,
             'devices' => $devices,
         ];
+    }
+
+    private function normalizePercent(mixed $value): ?int
+    {
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        $numeric = (float) $value;
+        if ($numeric < 0.0 || $numeric > 100.0) {
+            return null;
+        }
+
+        return (int) round($numeric);
+    }
+
+    private function normalizeInt(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
     }
 
     private function load(): array

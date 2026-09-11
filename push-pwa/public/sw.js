@@ -44,54 +44,12 @@ function t(key, replacements = {}) {
   return String(template).replace(/\{(\w+)\}/g, (_, name) => String(replacements[name] ?? ''));
 }
 
-async function checkOfflineDevices() {
-  try {
-    const response = await fetch('/status.php', { headers: { Accept: 'application/json' } });
-    if (!response.ok) {
-      return;
-    }
-
-    const data = await response.json();
-    const devices = data && typeof data.devices === 'object' ? Object.values(data.devices) : [];
-    const now = Date.now();
-
-    for (const deviceEntry of devices) {
-      const deviceId = String(deviceEntry.device || 'Bridge device').trim();
-      const timestamp = Number(deviceEntry.timestamp);
-      if (!Number.isFinite(timestamp) || timestamp <= 0) {
-        continue;
-      }
-
-      if (now - timestamp > DEVICE_OFFLINE_THRESHOLD_MS) {
-        const lastNotice = offlineNotifications.get(deviceId) || 0;
-        if (now - lastNotice < 60 * 60 * 1000) {
-          continue;
-        }
-
-        offlineNotifications.set(deviceId, now);
-        await self.registration.showNotification(t('title'), {
-          body: t('offline', { device: deviceId }),
-          icon: '/icon.svg',
-          badge: '/icon.svg',
-          tag: `viking-bio-offline-${deviceId}`,
-          data: { url: '/' },
-        });
-      } else {
-        offlineNotifications.delete(deviceId);
-      }
-    }
-  } catch (error) {
-    // Ignore transient polling failures while the app is offline or the endpoint is unavailable.
-  }
-}
-
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
-  self.setInterval(checkOfflineDevices, 60 * 1000);
 });
 
 self.addEventListener('message', (event) => {

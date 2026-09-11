@@ -379,68 +379,7 @@ function applyHeartbeatUpdate(payload) {
 }
 
 async function loadLastContactStatus() {
-  try {
-    const response = await fetch('/status.php', { headers: { Accept: 'application/json' } });
-    if (!response.ok) {
-      throw new Error(t('loadHeartbeatError'));
-    }
-
-    const data = await response.json();
-    const devices = data && typeof data.devices === 'object' ? Object.values(data.devices) : [];
-    const selectedSender = (senderInput.value || '').trim();
-    const selectedDevice = selectedSender
-      ? devices.find((device) => String(device.device || '').toLowerCase() === selectedSender.toLowerCase())
-      : null;
-    const lastContact = selectedDevice ? selectedDevice.timestamp : data.lastContact;
-    const rssiValue = selectedDevice && Number.isFinite(Number(selectedDevice.rssi))
-      ? Number(selectedDevice.rssi)
-      : (Number.isFinite(Number(data.lastRssi)) ? Number(data.lastRssi) : null);
-    const lfsHealth = selectedDevice && Object.prototype.hasOwnProperty.call(selectedDevice, 'lfsHealth')
-      ? selectedDevice.lfsHealth
-      : data.lastLfsHealth;
-
-    if (!lastContact || !Number.isFinite(Number(lastContact))) {
-      lastContactBox.textContent = t('noHeartbeatYet');
-      lastContactBox.dataset.state = 'data';
-      rssiBox.textContent = t('rssiUnavailable');
-      rssiBox.dataset.state = 'data';
-      lfsBox.textContent = t('lfsUnavailable');
-      lfsBox.dataset.state = 'data';
-      updateYamlGeneratorVisibility(false);
-      return;
-    }
-
-    const contactTimestamp = Number(lastContact);
-    updateYamlGeneratorVisibility(true);
-    const isOffline = Date.now() - contactTimestamp > DEVICE_OFFLINE_THRESHOLD_MS;
-    if (isOffline) {
-      const deviceLabel = selectedDevice && selectedDevice.device ? selectedDevice.device : t('bridgeDevice');
-      lastContactBox.textContent = t('offlineBody', { device: deviceLabel });
-      lastContactBox.dataset.state = 'data';
-      rssiBox.textContent = rssiValue === null ? t('rssiUnavailable') : t('rssiValue', { value: rssiValue });
-      rssiBox.dataset.state = 'data';
-      lfsBox.textContent = lfsHealthText(lfsHealth);
-      lfsBox.dataset.state = 'data';
-      notifyOffline(deviceLabel);
-      return;
-    }
-
-    const stamp = new Date(contactTimestamp);
-    const label = Number.isNaN(stamp.getTime()) ? t('unknownTime') : stamp.toLocaleString();
-    lastContactBox.textContent = t('lastContact', { label });
-    lastContactBox.dataset.state = 'data';
-    rssiBox.textContent = rssiValue === null ? t('rssiUnavailable') : t('rssiValue', { value: rssiValue });
-    rssiBox.dataset.state = 'data';
-    lfsBox.textContent = lfsHealthText(lfsHealth);
-    lfsBox.dataset.state = 'data';
-  } catch (error) {
-    lastContactBox.textContent = t('heartbeatUnavailable');
-    lastContactBox.dataset.state = 'data';
-    rssiBox.textContent = t('rssiUnavailable');
-    rssiBox.dataset.state = 'data';
-    lfsBox.textContent = t('lfsUnavailable');
-    lfsBox.dataset.state = 'data';
-  }
+  return Promise.resolve();
 }
 
 async function loadConfig() {
@@ -630,9 +569,6 @@ languageSelect.addEventListener('change', async () => {
 if (isIOS && !window.matchMedia('(display-mode: standalone)').matches) {
   installBanner.classList.remove('hidden');
 }
-
-loadLastContactStatus();
-window.setInterval(loadLastContactStatus, 30000);
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();

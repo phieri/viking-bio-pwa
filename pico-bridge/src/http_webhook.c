@@ -52,6 +52,10 @@ static char s_queue[WEBHOOK_QUEUE_LEN][WEBHOOK_BODY_MAX];
 static size_t s_queue_head = 0;
 static size_t s_queue_count = 0;
 static uint64_t s_last_heartbeat_ms = 0;
+static uint64_t s_flame_on_ms_since_last_heartbeat = 0;
+static uint64_t s_last_flame_transition_ms = 0;
+static bool s_last_flame_state_known = false;
+static bool s_last_flame_state = false;
 
 static bool queue_push(const char *json);
 
@@ -73,7 +77,10 @@ static bool read_wifi_rssi(int *rssi_dbm) {
 }
 
 static void record_heartbeat_sent(void) {
-	s_last_heartbeat_ms = to_ms_since_boot(get_absolute_time());
+	uint64_t now_ms = to_ms_since_boot(get_absolute_time());
+	s_last_heartbeat_ms = now_ms;
+	s_last_flame_transition_ms = now_ms;
+	s_flame_on_ms_since_last_heartbeat = 0ULL;
 }
 
 static bool should_send_heartbeat(void) {
@@ -84,9 +91,45 @@ static bool should_send_heartbeat(void) {
 	return now_ms - s_last_heartbeat_ms >= WEBHOOK_HEARTBEAT_INTERVAL_MS;
 }
 
+static void update_flame_activity(bool flame_on, uint64_t now_ms) {
+	if (!s_last_flame_state_known) {
+		s_last_flame_state = flame_on;
+		s_last_flame_state_known = true;
+		s_last_flame_transition_ms = now_ms;
+		return;
+	}
+
+	if (s_last_flame_state != flame_on) {
+		if (s_last_flame_state) {
+			s_flame_on_ms_since_last_heartbeat += now_ms - s_last_flame_transition_ms;
+		}
+		s_last_flame_state = flame_on;
+		s_last_flame_transition_ms = now_ms;
+	}
+}
+
+static void commit_heartbeat_summary(uint64_t now_ms, bool flame_on) {
+	if (!s_last_flame_state_known) {
+		s_last_flame_state = flame_on;
+		s_last_flame_state_known = true;
+		s_last_flame_transition_ms = now_ms;
+		return;
+	}
+
+	if (s_last_flame_state) {
+		s_flame_on_ms_since_last_heartbeat += now_ms - s_last_flame_transition_ms;
+	}
+	if (s_last_heartbeat_ms > 0ULL) {
+		s_last_flame_transition_ms = now_ms;
+		s_last_flame_state = flame_on;
+	}
+}
+
 static bool queue_heartbeat(void) {
 	vikingbio_data_t snapshot = {0};
 	vikingbio_get_current_data(&snapshot);
+	uint64_t now_ms = to_ms_since_boot(get_absolute_time());
+	commit_heartbeat_summary(now_ms, snapshot.flame_detected);
 	char payload[WEBHOOK_BODY_MAX];
 	if (!build_payload(&snapshot, "heartbeat", "alive", payload, sizeof(payload))) {
 		printf("webhook: failed to build heartbeat payload\n");
@@ -354,6 +397,19 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 		int rssi = INT_MIN;
 		bool have_rssi = read_wifi_rssi(&rssi);
 		bool lfs_healthy = lfs_hal_is_healthy();
+		uint64_t now_ms = to_ms_since_boot(get_absolute_time());
+		uint64_t window_ms = (s_last_heartbeat_ms > 0ULL) ? (now_ms - s_last_heartbeat_ms) : WEBHOOK_HEARTBEAT_INTERVAL_MS;
+		if (window_ms == 0ULL) {
+			window_ms = WEBHOOK_HEARTBEAT_INTERVAL_MS;
+		}
+		uint32_t flame_on_pct = 0U;
+		if (window_ms > 0ULL) {
+			uint64_t percent = (s_flame_on_ms_since_last_heartbeat * 100ULL) / window_ms;
+			if (percent > 100ULL) {
+				percent = 100ULL;
+			}
+			flame_on_pct = (uint32_t)percent;
+		}
 		int written;
 		const char *rssi_value = have_rssi ? "" : "null";
 		char rssi_buf[32];
@@ -362,9 +418,12 @@ static bool build_payload(const vikingbio_data_t *data, const char *type, const 
 			rssi_value = rssi_buf;
 		}
 		written = snprintf(out, out_len,
-				"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%s,\"lfs_ok\":%s}",
+				"{\"device\":\"%s\",\"type\":\"%s\",\"detail\":\"%s\",\"rssi\":%s,\"lfs_ok\":%s,\"flame_on_pct\":%u,\"flame_on_ms\":%llu,\"window_ms\":%llu}",
 				device, type, detail_text, rssi_value,
-				lfs_healthy ? "true" : "false");
+				lfs_healthy ? "true" : "false",
+				flame_on_pct,
+				(unsigned long long)s_flame_on_ms_since_last_heartbeat,
+				(unsigned long long)window_ms);
 		return written > 0 && written < (int)out_len;
 	}
 
@@ -483,6 +542,10 @@ void http_webhook_init(void) {
 	s_path[1] = '\0';
 	s_auth_token[0] = '\0';
 	s_last_heartbeat_ms = to_ms_since_boot(get_absolute_time());
+	s_flame_on_ms_since_last_heartbeat = 0ULL;
+	s_last_flame_transition_ms = s_last_heartbeat_ms;
+	s_last_flame_state_known = false;
+	s_last_flame_state = false;
 	s_state = WEBHOOK_STATE_IDLE;
 	abort_connection();
 	clear_queue();
@@ -503,6 +566,10 @@ void http_webhook_set_url(const char *url) {
 	clear_queue();
 	abort_connection();
 	s_last_heartbeat_ms = to_ms_since_boot(get_absolute_time());
+	s_flame_on_ms_since_last_heartbeat = 0ULL;
+	s_last_flame_transition_ms = s_last_heartbeat_ms;
+	s_last_flame_state_known = false;
+	s_last_flame_state = false;
 	s_state = WEBHOOK_STATE_IDLE;
 	printf("webhook: configured %s\n", s_url);
 }
@@ -514,6 +581,9 @@ bool http_webhook_is_configured(void) {
 void http_webhook_send_alert(const vikingbio_data_t *data, const char *type, const char *detail) {
 	if (data == NULL || type == NULL || s_host[0] == '\0') {
 		return;
+	}
+	if (strcmp(type, "flame") == 0) {
+		update_flame_activity(data->flame_detected, to_ms_since_boot(get_absolute_time()));
 	}
 	char payload[WEBHOOK_BODY_MAX];
 	if (!build_payload(data, type, detail, payload, sizeof(payload))) {
