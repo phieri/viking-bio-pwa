@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Viking Bio integration for monitoring and managing pellet burner telemetry with a Pico-based bridge and local configurator." />
+    <meta name="description" content="Viking Bio-integration til overvågning og styring af pelletbrændertelemetri med en Pico-baseret bro og lokal konfigurator." />
     <title>Viking Bio Integration</title>
     <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
     <link rel="stylesheet" href="../styles.css" />
@@ -11,17 +11,17 @@
   <body id="top">
     <header class="topbar">
       <div class="container nav">
-        <a class="brand" href="#top" aria-label="Viking Bio home">
+        <a class="brand" href="#top" aria-label="Viking Bio startside">
           <span class="brand-mark">V</span>
           <span>Viking Bio</span>
         </a>
-        <nav class="nav-links" aria-label="Main navigation">
-          <a href="#overview">Overview</a>
-          <a href="#features">Features</a>
-          <a href="#architecture">Architecture</a>
-          <a href="#project">Project</a>
+        <nav class="nav-links" aria-label="Hovednavigation">
+          <a href="#overview">Oversigt</a>
+          <a href="#features">Funktioner</a>
+          <a href="#architecture">Arkitektur</a>
+          <a href="#project">Projekt</a>
         </nav>
-        <nav class="nav-links" aria-label="Language switcher">
+        <nav class="nav-links" aria-label="Sprogskifter">
           <a href="../en/">English</a>
           <a href="../sv/">Svenska</a>
           <a href="../no/">Norsk</a>
@@ -36,51 +36,51 @@
       <section class="hero">
         <div class="container hero-grid">
           <div>
-            <p class="eyebrow">Pellet burner monitoring</p>
-            <h1>Turn a Viking Bio 20 into a connected, observable heating system</h1>
-            <p class="lead">This project brings together a Raspberry Pi Pico bridge, signed telemetry, and a local Go configurator to monitor burner health, track operational state, and simplify setup on a home or property network.</p>
+            <p class="eyebrow">Overvågning af pelletsbrænder</p>
+            <h1>Gør en Viking Bio 20 til et forbundet, observerbart varmesystem</h1>
+            <p class="lead">Dette projekt kombinerer en Raspberry Pi Pico-bro, signeret telemetri og en lokal Go-konfigurator for at overvåge brænderens tilstand, spore driftsstatus og forenkle opsætning på hjemmet eller ejendommen.</p>
             <div class="cta-row">
-              <a class="button primary" href="#overview">Explore the project</a>
+              <a class="button primary" href="#overview">Udforsk projektet</a>
               <a
                 class="button secondary"
                 href="https://github.com/phieri/viking-bio-pwa"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="View source on GitHub (opens in new tab)"
+                aria-label="Vis kildekode på GitHub (åbner i ny fane)"
               >
-                View source
+                Vis kildekode
               </a>
             </div>
           </div>
           <div class="hero-panel">
             <div class="panel-card">
-              <span class="panel-label">Telemetry flow</span>
+              <span class="panel-label">Telemetriflow</span>
               <div class="flow-block">
                 <span>Viking Bio 20</span>
                 <span class="arrow">→</span>
                 <span>Pico W</span>
                 <span class="arrow">→</span>
-                <span>Headless Go runtime</span>
+                <span>Headless Go-runtime</span>
               </div>
               <ul>
-                <li>UART capture from burner output</li>
-                <li>Signed TCP stream to local runtime</li>
-                <li>Local API + USB provisioning flow</li>
+                <li>UART-læsning fra brænderens output</li>
+                <li>Signeret TCP-stream til lokal runtime</li>
+                <li>Lokalt API + USB-provisioneringsflow</li>
               </ul>
             </div>
           </div>
         </div>
       </section>
  
-      <section class="section showcase" aria-label="Configurator and hardware overview">
+      <section class="section showcase" aria-label="Konfigurator og hardwareoversigt">
         <div class="container showcase-grid">
           <figure class="media-card placeholder">
-            <span>Configurator placeholder</span>
-            <figcaption>The local configurator GUI keeps burner setup, provisioning, and status checks in one desktop workflow.</figcaption>
+            <span>Konfigurator pladsholder</span>
+            <figcaption>Det lokale konfigurationsflow samler opstart, provisionering og statuskontrol i et enkelt skrivebordsflow.</figcaption>
           </figure>
           <figure class="media-card placeholder">
-            <span>Pico placeholder</span>
-            <figcaption>The Pico 2 W acts as the small, low-power bridge between the burner and the local runtime.</figcaption>
+            <span>Pico pladsholder</span>
+            <figcaption>Pico 2 W fungerer som den lille, energieffektive bro mellem brænderen og den lokale runtime.</figcaption>
           </figure>
         </div>
       </section>
@@ -88,21 +88,21 @@
       <section id="overview" class="section">
         <div class="container">
           <div class="section-heading">
-            <p class="eyebrow">Overview</p>
-            <h2>Built for reliability, visibility, and local ownership</h2>
+            <p class="eyebrow">Oversigt</p>
+            <h2>Bygget til pålidelighed, synlighed og lokalt ejerskab</h2>
           </div>
           <div class="cards three-up">
             <article class="info-card">
-              <h3>Reliable bridge</h3>
-              <p>A Pico W / Pico 2 W firmware layer reads the burner UART stream, stores Wi‑Fi and server configuration locally, and forwards signed telemetry over a persistent TCP connection.</p>
+              <h3>Pålidelig bro</h3>
+              <p>En Pico W / Pico 2 W-firmware læser brænderens UART-strøm, gemmer Wi‑Fi- og serverindstillinger lokalt og videresender signeret telemetri via en stabil TCP-forbindelse.</p>
             </article>
             <article class="info-card">
-              <h3>Local control plane</h3>
-              <p>The Go configurator manages onboarding, bridge status, and the local runtime without creating a dependency on a remote service or hosted web app.</p>
+              <h3>Lokal kontrolplan</h3>
+              <p>Go-konfiguratoren håndterer onboarding, brostatus og lokal runtime uden at skabe afhængighed af en ekstern tjeneste eller hostet webapp.</p>
             </article>
             <article class="info-card">
-              <h3>Operational insight</h3>
-              <p>The project is designed to surface burner state and fault information through a local API and a separate browser push app, without serving a dashboard at the root.</p>
+              <h3>Driftsindsigt</h3>
+              <p>Projektet er designet til at vise brænderstatus og fejl via et lokalt API og en separat browser-push-app uden at serve et dashboard i roden.</p>
             </article>
           </div>
         </div>
@@ -111,34 +111,34 @@
       <section id="features" class="section alt">
         <div class="container">
           <div class="section-heading narrow">
-            <p class="eyebrow">Features</p>
-            <h2>Everything needed to make a burner smarter without losing control</h2>
+            <p class="eyebrow">Funktioner</p>
+            <h2>Alt, hvad der skal til for at gøre en brænder smartere uden at miste kontrollen</h2>
           </div>
 
           <div class="feature-list">
             <div class="feature-item">
-              <h3>Signed telemetry</h3>
-              <p>Each message is authenticated with a device key so the local server can verify incoming burner data.</p>
+              <h3>Signeret telemetri</h3>
+              <p>Hver meddelelse er autentificeret med en enhedsnykkel, så den lokale server kan verificere indkommende brænderdata.</p>
             </div>
             <div class="feature-item">
-              <h3>USB provisioning</h3>
-              <p>Bridge setup can happen over serial with a GUI or terminal-based configurator, making installation straightforward.</p>
+              <h3>USB-provisionering</h3>
+              <p>Broopsætning kan ske via seriel port med GUI eller terminalbaseret konfigurator, hvilket gør installationen enkel.</p>
             </div>
             <div class="feature-item">
-              <h3>Headless local runtime</h3>
-              <p>The runtime is built around a local device-first model: the Go service exposes APIs and USB setup, while browser notifications are handled by the separate push-pwa app.</p>
+              <h3>Headless lokal runtime</h3>
+              <p>Runtimeen er bygget omkring en lokal, enhedsorienteret model: Go-tjenesten eksponerer API’er og USB-oprettelse, mens browsernotifikationer håndteres af den separate push-pwa-app.</p>
             </div>
             <div class="feature-item">
-              <h3>mDNS discovery</h3>
-              <p>The bridge listens for mDNS announcements from the configurator, allowing automatic service discovery on a home network without manual configuration.</p>
+              <h3>mDNS-opdagelse</h3>
+              <p>Broen lytter efter mDNS-meddelelser fra konfiguratoren, hvilket muliggør automatisk tjenesteopdagelse på hjemmenetværk uden manuel konfiguration.</p>
             </div>
             <div class="feature-item">
-              <h3>Persistent state</h3>
-              <p>Wi‑Fi credentials, server settings, and per-device identity are kept in local flash-backed storage.</p>
+              <h3>Bestående tilstand</h3>
+              <p>Wi‑Fi-legitimationsoplysninger, serverindstillinger og enhedsidentitet lagres lokalt i flash-baseret lager.</p>
             </div>
             <div class="feature-item">
-              <h3>Open hardware path</h3>
-              <p>The repo is intentionally transparent: firmware, protocol logic, runtime, and configuration tooling live together.</p>
+              <h3>Åben hardwarevej</h3>
+              <p>Repoet er bevidst gennemsigtigt: firmware, protokolparsering, runtime og konfigurationsværktøjer ligger sammen.</p>
             </div>
           </div>
         </div>
@@ -147,16 +147,16 @@
       <section id="architecture" class="section">
         <div class="container architecture-grid">
           <div>
-            <p class="eyebrow">Architecture</p>
-            <h2>Simple layered flow, clear ownership, and a local-first runtime</h2>
-            <p>The system separates the hardware-facing bridge from the headless Go runtime and the separate browser-push app. The Pico reads burner data and streams signed telemetry to a Go process on the same trusted local network. That Go process exposes the API and USB configuration flow while the bridge stays focused on measurement, ingest, and alert delivery.</p>
+            <p class="eyebrow">Arkitektur</p>
+            <h2>Simpelt lagdelt flow, tydeligt ansvar og lokal-first design</h2>
+            <p>Systemet adskiller hardware-nære broen fra den headless Go-runtime og den separate browser-push-app. Picoen læser brænderdata og strømmer signeret telemetri til en Go-proces på samme lokale netværk. Den proces eksponerer API og USB-konfigurationsflow, mens broen holder fokus på måling, ingest og advarselslevering.</p>
           </div>
           <div class="stack">
-            <div class="stack-item"><span>1</span><span>Burner serial data</span></div>
+            <div class="stack-item"><span>1</span><span>Seriedata fra brænderen</span></div>
             <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W firmware</span></div>
-            <div class="stack-item"><span>3</span><span>Signed TCP ingest</span></div>
-            <div class="stack-item"><span>4</span><span>Headless Go runtime + local APIs</span></div>
-            <div class="stack-item"><span>5</span><span>push-pwa browser notifications</span></div>
+            <div class="stack-item"><span>3</span><span>Signeret TCP-ingest</span></div>
+            <div class="stack-item"><span>4</span><span>Headless Go-runtime + lokale API’er</span></div>
+            <div class="stack-item"><span>5</span><span>push-pwa browsernotifikationer</span></div>
           </div>
         </div>
       </section>
@@ -165,12 +165,12 @@
         <div class="container">
           <div class="project-panel">
             <div>
-              <p class="eyebrow">Project</p>
-              <h2 id="project-title">Built for owners, integrators, and makers who want a practical burner monitor</h2>
+              <p class="eyebrow">Projekt</p>
+              <h2 id="project-title">Bygget til ejere, integratorer og gør-det-selv-entusiaster, der vil have en praktisk brændermonitor</h2>
             </div>
             <div class="project-copy">
-              <p>This repository is a complete integration project for the Viking Bio 20 pellet burner: firmware, protocol parsing, local runtime, and a separate browser push app for operator alerts. It is designed to be understandable, extensible, and easy to run on a small local device or home network.</p>
-              <p>The focus is honest operational control: keep data local, verify the device at the edge, and provide a reliable configuration flow without depending on a hosted product or cloud backend.</p>
+              <p>Dette repo er et komplet integrationsprojekt til Viking Bio 20 pelletbrænderen: firmware, protokolanalyse, lokal runtime og en separat browser-push-app til operatøralarmer. Det er designet til at være forståeligt, udvideligt og nemt at køre på lille lokal hardware eller hjemmenetværk.</p>
+              <p>Fokus er ærlig driftskontrol: hold data lokalt, verificér enheden i kanten og lever et pålideligt konfigurationsflow uden at være afhængig af et hostet produkt eller cloud-backend.</p>
             </div>
           </div>
         </div>
@@ -180,7 +180,7 @@
     <footer class="footer">
       <div class="container footer-row">
         <span>Viking Bio Integration</span>
-        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="Viking Bio project on GitHub (opens in new tab)">GitHub</a>
+        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="Viking Bio-projekt på GitHub (åbner i ny fane)">GitHub</a>
       </div>
     </footer>
   </body>
