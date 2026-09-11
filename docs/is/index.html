@@ -21,14 +21,6 @@
           <a href="#architecture">Bygging</a>
           <a href="#project">Verkefni</a>
         </nav>
-        <nav class="nav-links" aria-label="Tungumálaval">
-          <a href="../en/">English</a>
-          <a href="../sv/">Svenska</a>
-          <a href="../no/">Norsk</a>
-          <a href="../fi/">Suomi</a>
-          <a href="../da/">Dansk</a>
-          <a href="./" aria-current="page">Íslenska</a>
-        </nav>
       </div>
     </header>
 
@@ -180,7 +172,18 @@
     <footer class="footer">
       <div class="container footer-row">
         <span>Viking Bio Integration</span>
-        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="Viking Bio-verkefni á GitHub (opnast í nýjum flipa)">GitHub</a>
+        <div class="footer-actions">
+          <label class="footer-language-label" for="language-select">Tungumálaval</label>
+          <select
+            id="language-select"
+            class="language-select"
+            aria-label="Tungumálaval"
+            onchange="if (this.value) window.location.href = this.value;"
+          >
+            <option value="../en/">English</option><option value="../sv/">Svenska</option><option value="../no/">Norsk</option><option value="../fi/">Suomi</option><option value="../da/">Dansk</option><option value="./" selected>Íslenska</option>
+          </select>
+          <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="Viking Bio-verkefni á GitHub (opnast í nýjum flipa)">GitHub</a>
+        </div>
       </div>
     </footer>
   </body>

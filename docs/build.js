@@ -544,14 +544,7 @@ function renderPage(data) {
       return `<a href="${href}">${escapeHtml(label)}</a>`;
     })
     .join('\n          ');
-  const languageLinks = supportedLanguages
-    .map(({ code, label }) => {
-      const attrs = code === data.lang ? ' aria-current="page"' : '';
-      return `<a href="${languageHref(code, data.lang)}"${attrs}>${escapeHtml(label)}</a>`;
-    })
-    .join('\n          ');
-
-  return `<!DOCTYPE html>
+ return `<!DOCTYPE html>
 <html lang="${data.lang}">
   <head>
     <meta charset="utf-8" />
@@ -570,9 +563,6 @@ function renderPage(data) {
         </a>
         <nav class="nav-links" aria-label="${escapeHtml(data.navAria)}">
           ${nav}
-        </nav>
-        <nav class="nav-links" aria-label="${escapeHtml(data.langAria)}">
-          ${languageLinks}
         </nav>
       </div>
     </header>
@@ -725,7 +715,23 @@ function renderPage(data) {
     <footer class="footer">
       <div class="container footer-row">
         <span>${escapeHtml(data.footerBrand)}</span>
-        <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(data.footerGitHubAria)}">${escapeHtml(data.footerGitHub)}</a>
+        <div class="footer-actions">
+          <label class="footer-language-label" for="language-select">${escapeHtml(data.langAria)}</label>
+          <select
+            id="language-select"
+            class="language-select"
+            aria-label="${escapeHtml(data.langAria)}"
+            onchange="if (this.value) window.location.href = this.value;"
+          >
+            ${supportedLanguages
+              .map(({ code, label }) => {
+                const selected = code === data.lang ? ' selected' : '';
+                return `<option value="${languageHref(code, data.lang)}"${selected}>${escapeHtml(label)}</option>`;
+              })
+              .join('')}
+          </select>
+          <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(data.footerGitHubAria)}">${escapeHtml(data.footerGitHub)}</a>
+        </div>
       </div>
     </footer>
   </body>
