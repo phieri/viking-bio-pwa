@@ -451,7 +451,16 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			lastErrorNotification = 0
 			lastErrorNotificationSet = false
 		}
-		telemetryStatus.SetText(formatTelemetrySnapshot(localizer, snapshot))
+		telemetryStatus.SetText(formatTelemetrySnapshot(
+			localizer,
+			snapshot.Flame,
+			snapshot.Fan,
+			snapshot.Temp,
+			snapshot.Err,
+			snapshot.Valid,
+			snapshot.FlameSecs,
+			snapshot.UpdatedAt,
+		))
 	}
 	telemetryCtx, telemetryCancel := context.WithCancel(context.Background())
 	monitorWindow.SetOnClosed(func() {
