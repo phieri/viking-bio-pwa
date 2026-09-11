@@ -8,6 +8,7 @@ session_start();
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 use VikingBioPush\PushSender;
+use VikingBioPush\PushTranslations;
 use VikingBioPush\VapidConfig;
 
 header('Content-Type: application/json; charset=utf-8');
@@ -96,6 +97,42 @@ if ($type === 'weekly_cleaning_reminder' || $type === 'cleaning-reminder' || $ty
     $result = $sender->sendWeeklyCleaningReminder($senderValue);
     $reminderState->recordSent();
     echo json_encode(['ok' => true, 'type' => 'weekly_cleaning_reminder', 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+if ($type === 'test_alert' || $type === 'test-alert' || $type === 'test') {
+    $rawSender = $data['sender'] ?? null;
+    $senderValue = is_string($rawSender) ? trim($rawSender) : '';
+    if ($senderValue === '') {
+        $senderValue = null;
+    }
+
+    $priority = $data['priority'] ?? 'normal';
+    if (!is_string($priority)) {
+        $priority = 'normal';
+    } else {
+        $priority = strtolower(trim($priority));
+    }
+
+    if (!in_array($priority, PushSender::VALID_PRIORITIES, true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Priority must be one of very-low, low, normal, or high']);
+        exit;
+    }
+
+    $safeUiUrl = \VikingBioPush\PushSender::uiUrl();
+    $url = is_string($data['url'] ?? null) ? $data['url'] : $safeUiUrl;
+    $url = \VikingBioPush\PushSender::normalizeUiTargetUrl($url, $safeUiUrl);
+    $sentAt = (int) floor(microtime(true) * 1000);
+    $result = $sender->sendTranslated(
+        static fn (string $language, array $subscription): array => PushTranslations::testNotification($language),
+        '/icon.svg',
+        ['tag' => 'viking-bio-alert', 'url' => $url, 'timestamp' => $sentAt],
+        $priority,
+        $senderValue
+    );
+
+    echo json_encode(['ok' => true, 'type' => 'test_alert', 'priority' => $priority, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
 

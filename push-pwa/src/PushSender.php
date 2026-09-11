@@ -125,9 +125,8 @@ final class PushSender
     {
         $sentAt = (int) floor(microtime(true) * 1000);
 
-        return $this->send(
-            'Weekly cleaning reminder',
-            'Time for your weekly burner cleaning reminder.',
+        return $this->sendTranslated(
+            static fn (string $language, array $subscription): array => PushTranslations::cleaningReminder($language),
             '/icons/broom.svg',
             [
                 'tag' => 'cleaningReminder',
@@ -141,6 +140,30 @@ final class PushSender
     }
 
     public function send(string $title, string $body, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
+    {
+        return $this->sendWithResolver(
+            static fn (array $subscription): array => ['title' => $title, 'body' => $body],
+            $icon,
+            $extra,
+            $priority,
+            $sender
+        );
+    }
+
+    public function sendTranslated(callable $resolver, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
+    {
+        return $this->sendWithResolver(
+            function (array $subscription) use ($resolver): array {
+                return $resolver($this->subscriptionLanguage($subscription), $subscription);
+            },
+            $icon,
+            $extra,
+            $priority,
+            $sender
+        );
+    }
+
+    private function sendWithResolver(callable $resolver, ?string $icon = null, array $extra = [], ?string $priority = null, ?string $sender = null): array
     {
         // The bridge/backend contract uses the generic "priority" term, but the Web Push
         // API itself expects the field name "urgency" when sending to the browser push
@@ -164,8 +187,7 @@ final class PushSender
             'automatic_padding' => false,
         ]);
 
-        $payload = $this->buildPayload($title, $body, $icon, array_merge($extra, ['urgency' => $normalizedUrgency]));
-        $deliveryState = $this->queuePendingNotifications($webPush, $payload, $subscriptions, $normalizedPriority, $normalizedSender, $storage);
+        $deliveryState = $this->queuePendingNotifications($webPush, $resolver, $icon, array_merge($extra, ['urgency' => $normalizedUrgency]), $subscriptions, $normalizedPriority, $normalizedSender, $storage);
 
         return $this->processDeliveryReports($webPush->flush(), $deliveryState['pendingReports'], $deliveryState['failed'], $storage);
     }
@@ -222,7 +244,7 @@ final class PushSender
      * @param array<int, array<string, mixed>> $subscriptions
      * @return array{pendingReports: array<int, string>, failed: int}
      */
-    private function queuePendingNotifications(WebPush $webPush, string $payload, array $subscriptions, ?string $requestedPriority, ?string $requestedSender, PushStorage $storage): array
+    private function queuePendingNotifications(WebPush $webPush, callable $resolver, ?string $icon, array $extra, array $subscriptions, ?string $requestedPriority, ?string $requestedSender, PushStorage $storage): array
     {
         $pendingReports = [];
         $failed = 0;
@@ -239,6 +261,8 @@ final class PushSender
             }
 
             $pendingReports[] = $delivery['endpoint'];
+            $message = $resolver($subscription);
+            $payload = $this->buildPayload((string) ($message['title'] ?? ''), (string) ($message['body'] ?? ''), $icon, $extra);
 
             try {
                 $notificationOptions = ['TTL' => 86400];
@@ -287,6 +311,15 @@ final class PushSender
         $subscriptionSenderLower = strtolower($subscriptionSender);
 
         return $subscriptionSenderLower === 'all' || ($subscriptionSender !== '' && $subscriptionSenderLower === $requestedSender);
+    }
+
+    /**
+     * @param array<string, mixed> $subscription
+     */
+    private function subscriptionLanguage(array $subscription): string
+    {
+        $language = $subscription['language'] ?? null;
+        return PushTranslations::normaliseLanguage(is_string($language) ? $language : null);
     }
 
     /**

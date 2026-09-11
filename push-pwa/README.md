@@ -18,6 +18,9 @@ php -S [::]:8000 -t public
 ```
 
 Open `http://[::1]:8000/` in a browser and generate the client YAML block.
+The UI auto-selects English, Swedish, Norwegian, Finnish, Danish, or Icelandic from the
+browser locale, and the generated YAML stores the chosen `language` per subscription so
+server-generated notifications can be translated for each recipient.
 
 ## Webhook flow
 

@@ -47,6 +47,7 @@ type TUI struct {
 	store          *storage.Store
 	scanner        *bufio.Scanner
 	telemetryState *server.State
+	localizer      provisioningLocalizer
 }
 
 // NewTUI creates a TUI attached to the given bridge.
@@ -60,6 +61,7 @@ func NewTUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		store:          store,
 		scanner:        bufio.NewScanner(os.Stdin),
 		telemetryState: state,
+		localizer:      newProvisioningLocalizer(),
 	}
 }
 
@@ -84,22 +86,22 @@ func formatHeaderLine(content string) string {
 func (t *TUI) printHeader() {
 	fmt.Println()
 	fmt.Println(color("╔"+strings.Repeat("═", 36)+"╗", colorCyan))
-	fmt.Println(formatHeaderLine("Viking Bio – Device Configurator"))
-	fmt.Println(formatHeaderLine("Version: " + appversion.String()))
+	fmt.Println(formatHeaderLine(t.localizer.Text("app.title")))
+	fmt.Println(formatHeaderLine(t.localizer.Text("app.version", appversion.String())))
 	fmt.Println(color("╚"+strings.Repeat("═", 36)+"╝", colorCyan))
 	fmt.Println()
 }
 
 func (t *TUI) printMenu() {
-	fmt.Println(color("  1.", colorYellow) + " Show device status")
-	fmt.Println(color("  2.", colorYellow) + " Configure WiFi (SSID + password)")
-	fmt.Println(color("  3.", colorYellow) + " Set Wi-Fi country code")
-	fmt.Println(color("  4.", colorYellow) + " Set server address & port")
-	fmt.Println(color("  5.", colorYellow) + " Set webhook URL")
-	fmt.Println(color("  6.", colorYellow) + " Provision telemetry device key")
-	fmt.Println(color("  7.", colorYellow) + " Clear all credentials")
-	fmt.Println(color("  8.", colorYellow) + " Show live telemetry")
-	fmt.Println(color("  0.", colorRed) + " Exit")
+	fmt.Println(color("  1.", colorYellow) + " " + t.localizer.Text("menu.option1"))
+	fmt.Println(color("  2.", colorYellow) + " " + t.localizer.Text("menu.option2"))
+	fmt.Println(color("  3.", colorYellow) + " " + t.localizer.Text("menu.option3"))
+	fmt.Println(color("  4.", colorYellow) + " " + t.localizer.Text("menu.option4"))
+	fmt.Println(color("  5.", colorYellow) + " " + t.localizer.Text("menu.option5"))
+	fmt.Println(color("  6.", colorYellow) + " " + t.localizer.Text("menu.option6"))
+	fmt.Println(color("  7.", colorYellow) + " " + t.localizer.Text("menu.option7"))
+	fmt.Println(color("  8.", colorYellow) + " " + t.localizer.Text("menu.option8"))
+	fmt.Println(color("  0.", colorRed) + " " + t.localizer.Text("menu.option0"))
 	fmt.Println()
 }
 
@@ -127,98 +129,128 @@ func (t *TUI) sendSilent(cmd string) {
 	}
 }
 
+func formatDeviceStatus(localizer provisioningLocalizer, status *serial.StatusResult, prefix string) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%s%-10s ", prefix, localizer.Text("field.wifi")+":"))
+	if status.Connected {
+		sb.WriteString(localizer.Text("status.wifi.connected") + "\n")
+	} else {
+		sb.WriteString(localizer.Text("status.wifi.disconnected") + "\n")
+	}
+	for _, addr := range status.Addresses {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.address")+":", addr))
+	}
+	if status.Country != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.country")+":", localizer.regionLabel(status.Country)))
+	}
+	if status.DeviceID != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.device")+":", status.DeviceID))
+	}
+	if status.FirmwareVersion != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.firmware")+":", status.FirmwareVersion))
+	}
+	if status.Server != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s:%d\n", prefix, localizer.Text("field.server")+":", status.Server, status.Port))
+	}
+	if status.Telemetry != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.telemetry")+":", status.Telemetry))
+	}
+	if status.DeviceKey != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.device_key")+":", maskSensitiveConfiguredValue(status.DeviceKey)))
+	}
+	if status.Webhook != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.webhook")+":", normaliseConfiguredValue(status.Webhook)))
+	}
+	return strings.TrimRight(sb.String(), "\n")
+}
+
+func formatTelemetrySnapshot(localizer provisioningLocalizer, flame bool, fan, temp, errValue float64, valid bool, flameSecs int64, updatedAt int64) string {
+	return fmt.Sprintf(
+		"%s: %t\n%s: %.1f\n%s: %.1f°C\n%s: %.0f\n%s: %t\n%s: %d\n%s: %s",
+		localizer.Text("field.flame"),
+		flame,
+		localizer.Text("field.fan"),
+		fan,
+		localizer.Text("field.temp"),
+		temp,
+		localizer.Text("field.err"),
+		errValue,
+		localizer.Text("field.valid"),
+		valid,
+		localizer.Text("field.flame_seconds"),
+		flameSecs,
+		localizer.Text("status.last_contact"),
+		time.UnixMilli(updatedAt).Format(time.RFC3339),
+	)
+}
+
 func (t *TUI) showStatus() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		fmt.Println(color("Error reading status: "+err.Error(), colorRed))
+		fmt.Println(color(t.localizer.Text("error.reading_status", err.Error()), colorRed))
 		return
 	}
 	fmt.Println()
-	fmt.Println(color("Device Status:", colorBold))
-	if status.Connected {
-		fmt.Println("  WiFi:     " + color("connected", colorGreen))
-	} else {
-		fmt.Println("  WiFi:     " + color("not connected", colorRed))
-	}
-	for _, addr := range status.Addresses {
-		fmt.Println("  Address:  " + addr)
-	}
-	if status.Country != "" {
-		fmt.Println("  Country:  " + status.Country)
-	}
-	if status.DeviceID != "" {
-		fmt.Println("  Device:   " + status.DeviceID)
-	}
-	if status.FirmwareVersion != "" {
-		fmt.Println("  Firmware: " + status.FirmwareVersion)
-	}
-	if status.Server != "" {
-		fmt.Printf("  Server:   %s:%d\n", status.Server, status.Port)
-	}
-	if status.Telemetry != "" {
-		fmt.Println("  Telemetry: " + status.Telemetry)
-	}
-	if status.DeviceKey != "" {
-		fmt.Println("  DeviceKey: " + maskSensitiveConfiguredValue(status.DeviceKey))
-	}
-	if status.Webhook != "" {
-		fmt.Println("  Webhook:  " + normaliseConfiguredValue(status.Webhook))
-	}
+	fmt.Println(color(t.localizer.Text("tui.device_status"), colorBold))
+	fmt.Println(formatDeviceStatus(t.localizer, &status, "  "))
 	fmt.Println()
 }
 
 func (t *TUI) showTelemetry() {
 	if t.telemetryState == nil {
-		fmt.Println(color("Live telemetry is unavailable; the configurator is not connected to a live telemetry stream.", colorYellow))
+		fmt.Println(color(t.localizer.Text("status.live_telemetry_unavailable"), colorYellow))
 		return
 	}
 	fmt.Println()
-	fmt.Println(color("Live burner telemetry:", colorBold))
+	fmt.Println(color(t.localizer.Text("tui.live_telemetry"), colorBold))
 	snapshot := t.telemetryState.Snapshot()
 	if snapshot.UpdatedAt == 0 {
-		fmt.Println(color("  Waiting for telemetry... No data has been received yet.", colorYellow))
+		fmt.Println(color(t.localizer.Text("status.live_telemetry_empty"), colorYellow))
 		fmt.Println()
 		return
 	}
-	fmt.Printf("  Flame: %t\n", snapshot.Flame)
-	fmt.Printf("  Fan: %.1f\n", snapshot.Fan)
-	fmt.Printf("  Temp: %.1f°C\n", snapshot.Temp)
-	fmt.Printf("  Err: %.0f\n", snapshot.Err)
-	fmt.Printf("  Valid: %t\n", snapshot.Valid)
-	fmt.Printf("  Flame seconds: %d\n", snapshot.FlameSecs)
-	fmt.Printf("  Updated: %s\n", time.UnixMilli(snapshot.UpdatedAt).Format(time.RFC3339))
+	fmt.Println("  " + strings.ReplaceAll(formatTelemetrySnapshot(
+		t.localizer,
+		snapshot.Flame,
+		snapshot.Fan,
+		snapshot.Temp,
+		snapshot.Err,
+		snapshot.Valid,
+		snapshot.FlameSecs,
+		snapshot.UpdatedAt,
+	), "\n", "\n  "))
 	fmt.Println()
 }
 
 func (t *TUI) configureWiFi() {
-	ssid := t.readLine("SSID: ")
+	ssid := t.readLine(t.localizer.Text("form.ssid") + ": ")
 	if ssid == "" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
 		return
 	}
-	password := t.readLine("Password: ")
+	password := t.readLine(t.localizer.Text("form.password") + ": ")
 	t.sendAndPrint("SSID=" + ssid)
-	t.sendSilent("PASS=" + password) // password not echoed to stdout
-	fmt.Println(color("Credentials saved. Device will reboot.", colorGreen))
+	t.sendSilent("PASS=" + password)
+	fmt.Println(color(t.localizer.Text("tui.credentials_saved"), colorGreen))
 }
 
 func (t *TUI) setCountry() {
-	cc := t.readLine("Country code (e.g. SE, US): ")
+	cc := t.readLine(t.localizer.Text("tui.country_prompt"))
 	cc = strings.ToUpper(strings.TrimSpace(cc))
 	if len(cc) != 2 {
-		fmt.Println(color("Invalid country code (must be 2 letters).", colorRed))
+		fmt.Println(color(t.localizer.Text("tui.invalid_country"), colorRed))
 		return
 	}
 	t.sendAndPrint("COUNTRY=" + cc)
 }
 
 func (t *TUI) setServer() {
-	addr := t.readLine("Server IP/hostname: ")
+	addr := t.readLine(t.localizer.Text("tui.server_prompt"))
 	if addr == "" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
 		return
 	}
-	port := t.readLine("Server port [9000]: ")
+	port := t.readLine(t.localizer.Text("tui.server_port_prompt"))
 	if port == "" {
 		port = "9000"
 	}
@@ -227,13 +259,13 @@ func (t *TUI) setServer() {
 }
 
 func (t *TUI) setWebhook() {
-	url := t.readLine("Webhook URL (http:// or https://): ")
+	url := t.readLine(t.localizer.Text("tui.webhook_prompt"))
 	if url == "" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
 		return
 	}
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		fmt.Println(color("Webhook URL must start with http:// or https://.", colorRed))
+		fmt.Println(color(t.localizer.Text("tui.invalid_webhook"), colorRed))
 		return
 	}
 	t.sendAndPrint("WEBHOOK=" + url)
@@ -250,34 +282,34 @@ func randomDeviceKey() (string, error) {
 func (t *TUI) provisionDeviceKey() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		fmt.Println(color("Error reading status: "+err.Error(), colorRed))
+		fmt.Println(color(t.localizer.Text("error.reading_status", err.Error()), colorRed))
 		return
 	}
 	if status.DeviceID == "" {
-		fmt.Println(color("Device ID missing from STATUS output.", colorRed))
+		fmt.Println(color(t.localizer.Text("error.device_id_missing"), colorRed))
 		return
 	}
 	key, err := randomDeviceKey()
 	if err != nil {
-		fmt.Println(color("Error generating device key: "+err.Error(), colorRed))
+		fmt.Println(color(t.localizer.Text("error.generating_key", err.Error()), colorRed))
 		return
 	}
 	if err := t.store.ProvisionDevice(status.DeviceID, key); err != nil {
-		fmt.Println(color("Error storing device key: "+err.Error(), colorRed))
+		fmt.Println(color(t.localizer.Text("error.storing_key", err.Error()), colorRed))
 		return
 	}
 	t.sendAndPrint("DEVICEKEY=" + key)
-	fmt.Println(color("Telemetry key provisioned for "+status.DeviceID+".", colorGreen))
+	fmt.Println(color(t.localizer.Text("tui.telemetry_provisioned", status.DeviceID), colorGreen))
 }
 
 func (t *TUI) clearCredentials() {
-	confirm := t.readLine("Type YES to confirm clearing all credentials: ")
+	confirm := t.readLine(t.localizer.Text("tui.clear_confirm"))
 	if confirm != "YES" {
-		fmt.Println(color("Cancelled.", colorYellow))
+		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
 		return
 	}
 	t.sendAndPrint("CLEAR")
-	fmt.Println(color("Credentials cleared. Device will reboot.", colorGreen))
+	fmt.Println(color(t.localizer.Text("tui.credentials_cleared"), colorGreen))
 }
 
 // Run starts the interactive TUI loop.
@@ -285,7 +317,7 @@ func (t *TUI) Run() {
 	t.printHeader()
 	for {
 		t.printMenu()
-		choice := t.readLine(color("Choice: ", colorBold))
+		choice := t.readLine(color(t.localizer.Text("menu.choice"), colorBold))
 		switch choice {
 		case "1":
 			t.showStatus()
@@ -304,10 +336,10 @@ func (t *TUI) Run() {
 		case "8":
 			t.showTelemetry()
 		case "0", "q", "quit", "exit":
-			fmt.Println(color("Bye!", colorCyan))
+			fmt.Println(color(t.localizer.Text("tui.bye"), colorCyan))
 			return
 		default:
-			fmt.Println(color("Unknown option.", colorYellow))
+			fmt.Println(color(t.localizer.Text("error.unknown_option"), colorYellow))
 		}
 		fmt.Println()
 	}

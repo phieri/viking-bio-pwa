@@ -6,7 +6,7 @@ package provisioning
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -25,59 +25,8 @@ import (
 	appversion "github.com/phieri/viking-bio-pwa/configurator/internal/version"
 )
 
-var supportedWiFiRegions = []string{
-	"Worldwide (XX)",
-	"Australia (AU)",
-	"Austria (AT)",
-	"Belgium (BE)",
-	"Brazil (BR)",
-	"Canada (CA)",
-	"Chile (CL)",
-	"China (CN)",
-	"Colombia (CO)",
-	"Czech Republic (CZ)",
-	"Denmark (DK)",
-	"Estonia (EE)",
-	"Finland (FI)",
-	"France (FR)",
-	"Germany (DE)",
-	"Greece (GR)",
-	"Hong Kong (HK)",
-	"Hungary (HU)",
-	"Iceland (IS)",
-	"India (IN)",
-	"Israel (IL)",
-	"Italy (IT)",
-	"Japan (JP)",
-	"Kenya (KE)",
-	"Latvia (LV)",
-	"Liechtenstein (LI)",
-	"Lithuania (LT)",
-	"Luxembourg (LU)",
-	"Malaysia (MY)",
-	"Malta (MT)",
-	"Mexico (MX)",
-	"Netherlands (NL)",
-	"New Zealand (NZ)",
-	"Nigeria (NG)",
-	"Norway (NO)",
-	"Peru (PE)",
-	"Philippines (PH)",
-	"Poland (PL)",
-	"Portugal (PT)",
-	"Singapore (SG)",
-	"Slovakia (SK)",
-	"Slovenia (SI)",
-	"South Africa (ZA)",
-	"South Korea (KR)",
-	"Spain (ES)",
-	"Sweden (SE)",
-	"Switzerland (CH)",
-	"Taiwan (TW)",
-	"Thailand (TH)",
-	"Turkey (TR)",
-	"United Kingdom (GB)",
-	"United States (US)",
+var supportedWiFiRegionCodes = []string{
+	"XX", "AU", "AT", "BE", "BR", "CA", "CL", "CN", "CO", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HK", "HU", "IS", "IN", "IL", "IT", "JP", "KE", "LV", "LI", "LT", "LU", "MY", "MT", "MX", "NL", "NZ", "NG", "NO", "PE", "PH", "PL", "PT", "SG", "SK", "SI", "ZA", "KR", "ES", "SE", "CH", "TW", "TH", "TR", "GB", "US",
 }
 
 func wifiCountryCodeFromSelection(selection string) string {
@@ -92,17 +41,29 @@ func wifiCountryCodeFromSelection(selection string) string {
 	return strings.ToUpper(selection)
 }
 
-func wifiRegionLabel(countryCode string) string {
+func wifiRegionLabel(localizer provisioningLocalizer, countryCode string) string {
 	countryCode = strings.ToUpper(strings.TrimSpace(countryCode))
 	if countryCode == "" {
-		return "Worldwide (XX)"
+		return localizer.regionLabel("XX")
 	}
-	for _, option := range supportedWiFiRegions {
-		if wifiCountryCodeFromSelection(option) == countryCode {
-			return option
+	for _, code := range supportedWiFiRegionCodes {
+		if code == countryCode {
+			return localizer.regionLabel(code)
 		}
 	}
-	return "Worldwide (XX)"
+	return localizer.regionLabel("XX")
+}
+
+func wifiRegionOptions(localizer provisioningLocalizer) []string {
+	options := make([]string, 0, len(supportedWiFiRegionCodes))
+	for _, code := range supportedWiFiRegionCodes {
+		options = append(options, localizer.regionLabel(code))
+	}
+	return options
+}
+
+func localizedError(localizer provisioningLocalizer, key string, args ...any) error {
+	return errors.New(localizer.Text(key, args...))
 }
 
 // RunGUI starts the Fyne-based device configurator GUI and blocks until the
@@ -114,17 +75,20 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	defer runtime.UnlockOSThread()
 
 	a := fyneapp.New()
+	localizer := newProvisioningLocalizer()
 	var openWindows atomic.Int32
 	openWindows.Store(2)
-	provisioningWindow := a.NewWindow("Viking Bio – Provisioning over USB")
+	provisioningWindow := a.NewWindow(localizer.Text("app.window.provisioning"))
 	provisioningWindow.Resize(fyne.NewSize(680, 480))
 
-	titleLabel := widget.NewLabelWithStyle("Viking Bio – Device Configurator",
+	titleLabel := widget.NewLabelWithStyle(localizer.Text("app.title"),
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	versionLabel := widget.NewLabelWithStyle("Configurator: "+appversion.String(),
+	versionLabel := widget.NewLabelWithStyle(localizer.Text("app.version", appversion.String()),
 		fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	languageLabel := widget.NewLabelWithStyle(localizer.Text("app.language")+": "+localizer.LanguageName(localizer.Language()),
+		fyne.TextAlignCenter, fyne.TextStyle{})
 
-	statusLabel := widget.NewLabel("Loading device status...")
+	statusLabel := widget.NewLabel(localizer.Text("status.loading"))
 	statusLabel.Wrapping = fyne.TextWrapWord
 	statusLabel.TextStyle = fyne.TextStyle{Monospace: true}
 	offlineMode := bridge == nil || strings.TrimSpace(bridge.PortName()) == ""
@@ -139,44 +103,13 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		status, err := bridge.GetStatus()
 		if err != nil {
 			if offlineMode {
-				statusLabel.SetText("Status unavailable: no Pico serial port is connected.\nConnect a device over USB or set PICO_SERIAL_PORT to enable live configuration.\nThe configurator is running in offline/network mode.")
+				statusLabel.SetText(localizer.Text("status.unavailable.offline"))
 				return
 			}
-			statusLabel.SetText("Status unavailable: " + err.Error())
+			statusLabel.SetText(localizer.Text("status.unavailable.error", err.Error()))
 			return
 		}
-		var sb strings.Builder
-		sb.WriteString("WiFi:      ")
-		if status.Connected {
-			sb.WriteString("connected\n")
-		} else {
-			sb.WriteString("not connected\n")
-		}
-		for _, addr := range status.Addresses {
-			sb.WriteString("Address:   " + addr + "\n")
-		}
-		if status.Country != "" {
-			sb.WriteString("Country:   " + status.Country + "\n")
-		}
-		if status.DeviceID != "" {
-			sb.WriteString("Device:    " + status.DeviceID + "\n")
-		}
-		if status.FirmwareVersion != "" {
-			sb.WriteString("Firmware:  " + status.FirmwareVersion + "\n")
-		}
-		if status.Server != "" {
-			sb.WriteString(fmt.Sprintf("Server:    %s:%d\n", status.Server, status.Port))
-		}
-		if status.Telemetry != "" {
-			sb.WriteString("Telemetry: " + status.Telemetry + "\n")
-		}
-		if status.DeviceKey != "" {
-			sb.WriteString("DeviceKey: " + maskSensitiveConfiguredValue(status.DeviceKey) + "\n")
-		}
-		if status.Webhook != "" {
-			sb.WriteString("Webhook:   " + normaliseConfiguredValue(status.Webhook) + "\n")
-		}
-		statusLabel.SetText(strings.TrimRight(sb.String(), "\n"))
+		statusLabel.SetText(formatDeviceStatus(localizer, &status, ""))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	provisioningWindow.SetOnClosed(func() {
@@ -217,7 +150,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	}
 
 	// ── Show device status ────────────────────────────────────────────────
-	btnStatus := widget.NewButton("Show device status", func() {
+	btnStatus := widget.NewButton(localizer.Text("button.show_status"), func() {
 		appendLog("→ STATUS")
 		go func() {
 			status, err := bridge.GetStatus()
@@ -226,60 +159,30 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				dialog.ShowError(err, provisioningWindow)
 				return
 			}
-			var sb strings.Builder
-			if status.Connected {
-				sb.WriteString("  WiFi:      connected\n")
-			} else {
-				sb.WriteString("  WiFi:      not connected\n")
-			}
-			for _, addr := range status.Addresses {
-				sb.WriteString("  Address:   " + addr + "\n")
-			}
-			if status.Country != "" {
-				sb.WriteString("  Country:   " + status.Country + "\n")
-			}
-			if status.DeviceID != "" {
-				sb.WriteString("  Device:    " + status.DeviceID + "\n")
-			}
-			if status.FirmwareVersion != "" {
-				sb.WriteString("  Firmware:  " + status.FirmwareVersion + "\n")
-			}
-			if status.Server != "" {
-				sb.WriteString(fmt.Sprintf("  Server:    %s:%d\n", status.Server, status.Port))
-			}
-			if status.Telemetry != "" {
-				sb.WriteString("  Telemetry: " + status.Telemetry + "\n")
-			}
-			if status.DeviceKey != "" {
-				sb.WriteString("  DeviceKey: " + maskSensitiveConfiguredValue(status.DeviceKey) + "\n")
-			}
-			if status.Webhook != "" {
-				sb.WriteString("  Webhook:   " + normaliseConfiguredValue(status.Webhook) + "\n")
-			}
-			appendLog(strings.TrimRight(sb.String(), "\n"))
+			appendLog(formatDeviceStatus(localizer, &status, "  "))
 		}()
 	})
 
 	// ── Configure WiFi ───────────────────────────────────────────────────
-	btnWiFi := widget.NewButton("Configure WiFi", func() {
+	btnWiFi := widget.NewButton(localizer.Text("button.configure_wifi"), func() {
 		ssidEntry := widget.NewEntry()
-		ssidEntry.SetPlaceHolder("MyNetwork")
+		ssidEntry.SetPlaceHolder(localizer.Text("placeholder.ssid"))
 		passEntry := widget.NewPasswordEntry()
-		passEntry.SetPlaceHolder("password")
+		passEntry.SetPlaceHolder(localizer.Text("placeholder.password"))
 
 		form := &widget.Form{
 			Items: []*widget.FormItem{
-				{Text: "SSID", Widget: ssidEntry},
-				{Text: "Password", Widget: passEntry},
+				{Text: localizer.Text("form.ssid"), Widget: ssidEntry},
+				{Text: localizer.Text("form.password"), Widget: passEntry},
 			},
 		}
-		d := dialog.NewCustomConfirm("Configure WiFi", "Save", "Cancel", form, func(confirmed bool) {
+		d := dialog.NewCustomConfirm(localizer.Text("dialog.wifi.title"), localizer.Text("dialog.save"), localizer.Text("dialog.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 			ssid := strings.TrimSpace(ssidEntry.Text)
 			if ssid == "" {
-				dialog.ShowError(fmt.Errorf("SSID must not be empty"), provisioningWindow)
+				dialog.ShowError(localizedError(localizer, "error.blank_ssid"), provisioningWindow)
 				return
 			}
 			go func() {
@@ -303,26 +206,26 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				for _, l := range lines {
 					appendLog("  " + l)
 				}
-				dialog.ShowInformation("WiFi configured", "Credentials saved. Device will reboot.", provisioningWindow)
+				dialog.ShowInformation(localizer.Text("dialog.wifi.saved_title"), localizer.Text("dialog.wifi.saved_body"), provisioningWindow)
 			}()
 		}, provisioningWindow)
 		d.Show()
 	})
 
 	// ── Set country code ─────────────────────────────────────────────────
-	btnCountry := widget.NewButton("Set country code", func() {
-		regionSelect := widget.NewSelect(supportedWiFiRegions, nil)
-		regionSelect.SetSelected("Worldwide (XX)")
+	btnCountry := widget.NewButton(localizer.Text("button.set_country"), func() {
+		regionSelect := widget.NewSelect(wifiRegionOptions(localizer), nil)
+		regionSelect.SetSelected(localizer.regionLabel("XX"))
 		if bridge != nil {
 			if status, err := bridge.GetStatus(); err == nil {
-				regionSelect.SetSelected(wifiRegionLabel(status.Country))
+				regionSelect.SetSelected(wifiRegionLabel(localizer, status.Country))
 			}
 		}
 
 		form := &widget.Form{
-			Items: []*widget.FormItem{{Text: "Wi-Fi region", Widget: regionSelect}},
+			Items: []*widget.FormItem{{Text: localizer.Text("form.region"), Widget: regionSelect}},
 		}
-		d := dialog.NewCustomConfirm("Set Wi-Fi country code", "Set", "Cancel", form, func(confirmed bool) {
+		d := dialog.NewCustomConfirm(localizer.Text("dialog.country.title"), localizer.Text("dialog.set"), localizer.Text("dialog.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
@@ -344,23 +247,23 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Set server address & port ─────────────────────────────────────────
-	btnServer := widget.NewButton("Set server address & port", func() {
+	btnServer := widget.NewButton(localizer.Text("button.set_server"), func() {
 		addrEntry := widget.NewEntry()
-		addrEntry.SetPlaceHolder("192.168.1.10 or fd00::1")
+		addrEntry.SetPlaceHolder(localizer.Text("placeholder.server"))
 		portEntry := widget.NewEntry()
 		portEntry.SetText("9000")
 
 		form := widget.NewForm(
-			widget.NewFormItem("Server IP/hostname", addrEntry),
-			widget.NewFormItem("Port", portEntry),
+			widget.NewFormItem(localizer.Text("form.server"), addrEntry),
+			widget.NewFormItem(localizer.Text("form.port"), portEntry),
 		)
-		d := dialog.NewCustomConfirm("Set server", "Set", "Cancel", form, func(confirmed bool) {
+		d := dialog.NewCustomConfirm(localizer.Text("dialog.server.title"), localizer.Text("dialog.set"), localizer.Text("dialog.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 			addr := strings.TrimSpace(addrEntry.Text)
 			if addr == "" {
-				dialog.ShowError(fmt.Errorf("server address must not be empty"), provisioningWindow)
+				dialog.ShowError(localizedError(localizer, "error.blank_server"), provisioningWindow)
 				return
 			}
 			port := strings.TrimSpace(portEntry.Text)
@@ -394,18 +297,18 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Set webhook URL ──────────────────────────────────────────────────
-	btnWebhook := widget.NewButton("Set webhook URL", func() {
+	btnWebhook := widget.NewButton(localizer.Text("button.set_webhook"), func() {
 		urlEntry := widget.NewEntry()
-		urlEntry.SetPlaceHolder("https://hooks.example.com/secret")
+		urlEntry.SetPlaceHolder(localizer.Text("placeholder.webhook"))
 
-		form := widget.NewForm(widget.NewFormItem("Webhook URL", urlEntry))
-		d := dialog.NewCustomConfirm("Set webhook URL", "Set", "Cancel", form, func(confirmed bool) {
+		form := widget.NewForm(widget.NewFormItem(localizer.Text("form.webhook"), urlEntry))
+		d := dialog.NewCustomConfirm(localizer.Text("dialog.webhook.title"), localizer.Text("dialog.set"), localizer.Text("dialog.cancel"), form, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 			url := strings.TrimSpace(urlEntry.Text)
 			if url == "" || (!strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://")) {
-				dialog.ShowError(fmt.Errorf("webhook URL must start with http:// or https://"), provisioningWindow)
+				dialog.ShowError(localizedError(localizer, "error.invalid_webhook"), provisioningWindow)
 				return
 			}
 			go func() {
@@ -425,7 +328,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	})
 
 	// ── Provision telemetry device key ──────────────────────────────────
-	btnProvision := widget.NewButton("Provision telemetry device key", func() {
+	btnProvision := widget.NewButton(localizer.Text("button.provision_key"), func() {
 		go func() {
 			appendLog("→ STATUS (reading device ID)")
 			status, err := bridge.GetStatus()
@@ -435,19 +338,19 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				return
 			}
 			if status.DeviceID == "" {
-				msg := fmt.Errorf("device ID missing from STATUS output")
+				msg := localizedError(localizer, "error.device_id_missing")
 				appendLog("Error: " + msg.Error())
 				dialog.ShowError(msg, provisioningWindow)
 				return
 			}
 			key, err := randomDeviceKey()
 			if err != nil {
-				appendLog("Error generating key: " + err.Error())
+				appendLog(localizer.Text("error.generating_key", err.Error()))
 				dialog.ShowError(err, provisioningWindow)
 				return
 			}
 			if err := store.ProvisionDevice(status.DeviceID, key); err != nil {
-				appendLog("Error storing key: " + err.Error())
+				appendLog(localizer.Text("error.storing_key", err.Error()))
 				dialog.ShowError(err, provisioningWindow)
 				return
 			}
@@ -461,16 +364,16 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			for _, l := range lines {
 				appendLog("  " + l)
 			}
-			msg := "Telemetry key provisioned for " + status.DeviceID + "."
+			msg := localizer.Text("tui.telemetry_provisioned", status.DeviceID)
 			appendLog(msg)
-			dialog.ShowInformation("Provisioned", msg, provisioningWindow)
+			dialog.ShowInformation(localizer.Text("dialog.provisioned"), msg, provisioningWindow)
 		}()
 	})
 
 	// ── Clear all credentials ────────────────────────────────────────────
-	btnClear := widget.NewButton("Clear all credentials", func() {
-		dialog.ShowConfirm("Clear credentials",
-			"This will erase all stored credentials and reboot the device.\nAre you sure?",
+	btnClear := widget.NewButton(localizer.Text("button.clear_credentials"), func() {
+		dialog.ShowConfirm(localizer.Text("dialog.clear.title"),
+			localizer.Text("dialog.clear.body"),
 			func(confirmed bool) {
 				if !confirmed {
 					return
@@ -486,14 +389,14 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 					for _, l := range lines {
 						appendLog("  " + l)
 					}
-					appendLog("Credentials cleared. Device will reboot.")
-					dialog.ShowInformation("Done", "Credentials cleared. Device will reboot.", provisioningWindow)
+					appendLog(localizer.Text("tui.credentials_cleared"))
+					dialog.ShowInformation(localizer.Text("dialog.done"), localizer.Text("tui.credentials_cleared"), provisioningWindow)
 				}()
 			}, provisioningWindow)
 	})
 
 	// ── Close ────────────────────────────────────────────────────────────
-	btnClose := widget.NewButton("Close", func() {
+	btnClose := widget.NewButton(localizer.Text("button.close"), func() {
 		provisioningWindow.Close()
 	})
 
@@ -509,7 +412,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	)
 
 	content := container.NewBorder(
-		container.NewVBox(titleLabel, versionLabel),
+		container.NewVBox(titleLabel, versionLabel, languageLabel),
 		container.NewHBox(layout.NewSpacer(), btnClose),
 		nil,
 		nil,
@@ -517,33 +420,33 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	)
 	provisioningWindow.SetContent(content)
 
-	monitorWindow := a.NewWindow("Viking Bio – Network Telemetry")
+	monitorWindow := a.NewWindow(localizer.Text("app.window.telemetry"))
 	monitorWindow.Resize(fyne.NewSize(420, 320))
 	telemetryStateValue := (*server.State)(nil)
 	if len(telemetryState) > 0 {
 		telemetryStateValue = telemetryState[0]
 	}
-	telemetryTitle := widget.NewLabelWithStyle("Network telemetry", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	telemetryStatus := widget.NewLabel("Waiting for telemetry...")
+	telemetryTitle := widget.NewLabelWithStyle(localizer.Text("telemetry.title"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	telemetryStatus := widget.NewLabel(localizer.Text("status.telemetry.waiting"))
 	telemetryStatus.Wrapping = fyne.TextWrapWord
 	telemetryStatus.TextStyle = fyne.TextStyle{Monospace: true}
 	var lastErrorNotification float64
 	var lastErrorNotificationSet bool
 	telemetryRefresh := func() {
 		if telemetryStateValue == nil {
-			telemetryStatus.SetText("Waiting for telemetry...\nThe server is not connected to a live telemetry stream.")
+			telemetryStatus.SetText(localizer.Text("status.telemetry.unavailable"))
 			return
 		}
 		snapshot := telemetryStateValue.Snapshot()
 		if snapshot.UpdatedAt == 0 {
-			telemetryStatus.SetText("Waiting for telemetry...\nNo data has been received yet.")
+			telemetryStatus.SetText(localizer.Text("status.telemetry.empty"))
 			return
 		}
 		if snapshot.Err != 0 {
 			if !lastErrorNotificationSet || lastErrorNotification != snapshot.Err {
 				a.SendNotification(fyne.NewNotification(
-					"Viking Bio – burner error",
-					fmt.Sprintf("New burner error code: %.0f", snapshot.Err),
+					localizer.Text("telemetry.error.notification_title"),
+					localizer.Text("telemetry.error.notification_body", snapshot.Err),
 				))
 				lastErrorNotification = snapshot.Err
 				lastErrorNotificationSet = true
@@ -552,16 +455,16 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			lastErrorNotification = 0
 			lastErrorNotificationSet = false
 		}
-		telemetryStatus.SetText(strings.TrimRight(fmt.Sprintf(
-			"Flame: %t\nFan: %.1f\nTemp: %.1f°C\nErr: %.0f\nValid: %t\nFlame seconds: %d\nUpdated: %s",
+		telemetryStatus.SetText(formatTelemetrySnapshot(
+			localizer,
 			snapshot.Flame,
 			snapshot.Fan,
 			snapshot.Temp,
 			snapshot.Err,
 			snapshot.Valid,
 			snapshot.FlameSecs,
-			time.UnixMilli(snapshot.UpdatedAt).Format(time.RFC3339),
-		), "\n"))
+			snapshot.UpdatedAt,
+		))
 	}
 	telemetryCtx, telemetryCancel := context.WithCancel(context.Background())
 	monitorWindow.SetOnClosed(func() {
@@ -590,7 +493,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		nil,
 		nil,
 		container.NewVBox(
-			widget.NewLabel("Live burner telemetry"),
+			widget.NewLabel(localizer.Text("telemetry.label")),
 			telemetryStatus,
 		),
 	))
