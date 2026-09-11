@@ -1,22 +1,35 @@
-<!DOCTYPE html>
+---
+import { supportedLanguages } from '../content/site';
+const baseHref = import.meta.env.BASE_URL;
+---
+
+<!doctype html>
 <html lang="mul">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Viking Bio integration for monitoring and managing pellet burner telemetry with a Pico-based bridge and local configurator." />
-    <link rel="canonical" href="./en/" />
+    <meta
+      name="description"
+      content="Viking Bio integration for monitoring and managing pellet burner telemetry with a Pico-based bridge and local configurator."
+    />
+    <link rel="canonical" href={new URL(`${baseHref}en/`, Astro.site || 'https://phieri.github.io').href} />
     <title>Viking Bio Integration</title>
+    <link rel="icon" href={`${baseHref}favicon.svg`} type="image/svg+xml" />
   </head>
   <body>
     <noscript>
-      <p><a href="./en/">English</a> | <a href="./sv/">Svenska</a> | <a href="./no/">Norsk</a> | <a href="./fi/">Suomi</a> | <a href="./da/">Dansk</a> | <a href="./is/">Íslenska</a></p>
+      <p>
+        {supportedLanguages.map(({ code, label }) => (
+          <a href={`${baseHref}${code}/`}>{label}</a>
+        ))}
+      </p>
     </noscript>
-    <script>
+    <script define:vars={{ supportedLanguages }}>
       (function () {
-        var supported = [{"code":"en","label":"English","browserCodes":["en"]},{"code":"sv","label":"Svenska","browserCodes":["sv"]},{"code":"no","label":"Norsk","browserCodes":["no","nb","nn"]},{"code":"fi","label":"Suomi","browserCodes":["fi"]},{"code":"da","label":"Dansk","browserCodes":["da"]},{"code":"is","label":"Íslenska","browserCodes":["is"]}];
+        var supported = supportedLanguages;
         var preferredList = Array.isArray(navigator.languages) && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
         function normalise(value) {
-          return String(value || '').toLowerCase().replace('_', '-');
+          return String(value || '').toLowerCase().replace(/_/g, '-');
         }
         function pickLanguage() {
           for (var i = 0; i < preferredList.length; i += 1) {
@@ -33,7 +46,7 @@
           return 'en';
         }
         var preferred = pickLanguage();
-        window.location.replace('./' + preferred + '/');
+        window.location.replace(new URL(preferred + '/', document.baseURI).href);
       })();
     </script>
   </body>
