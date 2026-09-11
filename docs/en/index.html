@@ -52,7 +52,7 @@
                 <span class="arrow">→</span>
                 <span>Pico W</span>
                 <span class="arrow">→</span>
-                <span>Go runtime with GUI + TUI</span>
+                <span>Go runtime with desktop app + terminal setup</span>
               </div>
               <ul>
                 <li>UART capture from burner output</li>
@@ -117,7 +117,7 @@
               <p>Bridge setup can happen over serial with a GUI or terminal-based configurator, making installation straightforward.</p>
             </div>
             <div class="feature-item">
-              <h3>Local runtime with GUI/TUI</h3>
+              <h3>Local runtime with desktop app + terminal setup</h3>
               <p>The runtime is built around a local device-first model: the Go service exposes APIs and USB setup, while browser notifications are handled by the separate push-pwa app.</p>
             </div>
             <div class="feature-item">
@@ -141,13 +141,13 @@
           <div>
             <p class="eyebrow">Architecture</p>
             <h2>Simple layered flow, clear ownership, and a local-first runtime</h2>
-            <p>The system separates the hardware-facing bridge from the Go runtime and the separate browser-push app. The Go runtime includes both a desktop GUI and a terminal TUI for local provisioning and status checks, while the Pico reads burner data and streams signed telemetry to a Go process on the same trusted local network. That Go process exposes the API and USB configuration flow while the bridge stays focused on measurement, ingest, and alert delivery.</p>
+            <p>The system separates the hardware-facing bridge from the Go runtime and the separate browser-push app. The Go runtime includes both a desktop app and a terminal-based setup flow for local provisioning and status checks, while the Pico reads burner data and streams signed telemetry to a Go process on the same trusted local network. That Go process exposes the API and USB configuration flow while the bridge stays focused on measurement, ingest, and alert delivery.</p>
           </div>
           <div class="stack">
             <div class="stack-item"><span>1</span><span>Burner serial data</span></div>
             <div class="stack-item"><span>2</span><span>Pico W / Pico 2 W firmware</span></div>
             <div class="stack-item"><span>3</span><span>Signed TCP ingest</span></div>
-            <div class="stack-item"><span>4</span><span>Go runtime with GUI + TUI + local APIs</span></div>
+            <div class="stack-item"><span>4</span><span>Go runtime with desktop app + terminal setup + local APIs</span></div>
             <div class="stack-item"><span>5</span><span>push-pwa browser notifications</span></div>
           </div>
         </div>
