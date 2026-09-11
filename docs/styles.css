@@ -385,7 +385,33 @@ h3 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   color: var(--muted);
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.footer-language-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.language-select {
+  min-width: 8.5rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--panel-border);
+  background: rgba(15, 29, 43, 0.85);
+  color: var(--text);
+  font: inherit;
 }
 
 @media (max-width: 860px) {
