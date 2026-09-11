@@ -105,6 +105,10 @@ main {
   color: var(--text);
 }
 
+.footer-lang-switcher {
+  justify-content: center;
+}
+
 .hero {
   padding: 5rem 0 2.5rem;
 }
@@ -259,6 +263,46 @@ h1 {
   padding: 2rem 0 1.25rem;
 }
 
+.notification-demo {
+  padding-top: 2.5rem;
+}
+
+.notification-demo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 2rem;
+  align-items: center;
+}
+
+.notification-copy {
+  max-width: 36rem;
+}
+
+.notification-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.06rem;
+}
+
+.phone-frame {
+  margin-inline: auto;
+  width: min(100%, 24rem);
+  border-radius: 2rem;
+  padding: 0.7rem;
+  background: linear-gradient(180deg, rgba(13, 24, 22, 0.95), rgba(8, 17, 15, 1));
+  border: 1px solid rgba(138, 225, 176, 0.18);
+  box-shadow: 0 36px 60px rgba(2, 13, 10, 0.55);
+}
+
+.phone-frame iframe {
+  display: block;
+  width: 100%;
+  height: 46rem;
+  border: 0;
+  border-radius: 1.4rem;
+  background: #f8fafc;
+}
+
 .section-header {
   margin-bottom: 1.5rem;
 }
@@ -316,7 +360,7 @@ h1 {
 }
 
 @media (max-width: 900px) {
-  .hero-grid, .device-grid, .summary-grid, .feature-grid, .project-grid, .architecture-grid {
+  .hero-grid, .device-grid, .summary-grid, .feature-grid, .project-grid, .architecture-grid, .notification-demo-layout {
     grid-template-columns: 1fr;
   }
 
