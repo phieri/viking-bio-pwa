@@ -1,4 +1,6 @@
 ---
+import fs from 'node:fs';
+import path from 'node:path';
 import '../styles.css';
 const { lang, details, supportedLanguages } = Astro.props;
 const base = import.meta.env.BASE_URL;
@@ -30,6 +32,51 @@ const architectureSteps = details.architectureSteps ?? [
   'Browser notifications',
 ];
 const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, href: `${base}${code}/` }));
+const pushPwaDir = path.resolve(process.cwd(), '..', 'push-pwa', 'public');
+let pushPwaHtml = '';
+let pushPwaCss = '';
+let pushPwaJs = '';
+try {
+  pushPwaHtml = fs.readFileSync(path.join(pushPwaDir, 'index.html'), 'utf8');
+  pushPwaCss = fs.readFileSync(path.join(pushPwaDir, 'style.css'), 'utf8');
+  pushPwaJs = fs.readFileSync(path.join(pushPwaDir, 'app.js'), 'utf8');
+} catch (error) {
+  throw new Error(`Unable to load the push-pwa preview files from ${pushPwaDir}. Make sure the push-pwa app exists in the repository root.`, { cause: error });
+}
+const demoNotificationScript = `
+  window.addEventListener('DOMContentLoaded', function () {
+    const senderInput = document.getElementById('subscription-sender');
+    const languageSelect = document.getElementById('app-language');
+    const prioritySelect = document.getElementById('subscription-priority');
+    const lowLevel = document.getElementById('notification-level-low');
+    const normalLevel = document.getElementById('notification-level-normal');
+    const highLevel = document.getElementById('notification-level-high');
+    if (senderInput) senderInput.value = 'viking-bio-01';
+    if (languageSelect) languageSelect.value = 'en';
+    if (prioritySelect) prioritySelect.value = 'normal';
+    if (lowLevel) lowLevel.checked = false;
+    if (normalLevel) normalLevel.checked = true;
+    if (highLevel) highLevel.checked = false;
+    const status = document.getElementById('status');
+    if (status) status.textContent = 'Demo subscription ready for notification testing.';
+    const lastContact = document.getElementById('last-contact-status');
+    if (lastContact) lastContact.textContent = 'Last device contact: 2 minutes ago';
+    const rssi = document.getElementById('rssi-status');
+    if (rssi) rssi.textContent = 'RSSI: -62 dBm';
+    const lfs = document.getElementById('lfs-status');
+    if (lfs) lfs.textContent = 'LittleFS: healthy';
+  });
+`;
+const safePushPwaJs = pushPwaJs.replaceAll('</script>', '<\\/script>');
+let notificationPreview = pushPwaHtml.replace(/<link[^>]+href=["']\/style\.css["'][^>]*>/i, `<style>${pushPwaCss}</style>`);
+if (notificationPreview === pushPwaHtml) {
+  throw new Error('Failed to inject the push-pwa stylesheet into the marketing preview. Expected a /style.css link in the app HTML.');
+}
+const previewBeforeScriptInjection = notificationPreview;
+notificationPreview = notificationPreview.replace(/<script[^>]+src=["']\/app\.js["'][^>]*><\/script>/i, `<script>${safePushPwaJs}\n${demoNotificationScript}<\/script>`);
+if (notificationPreview === previewBeforeScriptInjection) {
+  throw new Error('Failed to inject the push-pwa script into the marketing preview. Expected a /app.js script tag in the app HTML.');
+}
 ---
 
 <html lang={lang}>
@@ -50,11 +97,6 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
         </a>
         <nav class="nav-links" aria-label="Main navigation">
           {details.nav.map((label, index) => <a href={`#${sectionIds[index]}`}>{label}</a>)}
-        </nav>
-        <nav class="lang-switcher" aria-label="Language switcher">
-          {navLinks.map(({ code, label, href }) => (
-            <a href={href} class:list={[code === lang && 'is-active']} aria-current={code === lang ? 'page' : undefined}>{label}</a>
-          ))}
         </nav>
       </div>
     </header>
@@ -124,6 +166,21 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
         </div>
       </section>
 
+      <section class="section notification-demo" aria-labelledby="notification-demo-heading">
+        <div class="notification-demo-layout">
+          <div class="notification-copy">
+            <div class="eyebrow">{details.notificationPreviewEyebrow ?? 'Notifications'}</div>
+            <h2 id="notification-demo-heading">{details.notificationPreviewTitle ?? 'A live preview of the browser notification app'}</h2>
+            <p>
+              {details.notificationPreviewBody ?? 'This demo shows the mobile notification interface used for burner alerts and reminder messages. It is a preview of the browser app that sends notifications to the operator.'}
+            </p>
+          </div>
+          <div class="phone-frame">
+            <iframe title="Browser notification preview" srcdoc={notificationPreview} sandbox="allow-scripts" loading="lazy"></iframe>
+          </div>
+        </div>
+      </section>
+
       <section class="section" id="architecture">
         <div class="section-header">
           <div class="eyebrow">{details.architectureEyebrow}</div>
@@ -154,6 +211,11 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
     <footer class="footer">
       <div class="footer-inner">
         <span>{details.footerBrand}</span>
+        <nav class="lang-switcher footer-lang-switcher" aria-label="Language switcher">
+          {navLinks.map(({ code, label, href }) => (
+            <a href={href} class:list={[code === lang && 'is-active']} aria-current={code === lang ? 'page' : undefined}>{label}</a>
+          ))}
+        </nav>
         <a href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noreferrer">{details.footerGitHub}</a>
       </div>
     </footer>
