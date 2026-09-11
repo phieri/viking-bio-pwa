@@ -539,156 +539,63 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
-const notificationDemoIframe = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      :root {
-        color-scheme: light dark;
-        --bg: #f8fafc;
-        --panel: rgba(15, 23, 42, 0.97);
-        --card: rgba(15, 29, 43, 0.96);
-        --muted: #b8c0ce;
-        --text: #e7edf5;
-        --accent: #f5aa2f;
-        --outline: rgba(148, 163, 184, 0.2);
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: linear-gradient(180deg, #0b1722 0%, #0a1320 100%);
-        font-family: Inter, "Segoe UI", sans-serif;
-        color: var(--text);
-      }
-      .demo-shell {
-        width: min(100%, 360px);
-        padding: 1rem;
-      }
-      .phone {
-        width: 100%;
-        border-radius: 28px;
-        border: 1px solid var(--outline);
-        background: linear-gradient(180deg, rgba(15, 29, 43, 0.96), rgba(9, 19, 29, 0.96));
-        box-shadow: 0 18px 40px rgba(2, 6, 23, 0.38);
-        padding: 1rem;
-      }
-      .eyebrow {
-        margin: 0 0 0.6rem;
-        color: var(--accent);
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-      }
-      h1 {
-        margin: 0 0 0.9rem;
-        font-size: 1.8rem;
-        line-height: 1.1;
-        letter-spacing: -0.05em;
-      }
-      label {
-        display: block;
-        margin: 0.7rem 0 0.35rem;
-        color: var(--muted);
-        font-size: 0.68rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-      select, input {
-        width: 100%;
-        border: 1px solid var(--outline);
-        border-radius: 10px;
-        padding: 0.72rem 0.8rem;
-        background: rgba(148, 163, 184, 0.08);
-        color: var(--text);
-        font: inherit;
-      }
-      .toggle-group {
-        display: grid;
-        gap: 0.4rem;
-        margin-top: 0.5rem;
-        padding: 0.2rem 0;
-      }
-      .toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        color: var(--text);
-        font-size: 0.82rem;
-      }
-      .toggle input {
-        width: 1rem;
-        height: 1rem;
-        accent-color: var(--accent);
-      }
-      .button-row {
-        margin-top: 0.9rem;
-        display: flex;
-        gap: 0.5rem;
-      }
-      button {
-        flex: 1;
-        border: none;
-        border-radius: 999px;
-        padding: 0.72rem 0.8rem;
-        font: inherit;
-        font-weight: 700;
-      }
-      .primary {
-        background: linear-gradient(135deg, #f59e0b, #fbbf24);
-        color: #0b1320;
-      }
-      .secondary {
-        background: rgba(148, 163, 184, 0.08);
-        border: 1px solid var(--outline);
-        color: var(--text);
-      }
-      .status {
-        margin-top: 0.9rem;
-        padding: 0.7rem 0.8rem;
-        border-radius: 10px;
-        background: rgba(96, 165, 250, 0.09);
-        border: 1px solid rgba(96, 165, 250, 0.25);
-        color: var(--text);
-        font-size: 0.74rem;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="demo-shell">
-      <div class="phone">
-        <p class="eyebrow">Viking Bio</p>
-        <h1>Burner alerts</h1>
+const pushPwaPublicDir = path.join(root, '..', 'push-pwa', 'public');
+const pushPwaHtml = fs.readFileSync(path.join(pushPwaPublicDir, 'index.html'), 'utf8');
+const pushPwaCss = fs.readFileSync(path.join(pushPwaPublicDir, 'style.css'), 'utf8');
+const pushPwaAppJs = fs.readFileSync(path.join(pushPwaPublicDir, 'app.js'), 'utf8');
 
-        <label for="language">Language</label>
-        <select id="language"><option>English</option></select>
+function buildPushPwaDemoDocument() {
+  const demoScript = `
+    (function () {
+      function applyDemoValues() {
+        const senderField = document.getElementById('subscription-sender');
+        if (senderField) senderField.value = 'viking-bio-01';
 
-        <label for="sender">Sender ID</label>
-        <input id="sender" value="viking-bio-01" />
+        const priorityField = document.getElementById('subscription-priority');
+        if (priorityField) priorityField.value = 'normal';
 
-        <label>Notification levels</label>
-        <div class="toggle-group">
-          <label class="toggle"><input type="checkbox" checked /> cleaning reminder</label>
-          <label class="toggle"><input type="checkbox" checked /> flame</label>
-          <label class="toggle"><input type="checkbox" checked /> error</label>
-        </div>
+        const languageField = document.getElementById('app-language');
+        if (languageField) languageField.value = 'en';
 
-        <label for="priority">Test alert priority</label>
-        <select id="priority"><option>normal</option><option>low</option><option>high</option></select>
+        const notificationLow = document.getElementById('notification-level-low');
+        if (notificationLow) notificationLow.checked = true;
+        const notificationNormal = document.getElementById('notification-level-normal');
+        if (notificationNormal) notificationNormal.checked = true;
+        const notificationHigh = document.getElementById('notification-level-high');
+        if (notificationHigh) notificationHigh.checked = true;
 
-        <div class="button-row">
-          <button class="primary">Send test alert</button>
-        </div>
+        const yamlBox = document.getElementById('subscription-yaml');
+        if (yamlBox) {
+          yamlBox.value = 'sender: viking-bio-01\npriority: normal\nnotificationLevel:\n  low: true\n  normal: true\n  high: true\n';
+        }
 
-        <div class="status">Last device contact: 08:45</div>
-      </div>
-    </div>
-  </body>
-</html>`;
+        const lastContact = document.getElementById('last-contact-status');
+        if (lastContact) lastContact.textContent = 'Last device contact: 08:45';
+
+        const rssi = document.getElementById('rssi-status');
+        if (rssi) rssi.textContent = 'RSSI: -51 dBm';
+
+        const lfs = document.getElementById('lfs-status');
+        if (lfs) lfs.textContent = 'LittleFS: healthy';
+
+        const status = document.getElementById('status');
+        if (status) status.textContent = 'Demo data loaded';
+
+        const installBanner = document.getElementById('install-banner');
+        if (installBanner) installBanner.classList.add('hidden');
+      }
+
+      window.addEventListener('DOMContentLoaded', applyDemoValues);
+      setTimeout(applyDemoValues, 0);
+    })();
+  `;
+
+  return pushPwaHtml
+    .replace(/<link rel="stylesheet" href="\/style.css">/i, '<style>' + pushPwaCss + '</style>')
+    .replace(/<script src="\/app.js" defer><\/script>/i, '<script>' + pushPwaAppJs + demoScript + '</script>');
+}
+
+const notificationDemoIframe = buildPushPwaDemoDocument();
 
 function renderPage(data) {
   const anchors = ['overview', 'features', 'architecture', 'project'];
