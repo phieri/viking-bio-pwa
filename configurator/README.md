@@ -42,6 +42,7 @@ make run
 | `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for the local provisioning GUI |
+| `CONFIGURATOR_LANGUAGE` | auto-detected from locale | Override the provisioning GUI/TUI language (`en`, `sv`, `no`, `fi`, `da`, `is`) |
 | `DATA_DIR` | `~/.viking-bio-bridge` on Linux, `<exe_dir>/data` otherwise | Directory for device registry, logs, and local config |
 
 ## Configuration Files
@@ -84,7 +85,8 @@ currently attached, it opens in offline/network mode instead of exiting early.
 When a graphical display is available (X11 `DISPLAY` or Wayland `WAYLAND_DISPLAY` on
 Linux; always on Windows and macOS) the configurator opens a **Fyne-based GUI window**.
 Without a graphical display, it falls back to the interactive terminal UI when started
-from a TTY.
+from a TTY. The provisioning UI follows `CONFIGURATOR_LANGUAGE` when set, otherwise it
+uses the current process locale and falls back to English.
 
 The configurator allows you to:
 

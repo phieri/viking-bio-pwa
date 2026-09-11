@@ -8,6 +8,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 
 use VikingBioPush\LastContactState;
 use VikingBioPush\PushSender;
+use VikingBioPush\PushTranslations;
 use VikingBioPush\VapidConfig;
 
 header('Content-Type: text/plain; charset=utf-8');
@@ -89,64 +90,12 @@ if ($device === '' || $type === '') {
     webhook_response_fail(400, 'device and type are required');
 }
 
-$alert = match ($type) {
-    'flame' => match (true) {
-        $detail === 'on' => [
-            'title' => 'Burner started',
-            'message' => sprintf('Flame detected on %s.', $device),
-            'priority' => 'high',
-        ],
-        $detail === 'off' => [
-            'title' => 'Burner stopped',
-            'message' => sprintf('Flame cleared on %s.', $device),
-            'priority' => 'normal',
-        ],
-        default => [
-            'title' => 'Viking Bio alert',
-            'message' => sprintf('Flame state changed on %s.', $device),
-            'priority' => 'normal',
-        ],
-    },
-    'error' => match (true) {
-        $detail === 'stale' => [
-            'title' => 'Telemetry lost',
-            'message' => sprintf('No fresh telemetry received from %s.', $device),
-            'priority' => 'high',
-        ],
-        $errorCode > 0 => [
-            'title' => 'Burner error',
-            'message' => sprintf('Device %s reported error code %d.', $device, $errorCode),
-            'priority' => 'high',
-        ],
-        default => [
-            'title' => 'Burner alert',
-            'message' => sprintf('Device %s reported an error state.', $device),
-            'priority' => 'high',
-        ],
-    },
-    'heartbeat' => [
-        'title' => 'Burner heartbeat',
-        'message' => sprintf('No alert activity has been reported by %s in the last 24 hours.', $device),
-        'priority' => 'very-low',
-    ],
-    default => [
-        'title' => 'Viking Bio alert',
-        'message' => 'New burner status update received.',
-        'priority' => 'normal',
-    ],
+$priority = match ($type) {
+    'flame' => $detail === 'on' ? 'high' : 'normal',
+    'error' => 'high',
+    'heartbeat' => 'very-low',
+    default => 'normal',
 };
-
-$title = $alert['title'];
-$message = $alert['message'];
-$priority = $alert['priority'];
-$urgency = $priority;
-
-if ($temperature !== null && $type !== 'error') {
-    $message .= sprintf(' Temperature %.1f°C.', $temperature);
-}
-if ($type === 'heartbeat' && $lfsHealth !== null) {
-    $message .= sprintf(' LittleFS %s.', $lfsHealth ? 'healthy' : 'degraded');
-}
 
 if ($type === 'heartbeat') {
     $lastContactState = new LastContactState(__DIR__ . '/../storage/last-contact.json');
@@ -160,9 +109,8 @@ if ($type === 'heartbeat') {
 
 $sender = new PushSender(__DIR__ . '/../storage/subscriptions.yaml', new VapidConfig(__DIR__ . '/../storage/vapid.json'));
 $icon = PushSender::notificationIcon($type, $detail);
-$result = $sender->send(
-    $title,
-    $message,
+$result = $sender->sendTranslated(
+    static fn (string $language, array $subscription): array => PushTranslations::webhookAlert($language, $type, $detail, $device, $errorCode, $temperature, $lfsHealth),
     $icon,
     [
         'tag' => 'viking-bio-' . $type,

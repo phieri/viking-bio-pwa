@@ -35,6 +35,7 @@ final class PushStorage
                         'auth' => 'replace-with-browser-auth',
                     ],
                     'sender' => 'viking-bio-01',
+                    'language' => 'en',
                     'notificationLevel' => [
                         'low' => true,
                         'normal' => true,

@@ -1,17 +1,27 @@
 /* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
 
-// Static docs generator for the English and Swedish landing pages.
-// The generated HTML files in docs/en/, docs/sv/, and docs/index.html are committed build artifacts.
+// Static docs generator for the multilingual landing pages.
+// The generated HTML files in docs/<lang>/ and docs/index.html are committed build artifacts.
 // Regenerate from the repo root with: node docs/build.js
 
 const fs = require('fs');
 const path = require('path');
 
 const root = __dirname;
-const englishDir = path.join(root, 'en');
-const swedishDir = path.join(root, 'sv');
+const supportedLanguages = [
+  { code: 'en', label: 'English', browserCodes: ['en'] },
+  { code: 'sv', label: 'Svenska', browserCodes: ['sv'] },
+  { code: 'no', label: 'Norsk', browserCodes: ['no', 'nb', 'nn'] },
+  { code: 'fi', label: 'Suomi', browserCodes: ['fi'] },
+  { code: 'da', label: 'Dansk', browserCodes: ['da'] },
+  { code: 'is', label: 'Íslenska', browserCodes: ['is'] }
+];
 
-const pages = {
+const languageDirectories = Object.fromEntries(
+  supportedLanguages.map(({ code }) => [code, path.join(root, code)])
+);
+
+const pageCatalog = {
   en: {
     lang: 'en',
     title: 'Viking Bio Integration',
@@ -166,6 +176,18 @@ const pages = {
   }
 };
 
+function buildPage(code) {
+  return {
+    ...pageCatalog.en,
+    ...(pageCatalog[code] || {}),
+    lang: code
+  };
+}
+
+function languageHref(code, currentCode) {
+  return code === currentCode ? './' : `../${code}/`;
+}
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -180,6 +202,12 @@ function renderPage(data) {
     .map((label, index) => {
       const href = `#${anchors[index]}`;
       return `<a href="${href}">${escapeHtml(label)}</a>`;
+    })
+    .join('\n          ');
+  const languageLinks = supportedLanguages
+    .map(({ code, label }) => {
+      const attrs = code === data.lang ? ' aria-current="page"' : '';
+      return `<a href="${languageHref(code, data.lang)}"${attrs}>${escapeHtml(label)}</a>`;
     })
     .join('\n          ');
 
@@ -202,6 +230,9 @@ function renderPage(data) {
         </a>
         <nav class="nav-links" aria-label="Main navigation">
           ${nav}
+        </nav>
+        <nav class="nav-links" aria-label="Language switcher">
+          ${languageLinks}
         </nav>
       </div>
     </header>
@@ -372,21 +403,43 @@ const redirectPage = `<!DOCTYPE html>
   </head>
   <body>
     <noscript>
-      <p><a href="./en/">English</a> | <a href="./sv/">Svenska</a></p>
+      <p>${supportedLanguages.map(({ code, label }) => `<a href="./${code}/">${label}</a>`).join(' | ')}</p>
     </noscript>
     <script>
       (function () {
-        var preferred = navigator.language && navigator.language.toLowerCase().indexOf('sv') === 0 ? 'sv' : 'en';
-        window.location.replace(preferred === 'sv' ? './sv/' : './en/');
+        var supported = ${JSON.stringify(supportedLanguages)};
+        var preferredList = Array.isArray(navigator.languages) && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+        function normalise(value) {
+          return String(value || '').toLowerCase().replace('_', '-');
+        }
+        function pickLanguage() {
+          for (var i = 0; i < preferredList.length; i += 1) {
+            var candidate = normalise(preferredList[i]);
+            for (var j = 0; j < supported.length; j += 1) {
+              var aliases = supported[j].browserCodes || [];
+              for (var k = 0; k < aliases.length; k += 1) {
+                if (candidate.indexOf(aliases[k]) === 0) {
+                  return supported[j].code;
+                }
+              }
+            }
+          }
+          return 'en';
+        }
+        var preferred = pickLanguage();
+        window.location.replace('./' + preferred + '/');
       })();
     <\/script>
   </body>
 </html>`;
 
-fs.mkdirSync(englishDir, { recursive: true });
-fs.mkdirSync(swedishDir, { recursive: true });
-fs.writeFileSync(path.join(englishDir, 'index.html'), renderPage(pages.en), 'utf8');
-fs.writeFileSync(path.join(swedishDir, 'index.html'), renderPage(pages.sv), 'utf8');
+for (const { code } of supportedLanguages) {
+  const outputDir = languageDirectories[code];
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.writeFileSync(path.join(outputDir, 'index.html'), renderPage(buildPage(code)), 'utf8');
+}
 fs.writeFileSync(path.join(root, 'index.html'), redirectPage, 'utf8');
 
-console.log('Generated docs/en/index.html, docs/sv/index.html, and docs/index.html');
+console.log(
+  `Generated ${supportedLanguages.map(({ code }) => `docs/${code}/index.html`).join(', ')} and docs/index.html`
+);
