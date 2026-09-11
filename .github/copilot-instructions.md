@@ -82,14 +82,16 @@ that proves the relevant behaviour:
 │   ├── public/                      # Browser PWA frontend, service worker, app JS
 │   ├── README.md                    # Browser push app runtime notes
 │   └── ...
-├── docs/
-│   └── architecture.md              # Current runtime architecture overview
+├── architecture.md                  # Current runtime architecture overview
 ├── README.md                        # Top-level project overview
+├── docs/                            # Published site content for GitHub Pages
 ├── .editorconfig                    # Repo code style defaults
 ├── .gitignore                       # Ignore rules
 ├── .goreleaser.yml                  # Release config
 └── ...
 ```
+
+Architecture documentation lives at the repository root (`architecture.md`); the `docs/` tree is the published site content used by GitHub Pages and is not the source-of-truth architecture document.
 
 ## Architecture notes
 
