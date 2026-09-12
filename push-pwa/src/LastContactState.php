@@ -137,6 +137,7 @@ final class LastContactState
         }
 
         if ($this->apcuAvailable()) {
+            clearstatcache(true, $this->path);
             $mtime = $this->fileMTime();
             apcu_store($this->cacheKey(), ['mtime' => $mtime, 'state' => $state], 86400);
         }
