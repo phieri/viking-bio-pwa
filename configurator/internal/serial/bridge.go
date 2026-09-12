@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -57,16 +58,74 @@ func (b *Bridge) PortName() string {
 	return b.portName
 }
 
+func selectAutoPort(portNames []string) (string, error) {
+	clean := make([]string, 0, len(portNames))
+	for _, p := range portNames {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			clean = append(clean, p)
+		}
+	}
+	if len(clean) == 0 {
+		return "", nil
+	}
+	if len(clean) == 1 {
+		return clean[0], nil
+	}
+	sorted := append([]string(nil), clean...)
+	sort.Strings(sorted)
+	return "", fmt.Errorf("multiple serial ports found (%s); set PICO_SERIAL_PORT", strings.Join(sorted, ", "))
+}
+
+// EnsureConnected opens the configured serial port if it has not already been opened,
+// or automatically selects a single attached port when the device is connected after
+// the UI has already started running.
+func (b *Bridge) EnsureConnected() error {
+	if b.port != nil {
+		return nil
+	}
+
+	portName := strings.TrimSpace(b.portName)
+	if portName == "" {
+		ports, err := goserial.GetPortsList()
+		if err != nil {
+			return fmt.Errorf("serial: list ports: %w", err)
+		}
+		selected, err := selectAutoPort(ports)
+		if err != nil {
+			return fmt.Errorf("serial: auto-detect: %w", err)
+		}
+		if selected == "" {
+			return fmt.Errorf("serial: no port available")
+		}
+		portName = selected
+	}
+
+	if err := b.connectPort(portName); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *Bridge) connectPort(portName string) error {
+	portName = strings.TrimSpace(portName)
+	if portName == "" {
+		return fmt.Errorf("serial: missing port name")
+	}
+	mode := &goserial.Mode{BaudRate: baudRate}
+	p, err := goserial.Open(portName, mode)
+	if err != nil {
+		return fmt.Errorf("serial: open %s: %w", portName, err)
+	}
+	b.portName = portName
+	b.port = p
+	log.Printf("serial: connected to %s", portName)
+	return nil
+}
+
 // Connect opens the serial port.
 func (b *Bridge) Connect() error {
-	mode := &goserial.Mode{BaudRate: baudRate}
-	p, err := goserial.Open(b.portName, mode)
-	if err != nil {
-		return fmt.Errorf("serial: open %s: %w", b.portName, err)
-	}
-	b.port = p
-	log.Printf("serial: connected to %s", b.portName)
-	return nil
+	return b.connectPort(b.portName)
 }
 
 // Disconnect closes the serial port.
@@ -82,7 +141,9 @@ func (b *Bridge) Disconnect() {
 // timeoutMs[0] overrides the default 4000 ms total timeout.
 func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
 	if b.port == nil {
-		return nil, fmt.Errorf("serial: not connected")
+		if err := b.EnsureConnected(); err != nil {
+			return nil, err
+		}
 	}
 
 	totalMs := defaultTimeoutMs
