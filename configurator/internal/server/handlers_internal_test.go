@@ -131,3 +131,25 @@ func TestStateNotificationsFireOnUpdate(t *testing.T) {
 		t.Fatal("expected update notification after telemetry update")
 	}
 }
+
+func TestApplyMachineDataWithMissingFieldsReturnsConsistentSnapshot(t *testing.T) {
+	t.Parallel()
+
+	state := &State{
+		Flame:     true,
+		Fan:       50,
+		Temp:      78,
+		Err:       2,
+		Valid:     true,
+		FlameSecs: 123,
+		UpdatedAt: 999,
+	}
+
+	result := state.applyMachineData(machineDataBody{}, time.Unix(321, 0))
+	if result.snapshot.Flame != state.Flame || result.snapshot.Temp != state.Temp || result.snapshot.Err != state.Err {
+		t.Fatalf("expected snapshot to mirror current state, got %+v", result.snapshot)
+	}
+	if result.flame != state.Flame || result.temp != state.Temp || result.err != state.Err {
+		t.Fatalf("expected scalar fields to match snapshot, got %+v", result)
+	}
+}

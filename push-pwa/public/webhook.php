@@ -114,9 +114,13 @@ if ($type === 'heartbeat') {
     $summary['flameOnMs'] = $flameOnMs;
     $summary['windowMs'] = $windowMs;
 
-    $lastContactState = new LastContactState(__DIR__ . '/../storage/last-contact.json');
-    if (!$lastContactState->record($device, $type, $detail, $rssi, $lfsHealth, $summary)) {
-        webhook_response_fail(500, sprintf('Failed to persist last contact for %s', $device));
+    try {
+        $lastContactState = new LastContactState(__DIR__ . '/../storage/last-contact.json');
+        if (!$lastContactState->record($device, $type, $detail, $rssi, $lfsHealth, $summary)) {
+            error_log(sprintf('webhook.php: failed to persist last contact for %s', $device));
+        }
+    } catch (\Throwable $throwable) {
+        error_log(sprintf('webhook.php: failed to persist last contact for %s: %s', $device, $throwable->getMessage()));
     }
 
     error_log(sprintf('webhook.php: heartbeat stored for %s (%s/%s)', $device, $type, $detail));

@@ -11,14 +11,65 @@ use VikingBioPush\PushSender;
 use VikingBioPush\PushTranslations;
 use VikingBioPush\VapidConfig;
 
+function send_json_response(int $statusCode, array $payload): never
+{
+    http_response_code($statusCode);
+    echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function send_parse_sender(mixed $value): ?string
+{
+    if (!is_string($value)) {
+        return null;
+    }
+
+    $sender = trim($value);
+    return $sender !== '' ? $sender : null;
+}
+
+function send_parse_priority(mixed $value): string
+{
+    if (!is_string($value)) {
+        return 'normal';
+    }
+
+    $priority = strtolower(trim($value));
+    if (!in_array($priority, PushSender::VALID_PRIORITIES, true)) {
+        send_json_response(400, ['error' => 'Priority must be one of very-low, low, normal, or high']);
+    }
+
+    return $priority;
+}
+
+function send_parse_ui_target(mixed $value): string
+{
+    $safeUiUrl = PushSender::uiUrl();
+    $target = is_string($value) ? $value : $safeUiUrl;
+    return PushSender::normalizeUiTargetUrl($target, $safeUiUrl);
+}
+
+function send_decode_request_body(): array
+{
+    $body = file_get_contents('php://input');
+    if ($body === false || $body === '') {
+        send_json_response(400, ['error' => 'Request body required']);
+    }
+
+    $data = json_decode($body, true);
+    if (!is_array($data)) {
+        send_json_response(400, ['error' => 'JSON request body required']);
+    }
+
+    return $data;
+}
+
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
-    exit;
+    send_json_response(405, ['error' => 'Method not allowed']);
 }
 
 $allowedOrigin = getenv('PUSH_UI_URL') ?: \VikingBioPush\PushSender::uiUrl();
@@ -30,15 +81,11 @@ $originHost = $origin !== '' ? strtolower((string) (parse_url($origin, PHP_URL_H
 $referrerHost = $referrer !== '' ? strtolower((string) (parse_url($referrer, PHP_URL_HOST) ?: '')) : '';
 
 if ($origin !== '' && $originHost !== $allowedHost) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Forbidden origin']);
-    exit;
+    send_json_response(403, ['error' => 'Forbidden origin']);
 }
 
 if ($origin === '' && $referrer !== '' && $referrerHost !== $allowedHost) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Forbidden referrer']);
-    exit;
+    send_json_response(403, ['error' => 'Forbidden referrer']);
 }
 
 $expectedToken = $_SESSION['push_send_token'] ?? '';
@@ -49,24 +96,10 @@ if (preg_match('/^Bearer\s+(.+)$/', $authHeader, $matches) === 1) {
 }
 
 if ($expectedToken === '' || !hash_equals($expectedToken, $providedToken)) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized']);
-    exit;
+    send_json_response(401, ['error' => 'Unauthorized']);
 }
 
-$body = file_get_contents('php://input');
-if ($body === false || $body === '') {
-    http_response_code(400);
-    echo json_encode(['error' => 'Request body required']);
-    exit;
-}
-
-$data = json_decode($body, true);
-if (!is_array($data)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'JSON request body required']);
-    exit;
-}
+$data = send_decode_request_body();
 
 $rawType = $data['type'] ?? null;
 $type = is_string($rawType) ? strtolower(trim($rawType)) : '';
@@ -77,52 +110,26 @@ if ($type === 'weekly_cleaning_reminder' || $type === 'cleaning-reminder' || $ty
     $reminderState = new \VikingBioPush\ReminderState(__DIR__ . '/../storage/reminder-state.json');
 
     if (!$reminderState->shouldSendNow()) {
-        http_response_code(200);
-        echo json_encode([
+        send_json_response(200, [
             'ok' => false,
             'skipped' => true,
             'type' => 'weekly_cleaning_reminder',
             'reason' => 'already_sent_within_week',
             'last_sent_at' => $reminderState->lastSentAt(),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        exit;
+        ]);
     }
 
-    $rawSender = $data['sender'] ?? null;
-    $senderValue = is_string($rawSender) ? trim($rawSender) : '';
-    if ($senderValue === '') {
-        $senderValue = null;
-    }
+    $senderValue = send_parse_sender($data['sender'] ?? null);
 
     $result = $sender->sendWeeklyCleaningReminder($senderValue);
     $reminderState->recordSent();
-    echo json_encode(['ok' => true, 'type' => 'weekly_cleaning_reminder', 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    exit;
+    send_json_response(200, ['ok' => true, 'type' => 'weekly_cleaning_reminder', 'sender' => $senderValue, ...$result]);
 }
 
 if ($type === 'test_alert' || $type === 'test-alert' || $type === 'test') {
-    $rawSender = $data['sender'] ?? null;
-    $senderValue = is_string($rawSender) ? trim($rawSender) : '';
-    if ($senderValue === '') {
-        $senderValue = null;
-    }
-
-    $priority = $data['priority'] ?? 'normal';
-    if (!is_string($priority)) {
-        $priority = 'normal';
-    } else {
-        $priority = strtolower(trim($priority));
-    }
-
-    if (!in_array($priority, PushSender::VALID_PRIORITIES, true)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Priority must be one of very-low, low, normal, or high']);
-        exit;
-    }
-
-    $safeUiUrl = \VikingBioPush\PushSender::uiUrl();
-    $url = is_string($data['url'] ?? null) ? $data['url'] : $safeUiUrl;
-    $url = \VikingBioPush\PushSender::normalizeUiTargetUrl($url, $safeUiUrl);
+    $senderValue = send_parse_sender($data['sender'] ?? null);
+    $priority = send_parse_priority($data['priority'] ?? 'normal');
+    $url = send_parse_ui_target($data['url'] ?? null);
     $sentAt = (int) floor(microtime(true) * 1000);
     $result = $sender->sendTranslated(
         static fn (string $language, array $subscription): array => PushTranslations::testNotification($language),
@@ -132,35 +139,17 @@ if ($type === 'test_alert' || $type === 'test-alert' || $type === 'test') {
         $senderValue
     );
 
-    echo json_encode(['ok' => true, 'type' => 'test_alert', 'priority' => $priority, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    exit;
+    send_json_response(200, ['ok' => true, 'type' => 'test_alert', 'priority' => $priority, 'sender' => $senderValue, ...$result]);
 }
 
 $title = is_string($data['title'] ?? null) ? $data['title'] : 'Viking Bio alert';
 $bodyText = is_string($data['body'] ?? null) ? $data['body'] : 'New status update';
 $icon = is_string($data['icon'] ?? null) ? $data['icon'] : '/icon.svg';
-$safeUiUrl = \VikingBioPush\PushSender::uiUrl();
-$url = is_string($data['url'] ?? null) ? $data['url'] : $safeUiUrl;
-$url = \VikingBioPush\PushSender::normalizeUiTargetUrl($url, $safeUiUrl);
-$priority = $data['priority'] ?? 'normal';
-if (!is_string($priority)) {
-    $priority = 'normal';
-} else {
-    $priority = strtolower(trim($priority));
-}
-
-if (!in_array($priority, PushSender::VALID_PRIORITIES, true)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Priority must be one of very-low, low, normal, or high']);
-    exit;
-}
+$url = send_parse_ui_target($data['url'] ?? null);
+$priority = send_parse_priority($data['priority'] ?? 'normal');
 $urgency = $priority;
 
-$rawSender = $data['sender'] ?? null;
-$senderValue = is_string($rawSender) ? trim($rawSender) : '';
-if ($senderValue === '') {
-    $senderValue = null;
-}
+$senderValue = send_parse_sender($data['sender'] ?? null);
 
 $sentAt = (int) floor(microtime(true) * 1000);
 
@@ -173,4 +162,4 @@ $result = $sender->send(
     $senderValue
 );
 
-echo json_encode(['ok' => true, 'priority' => $priority, 'urgency' => $urgency, 'sender' => $senderValue, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+send_json_response(200, ['ok' => true, 'priority' => $priority, 'urgency' => $urgency, 'sender' => $senderValue, ...$result]);
