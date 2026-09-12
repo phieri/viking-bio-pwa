@@ -92,6 +92,43 @@ func (t *TUI) printHeader() {
 	fmt.Println()
 }
 
+func formatBoxLine(content string, width int) string {
+	if len([]rune(content)) > width {
+		content = string([]rune(content)[:width-1]) + "…"
+	}
+	return content + strings.Repeat(" ", width-len([]rune(content)))
+}
+
+func (t *TUI) printLogBox(title string, lines []string) {
+	if len(lines) == 0 {
+		return
+	}
+	const width = 62
+	newlineLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		for _, part := range strings.Split(line, "\n") {
+			newlineLines = append(newlineLines, strings.TrimRight(part, "\r"))
+		}
+	}
+	fmt.Println()
+	fmt.Println(color("╔"+strings.Repeat("═", width)+"╗", colorCyan))
+	if title != "" {
+		titleLine := " " + title + " "
+		if len([]rune(titleLine)) > width-2 {
+			titleLine = string([]rune(titleLine)[:width-3]) + "…"
+		}
+		fmt.Println(color("║"+formatBoxLine(titleLine, width-2)+"║", colorCyan))
+		fmt.Println(color("╠"+strings.Repeat("═", width)+"╣", colorCyan))
+	} else {
+		fmt.Println(color("╠"+strings.Repeat("═", width)+"╣", colorCyan))
+	}
+	for _, line := range newlineLines {
+		fmt.Println(color("║", colorCyan) + " " + formatBoxLine(line, width-4) + " " + color("║", colorCyan))
+	}
+	fmt.Println(color("╚"+strings.Repeat("═", width)+"╝", colorCyan))
+	fmt.Println()
+}
+
 func (t *TUI) printMenu() {
 	fmt.Println(color("  1.", colorYellow) + " " + t.localizer.Text("menu.option1"))
 	fmt.Println(color("  2.", colorYellow) + " " + t.localizer.Text("menu.option2"))
@@ -106,27 +143,28 @@ func (t *TUI) printMenu() {
 }
 
 func (t *TUI) sendAndPrint(cmd string) {
-	fmt.Printf("→ %s\n", color(cmd, colorCyan))
-	lines, err := t.bridge.SendCommand(cmd)
+	lines := []string{"→ " + cmd}
+	resp, err := t.bridge.SendCommand(cmd)
 	if err != nil {
-		fmt.Println(color("Error: "+err.Error(), colorRed))
+		lines = append(lines, "Error: "+err.Error())
+		t.printLogBox("command log", lines)
 		return
 	}
-	for _, l := range lines {
-		fmt.Println("  " + l)
-	}
+	lines = append(lines, resp...)
+	t.printLogBox("command log", lines)
 }
 
 // sendSilent sends a command without echoing it to stdout (for sensitive values).
 func (t *TUI) sendSilent(cmd string) {
-	lines, err := t.bridge.SendCommand(cmd)
+	lines := []string{"(hidden)"}
+	resp, err := t.bridge.SendCommand(cmd)
 	if err != nil {
-		fmt.Println(color("Error: "+err.Error(), colorRed))
+		lines = append(lines, "Error: "+err.Error())
+		t.printLogBox("command log", lines)
 		return
 	}
-	for _, l := range lines {
-		fmt.Println("  " + l)
-	}
+	lines = append(lines, resp...)
+	t.printLogBox("command log", lines)
 }
 
 func formatDeviceStatus(localizer provisioningLocalizer, status *serial.StatusResult, prefix string) string {
@@ -187,58 +225,57 @@ func formatTelemetrySnapshot(localizer provisioningLocalizer, flame bool, fan, t
 func (t *TUI) showStatus() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		fmt.Println(color(t.localizer.Text("error.reading_status", err.Error()), colorRed))
+		t.printLogBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
 		return
 	}
-	fmt.Println()
-	fmt.Println(color(t.localizer.Text("tui.device_status"), colorBold))
-	fmt.Println(formatDeviceStatus(t.localizer, &status, "  "))
-	fmt.Println()
+	t.printLogBox("status", []string{
+		t.localizer.Text("tui.device_status"),
+		formatDeviceStatus(t.localizer, &status, "  "),
+	})
 }
 
 func (t *TUI) showTelemetry() {
 	if t.telemetryState == nil {
-		fmt.Println(color(t.localizer.Text("status.live_telemetry_unavailable"), colorYellow))
+		t.printLogBox("telemetry", []string{t.localizer.Text("status.live_telemetry_unavailable")})
 		return
 	}
-	fmt.Println()
-	fmt.Println(color(t.localizer.Text("tui.live_telemetry"), colorBold))
 	snapshot := t.telemetryState.Snapshot()
 	if snapshot.UpdatedAt == 0 {
-		fmt.Println(color(t.localizer.Text("status.live_telemetry_empty"), colorYellow))
-		fmt.Println()
+		t.printLogBox("telemetry", []string{t.localizer.Text("status.live_telemetry_empty")})
 		return
 	}
-	fmt.Println("  " + strings.ReplaceAll(formatTelemetrySnapshot(
-		t.localizer,
-		snapshot.Flame,
-		snapshot.Fan,
-		snapshot.Temp,
-		snapshot.Err,
-		snapshot.Valid,
-		snapshot.FlameSecs,
-		snapshot.UpdatedAt,
-	), "\n", "\n  "))
-	fmt.Println()
+	t.printLogBox("telemetry", []string{
+		t.localizer.Text("tui.live_telemetry"),
+		strings.ReplaceAll(formatTelemetrySnapshot(
+			t.localizer,
+			snapshot.Flame,
+			snapshot.Fan,
+			snapshot.Temp,
+			snapshot.Err,
+			snapshot.Valid,
+			snapshot.FlameSecs,
+			snapshot.UpdatedAt,
+		), "\n", "\n  "),
+	})
 }
 
 func (t *TUI) configureWiFi() {
 	ssid := t.readLine(t.localizer.Text("form.ssid") + ": ")
 	if ssid == "" {
-		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
+		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	password := t.readLine(t.localizer.Text("form.password") + ": ")
 	t.sendAndPrint("SSID=" + ssid)
 	t.sendSilent("PASS=" + password)
-	fmt.Println(color(t.localizer.Text("tui.credentials_saved"), colorGreen))
+	t.printLogBox("status", []string{t.localizer.Text("tui.credentials_saved")})
 }
 
 func (t *TUI) setCountry() {
 	cc := t.readLine(t.localizer.Text("tui.country_prompt"))
 	cc = strings.ToUpper(strings.TrimSpace(cc))
 	if len(cc) != 2 {
-		fmt.Println(color(t.localizer.Text("tui.invalid_country"), colorRed))
+		t.printLogBox("status", []string{t.localizer.Text("tui.invalid_country")})
 		return
 	}
 	t.sendAndPrint("COUNTRY=" + cc)
@@ -247,7 +284,7 @@ func (t *TUI) setCountry() {
 func (t *TUI) setServer() {
 	addr := t.readLine(t.localizer.Text("tui.server_prompt"))
 	if addr == "" {
-		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
+		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	port := t.readLine(t.localizer.Text("tui.server_port_prompt"))
@@ -261,11 +298,11 @@ func (t *TUI) setServer() {
 func (t *TUI) setWebhook() {
 	url := t.readLine(t.localizer.Text("tui.webhook_prompt"))
 	if url == "" {
-		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
+		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		fmt.Println(color(t.localizer.Text("tui.invalid_webhook"), colorRed))
+		t.printLogBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
 		return
 	}
 	t.sendAndPrint("WEBHOOK=" + url)
@@ -282,34 +319,34 @@ func randomDeviceKey() (string, error) {
 func (t *TUI) provisionDeviceKey() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		fmt.Println(color(t.localizer.Text("error.reading_status", err.Error()), colorRed))
+		t.printLogBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
 		return
 	}
 	if status.DeviceID == "" {
-		fmt.Println(color(t.localizer.Text("error.device_id_missing"), colorRed))
+		t.printLogBox("status", []string{t.localizer.Text("error.device_id_missing")})
 		return
 	}
 	key, err := randomDeviceKey()
 	if err != nil {
-		fmt.Println(color(t.localizer.Text("error.generating_key", err.Error()), colorRed))
+		t.printLogBox("status", []string{t.localizer.Text("error.generating_key", err.Error())})
 		return
 	}
 	if err := t.store.ProvisionDevice(status.DeviceID, key); err != nil {
-		fmt.Println(color(t.localizer.Text("error.storing_key", err.Error()), colorRed))
+		t.printLogBox("status", []string{t.localizer.Text("error.storing_key", err.Error())})
 		return
 	}
 	t.sendAndPrint("DEVICEKEY=" + key)
-	fmt.Println(color(t.localizer.Text("tui.telemetry_provisioned", status.DeviceID), colorGreen))
+	t.printLogBox("status", []string{t.localizer.Text("tui.telemetry_provisioned", status.DeviceID)})
 }
 
 func (t *TUI) clearCredentials() {
 	confirm := t.readLine(t.localizer.Text("tui.clear_confirm"))
 	if confirm != "YES" {
-		fmt.Println(color(t.localizer.Text("tui.cancelled"), colorYellow))
+		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	t.sendAndPrint("CLEAR")
-	fmt.Println(color(t.localizer.Text("tui.credentials_cleared"), colorGreen))
+	t.printLogBox("status", []string{t.localizer.Text("tui.credentials_cleared")})
 }
 
 // Run starts the interactive TUI loop.
@@ -336,11 +373,10 @@ func (t *TUI) Run() {
 		case "8":
 			t.showTelemetry()
 		case "0", "q", "quit", "exit":
-			fmt.Println(color(t.localizer.Text("tui.bye"), colorCyan))
+			t.printLogBox("status", []string{t.localizer.Text("tui.bye")})
 			return
 		default:
-			fmt.Println(color(t.localizer.Text("error.unknown_option"), colorYellow))
+			t.printLogBox("status", []string{t.localizer.Text("error.unknown_option")})
 		}
-		fmt.Println()
 	}
 }
