@@ -244,7 +244,7 @@ and ARM toolchain:
 ```bash
 mkdir -p pico-bridge/build
 cd pico-bridge/build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico2_w -DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"
+cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico2_w
 make -j$(nproc)
 ```
 
