@@ -132,11 +132,12 @@ func (s *State) applyMachineData(body machineDataBody, now time.Time) machineDat
 		return machineDataUpdateResult{}
 	}
 	if body.Flame == nil || body.Fan == nil || body.Temp == nil || body.Err == nil || body.Valid == nil {
+		snapshot := s.snapshot()
 		return machineDataUpdateResult{
-			snapshot: s.snapshot(),
-			flame:    s.Flame,
-			temp:     s.Temp,
-			err:      s.Err,
+			snapshot: snapshot,
+			flame:    snapshot.Flame,
+			temp:     snapshot.Temp,
+			err:      snapshot.Err,
 		}
 	}
 

@@ -8,7 +8,8 @@ namespace VikingBioPush;
 
 final class LastContactState
 {
-    private const string CACHE_KEY = 'viking-bio-last-contact';
+    private const string CACHE_KEY_PREFIX = 'viking-bio-last-contact:';
+    private const int MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
     public function __construct(private readonly string $path)
     {
@@ -57,52 +58,35 @@ final class LastContactState
         $devices = [];
 
         foreach ($this->load() as $device => $entry) {
-            if (!is_array($entry)) {
+            $normalizedEntry = $this->normalizeEntry($device, $entry);
+            if ($normalizedEntry === null) {
                 continue;
             }
 
-            $timestamp = $entry['timestamp'] ?? null;
-            if (!is_numeric($timestamp)) {
-                continue;
-            }
-
-            $rssi = $this->normalizeRssi($entry['rssi'] ?? null);
-            $lfsHealth = $this->normalizeLfsHealth($entry);
-            $flameOnMs = $this->normalizeInt($entry['flameOnMs'] ?? null);
-            $windowMs = $this->normalizeInt($entry['windowMs'] ?? null);
-            $deviceTimestamp = (int) $timestamp;
-            $devices[(string) $device] = [
-                'device' => (string) ($entry['device'] ?? $device),
-                'timestamp' => $deviceTimestamp,
-                'type' => $entry['type'] ?? 'heartbeat',
-                'detail' => $entry['detail'] ?? 'alive',
-                'rssi' => $rssi,
-                'lfsHealth' => $lfsHealth,
-                'flameOnMs' => $flameOnMs,
-                'windowMs' => $windowMs,
-            ];
+            $deviceTimestamp = $normalizedEntry['timestamp'];
+            $devices[(string) $device] = $normalizedEntry;
 
             if ($latest === null || $deviceTimestamp > $latest) {
                 $latest = $deviceTimestamp;
-                $latestRssi = $rssi;
-                $latestLfsHealth = $lfsHealth;
-                $latestFlameOnMs = $flameOnMs;
-                $latestWindowMs = $windowMs;
+                $latestRssi = $normalizedEntry['rssi'];
+                $latestLfsHealth = $normalizedEntry['lfsHealth'];
+                $latestFlameOnMs = $normalizedEntry['flameOnMs'];
+                $latestWindowMs = $normalizedEntry['windowMs'];
                 continue;
             }
 
             if ($deviceTimestamp === $latest) {
-                if ($rssi !== null) {
-                    $latestRssi = $rssi;
+                if ($normalizedEntry['rssi'] !== null) {
+                    $latestRssi = $normalizedEntry['rssi'];
                 }
-                if ($lfsHealth !== null) {
-                    $latestLfsHealth = $lfsHealth;
+                if ($normalizedEntry['lfsHealth'] !== null) {
+                    $latestLfsHealth = $normalizedEntry['lfsHealth'];
                 }
-                if ($flameOnMs !== null) {
-                    $latestFlameOnMs = $flameOnMs;
+                if ($normalizedEntry['flameOnMs'] !== null) {
+                    $latestFlameOnMs = $normalizedEntry['flameOnMs'];
                 }
-                if ($windowMs !== null) {
-                    $latestWindowMs = $windowMs;
+                if ($normalizedEntry['windowMs'] !== null) {
+                    $latestWindowMs = $normalizedEntry['windowMs'];
                 }
             }
         }
@@ -124,37 +108,41 @@ final class LastContactState
 
     private function load(): array
     {
-        if (function_exists('apcu_fetch')) {
-            $cachedState = apcu_fetch(self::CACHE_KEY, $success);
-            return $success && is_array($cachedState) ? $cachedState : [];
+        $mtime = $this->fileMTime();
+        if ($this->apcuAvailable()) {
+            $cachedState = apcu_fetch($this->cacheKey(), $success);
+            if ($success && is_array($cachedState) && ($cachedState['mtime'] ?? null) === $mtime && is_array($cachedState['state'] ?? null)) {
+                return $cachedState['state'];
+            }
         }
 
-        if (!is_file($this->path)) {
-            return [];
+        $state = $this->loadFromFile();
+        if ($this->apcuAvailable()) {
+            apcu_store($this->cacheKey(), ['mtime' => $mtime, 'state' => $state], 86400);
         }
 
-        $rawState = file_get_contents($this->path);
-        if ($rawState === false || trim($rawState) === '') {
-            return [];
-        }
-
-        $decodedState = json_decode($rawState, true);
-        return is_array($decodedState) ? $decodedState : [];
+        return $state;
     }
 
     private function write(array $state): bool
     {
-        if (function_exists('apcu_store')) {
-            return apcu_store(self::CACHE_KEY, $state, 86400);
-        }
-
         $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         if (!is_string($json)) {
             return false;
         }
 
         $written = file_put_contents($this->path, $json . "\n", LOCK_EX);
-        return $written !== false;
+        if ($written === false) {
+            return false;
+        }
+
+        if ($this->apcuAvailable()) {
+            clearstatcache(true, $this->path);
+            $mtime = $this->fileMTime();
+            apcu_store($this->cacheKey(), ['mtime' => $mtime, 'state' => $state], 86400);
+        }
+
+        return true;
     }
 
     private function normalizeRssi(mixed $value): ?int
@@ -171,5 +159,98 @@ final class LastContactState
         return isset($value)
             ? filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
             : null;
+    }
+
+    private function loadFromFile(): array
+    {
+        if (!is_file($this->path)) {
+            return [];
+        }
+
+        $rawState = file_get_contents($this->path);
+        if ($rawState === false || trim($rawState) === '') {
+            return [];
+        }
+
+        $decodedState = json_decode($rawState, true);
+        return is_array($decodedState) ? $decodedState : [];
+    }
+
+    private function normalizeEntry(string|int $deviceKey, mixed $entry): ?array
+    {
+        if (!is_array($entry)) {
+            return null;
+        }
+
+        $deviceTimestamp = $this->normalizeTimestamp($entry['timestamp'] ?? null);
+        if ($deviceTimestamp === null) {
+            return null;
+        }
+
+        $device = $this->normalizeString($entry['device'] ?? $deviceKey);
+        if ($device === '') {
+            return null;
+        }
+
+        return [
+            'device' => $device,
+            'timestamp' => $deviceTimestamp,
+            'type' => $this->normalizeString($entry['type'] ?? 'heartbeat', 'heartbeat'),
+            'detail' => $this->normalizeString($entry['detail'] ?? 'alive', 'alive'),
+            'rssi' => $this->normalizeRssi($entry['rssi'] ?? null),
+            'lfsHealth' => $this->normalizeLfsHealth($entry),
+            'flameOnMs' => $this->normalizeInt($entry['flameOnMs'] ?? null),
+            'windowMs' => $this->normalizeInt($entry['windowMs'] ?? null),
+        ];
+    }
+
+    private function normalizeTimestamp(mixed $value): ?int
+    {
+        if (!is_int($value) && !is_string($value)) {
+            return null;
+        }
+
+        $candidate = trim((string) $value);
+        if ($candidate === '' || preg_match('/^-?\d+$/', $candidate) !== 1) {
+            return null;
+        }
+
+        $timestamp = (int) $candidate;
+        $maximumTimestamp = (int) floor(microtime(true) * 1000) + self::MAX_CLOCK_SKEW_MS;
+        if ($timestamp <= 0 || $timestamp > $maximumTimestamp) {
+            return null;
+        }
+
+        return $timestamp;
+    }
+
+    private function normalizeString(mixed $value, string $fallback = ''): string
+    {
+        if (!is_string($value) && !is_int($value) && !is_float($value)) {
+            return $fallback;
+        }
+
+        $normalized = trim((string) $value);
+        return $normalized !== '' ? $normalized : $fallback;
+    }
+
+    private function cacheKey(): string
+    {
+        return self::CACHE_KEY_PREFIX . sha1($this->path);
+    }
+
+    private function fileMTime(): ?int
+    {
+        if (!is_file($this->path)) {
+            return null;
+        }
+
+        $mtime = filemtime($this->path);
+        return is_int($mtime) ? $mtime : null;
+    }
+
+    private function apcuAvailable(): bool
+    {
+        return function_exists('apcu_fetch') && function_exists('apcu_store');
     }
 }
