@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include "pico/stdlib.h"
+#include "pico/cyw43_arch.h"
 #include "pico/unique_id.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/sha256.h"
@@ -250,11 +251,22 @@ bool wifi_config_save_country(const char *country) {
 }
 
 uint32_t wifi_config_country_to_cyw43(const char *country) {
-	if (!country || strlen(country) < WIFI_COUNTRY_LEN) {
-		return ((uint32_t)'X') | ((uint32_t)'X' << 8);
+	if (!country) {
+		return CYW43_COUNTRY_WORLDWIDE;
 	}
-	return ((uint32_t)(unsigned char)country[0]) |
-	       ((uint32_t)(unsigned char)country[1] << 8);
+
+	if (strlen(country) < WIFI_COUNTRY_LEN) {
+		return CYW43_COUNTRY_WORLDWIDE;
+	}
+
+	char c0 = (char)toupper((unsigned char)country[0]);
+	char c1 = (char)toupper((unsigned char)country[1]);
+	if (c0 == 'X' && c1 == 'X') {
+		return CYW43_COUNTRY_WORLDWIDE;
+	}
+
+	return ((uint32_t)(unsigned char)c0) |
+	       ((uint32_t)(unsigned char)c1 << 8);
 }
 
 bool wifi_config_load_server(char *ip, size_t ip_len, uint16_t *port) {
