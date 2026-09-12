@@ -64,33 +64,29 @@ final class LastContactState
             }
 
             $deviceTimestamp = $normalizedEntry['timestamp'];
-            $rssi = $normalizedEntry['rssi'];
-            $lfsHealth = $normalizedEntry['lfsHealth'];
-            $flameOnMs = $normalizedEntry['flameOnMs'];
-            $windowMs = $normalizedEntry['windowMs'];
             $devices[(string) $device] = $normalizedEntry;
 
             if ($latest === null || $deviceTimestamp > $latest) {
                 $latest = $deviceTimestamp;
-                $latestRssi = $rssi;
-                $latestLfsHealth = $lfsHealth;
-                $latestFlameOnMs = $flameOnMs;
-                $latestWindowMs = $windowMs;
+                $latestRssi = $normalizedEntry['rssi'];
+                $latestLfsHealth = $normalizedEntry['lfsHealth'];
+                $latestFlameOnMs = $normalizedEntry['flameOnMs'];
+                $latestWindowMs = $normalizedEntry['windowMs'];
                 continue;
             }
 
             if ($deviceTimestamp === $latest) {
-                if ($rssi !== null) {
-                    $latestRssi = $rssi;
+                if ($normalizedEntry['rssi'] !== null) {
+                    $latestRssi = $normalizedEntry['rssi'];
                 }
-                if ($lfsHealth !== null) {
-                    $latestLfsHealth = $lfsHealth;
+                if ($normalizedEntry['lfsHealth'] !== null) {
+                    $latestLfsHealth = $normalizedEntry['lfsHealth'];
                 }
-                if ($flameOnMs !== null) {
-                    $latestFlameOnMs = $flameOnMs;
+                if ($normalizedEntry['flameOnMs'] !== null) {
+                    $latestFlameOnMs = $normalizedEntry['flameOnMs'];
                 }
-                if ($windowMs !== null) {
-                    $latestWindowMs = $windowMs;
+                if ($normalizedEntry['windowMs'] !== null) {
+                    $latestWindowMs = $normalizedEntry['windowMs'];
                 }
             }
         }
