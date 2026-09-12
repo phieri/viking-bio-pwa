@@ -39,7 +39,7 @@
 /* Service type and instance name expected from the configurator */
 #define SERVICE_LABEL "_viking-bio._tcp"
 #define CONFIGURATOR_NAME "Viking Bio Configurator"
-#define CONFIGURATOR_FULL_NAME "Viking Bio Configurator._viking-bio._tcp.local"
+#define CONFIGURATOR_FULL_NAME CONFIGURATOR_NAME "." SERVICE_LABEL ".local"
 
 static char normalize_dns_name_char(char c) {
 	if (c >= 'A' && c <= 'Z')
@@ -70,9 +70,20 @@ static void normalize_dns_name(char *out, size_t out_size, const char *in) {
 		out[o++] = c;
 		out[o] = '\0';
 	}
-	while (out[0] != '\0' && out[strlen(out) - 1] == '.') {
-		out[strlen(out) - 1] = '\0';
+	size_t out_len = strlen(out);
+	if (out_len > 0 && out[out_len - 1] == '.') {
+		out[out_len - 1] = '\0';
 	}
+}
+
+static const char *expected_service_name(void) {
+	static char expected[96] = {0};
+	static bool initialized = false;
+	if (!initialized) {
+		normalize_dns_name(expected, sizeof(expected), CONFIGURATOR_FULL_NAME);
+		initialized = true;
+	}
+	return expected;
 }
 
 static bool service_name_matches(const char *name) {
@@ -80,9 +91,7 @@ static bool service_name_matches(const char *name) {
 		return false;
 	char normalized[96] = {0};
 	normalize_dns_name(normalized, sizeof(normalized), name);
-	char expected[96] = {0};
-	normalize_dns_name(expected, sizeof(expected), CONFIGURATOR_FULL_NAME);
-	return strcmp(normalized, expected) == 0;
+	return strcmp(normalized, expected_service_name()) == 0;
 }
 
 /* Maximum DNS records scanned in a single response */

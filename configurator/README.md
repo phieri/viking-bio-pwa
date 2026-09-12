@@ -141,7 +141,10 @@ normal state/update/notification pipeline, and writes overflow traffic to
 
 ## mDNS / DNS-SD
 
-The configurator advertises itself as `Viking Bio Configurator._viking-bio._tcp` on the ingest port used by Pico devices, with a periodic re-announcement every 30 seconds to keep discovery alive while the bridge is idle. Disable with `MDNS_DISABLE=1` (useful in Docker/CI environments without multicast).
+The configurator advertises itself as `Viking Bio Configurator._viking-bio._tcp`
+on the ingest port used by Pico devices, with a periodic re-announcement every
+30 seconds to keep discovery alive while the bridge is idle.
+Disable with `MDNS_DISABLE=1` (useful in Docker/CI environments without multicast).
 
 ### Local-only IPv6 addressing
 

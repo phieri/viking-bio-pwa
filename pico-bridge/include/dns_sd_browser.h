@@ -25,9 +25,12 @@ typedef void (*dns_sd_found_cb_t)(const char *ip6addr, uint16_t port);
  *
  * The listener is only useful while the Pico does not have a live TCP session to
  * the configurator; active telemetry sessions are allowed to proceed without
- * listening for repeated mDNS traffic.
+ * listening for repeated mDNS traffic. Because the Pico does not issue mDNS
+ * queries, discovery depends on the configurator sending an unsolicited
+ * announcement; if it was already running when the Pico joined Wi‑Fi, restart the
+ * configurator to trigger a fresh announcement.
  *
- * Must be called after WiFi is connected.
+ * Must be called after Wi‑Fi is connected.
  *
  * @param cb  Discovery callback (called from the lwIP poll context)
  * @return true on success

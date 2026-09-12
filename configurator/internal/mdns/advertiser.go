@@ -93,15 +93,14 @@ func collectLocalIPv6Addrs() []string {
 	return append(ula, linklocal...)
 }
 
-func (a *Advertiser) announceLocked(port int, name string, localAddrs []string) error {
-	var err error
+func publishService(port int, name string, localAddrs []string) (*zeroconf.Server, error) {
 	if len(localAddrs) > 0 {
 		hostname, herr := os.Hostname()
 		if herr != nil || hostname == "" {
 			hostname = "viking-bio-configurator"
 		}
 		log.Printf("mdns: advertising local-only IPv6 addresses: %v", localAddrs)
-		a.server, err = zeroconf.RegisterProxy(
+		return zeroconf.RegisterProxy(
 			name,
 			serviceType,
 			"local.",
@@ -111,22 +110,17 @@ func (a *Advertiser) announceLocked(port int, name string, localAddrs []string) 
 			nil,
 			nil,
 		)
-	} else {
-		log.Printf("mdns: warning: no ULA/link-local IPv6 addresses found; advertising all addresses")
-		a.server, err = zeroconf.Register(
-			name,
-			serviceType,
-			"local.",
-			port,
-			nil,
-			nil,
-		)
 	}
-	if err != nil {
-		return err
-	}
-	log.Printf("mdns: published %s \"%s\" on port %d", serviceType, name, port)
-	return nil
+
+	log.Printf("mdns: warning: no ULA/link-local IPv6 addresses found; advertising all addresses")
+	return zeroconf.Register(
+		name,
+		serviceType,
+		"local.",
+		port,
+		nil,
+		nil,
+	)
 }
 
 func (a *Advertiser) reannounceLoop(port int, name string, stopCh <-chan struct{}) {
@@ -136,23 +130,32 @@ func (a *Advertiser) reannounceLoop(port int, name string, stopCh <-chan struct{
 	for {
 		select {
 		case <-ticker.C:
+			localAddrs := collectLocalIPv6Addrs()
 			a.mu.Lock()
-			select {
-			case <-stopCh:
+			if a.stopCh == nil {
 				a.mu.Unlock()
 				return
-			default:
 			}
 			if a.server != nil {
 				a.server.Shutdown()
 				a.server = nil
 			}
-			localAddrs := collectLocalIPv6Addrs()
-			err := a.announceLocked(port, name, localAddrs)
 			a.mu.Unlock()
+
+			server, err := publishService(port, name, localAddrs)
 			if err != nil {
 				log.Printf("mdns: re-announcement failed: %v", err)
+				continue
 			}
+			a.mu.Lock()
+			if a.stopCh == nil {
+				a.mu.Unlock()
+				server.Shutdown()
+				return
+			}
+			a.server = server
+			a.mu.Unlock()
+			log.Printf("mdns: published %s \"%s\" on port %d", serviceType, name, port)
 		case <-stopCh:
 			return
 		}
@@ -176,6 +179,13 @@ func (a *Advertiser) Start(port int, name string) {
 		return
 	}
 
+	localAddrs := collectLocalIPv6Addrs()
+	server, err := publishService(port, name, localAddrs)
+	if err != nil {
+		log.Printf("mdns: failed to register: %v", err)
+		return
+	}
+
 	a.mu.Lock()
 	if a.stopCh != nil {
 		close(a.stopCh)
@@ -185,12 +195,7 @@ func (a *Advertiser) Start(port int, name string) {
 		a.server.Shutdown()
 		a.server = nil
 	}
-	localAddrs := collectLocalIPv6Addrs()
-	if err := a.announceLocked(port, name, localAddrs); err != nil {
-		log.Printf("mdns: failed to register: %v", err)
-		a.mu.Unlock()
-		return
-	}
+	a.server = server
 	a.stopCh = make(chan struct{})
 	stopCh := a.stopCh
 	a.mu.Unlock()
