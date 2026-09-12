@@ -3,7 +3,6 @@
 package storage
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,31 +30,7 @@ func NewStore(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, err
 	}
-	cfgPath := filepath.Join(dataDir, "viking-bio.conf")
-	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		conf := `# Viking Bio Configurator configuration
-# Copy or edit this file, then restart the configurator.
-# Lines starting with '#' are comments. Uncommented lines set a value.
-# Environment variables always take precedence over values in this file.
 
-# Port for framed telemetry ingest from the Pico bridge (default: 9000)
-# INGEST_TCP_PORT=9000
-
-# Set to 1/true to require TLS on the ingest listener.
-# Requires TLS_CERT_PATH and TLS_KEY_PATH.
-# INGEST_TCP_TLS=0
-
-# Optional manual TLS for the ingest listener.
-# TLS_CERT_PATH=/etc/ssl/certs/server.crt
-# TLS_KEY_PATH=/etc/ssl/private/server.key
-
-# Device provisioning stores per-device secrets in devices.json here.
-# DATA_DIR=/var/lib/viking-bio-configurator
-`
-		if err := os.WriteFile(cfgPath, []byte(conf), 0o644); err != nil {
-			log.Printf("storage: failed to write %s: %v", cfgPath, err)
-		}
-	}
 	s := &Store{
 		dataDir:      dataDir,
 		devicesPath:  filepath.Join(dataDir, "devices.json"),

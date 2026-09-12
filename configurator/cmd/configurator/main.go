@@ -22,10 +22,10 @@ import (
 func main() {
 	// Load .env file if present (best-effort)
 	loadDotEnv(".env")
-	// Also load config from the data directory (created on first run by storage.NewStore).
-	// This lets operators configure the configurator by editing <data-dir>/viking-bio.conf
-	// without needing a .env file next to the binary. Values already set (e.g. from .env or
-	// the environment) are not overridden.
+	// Also load config from the data directory when present. The binary does not create or
+	// overwrite local .env or viking-bio.conf files; it only reads them if the operator has
+	// already created them. Values already set (e.g. from .env or the environment) are not
+	// overridden.
 	loadDotEnv(filepath.Join(config.DefaultDataDir(), "viking-bio.conf"))
 
 	runServer()
