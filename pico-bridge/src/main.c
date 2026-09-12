@@ -455,8 +455,18 @@ static bool init_wifi_stack(void) {
 
 	printf("Initializing WiFi...\n");
 	uint32_t cyw43_country = wifi_config_country_to_cyw43(country);
-	if (cyw43_arch_init_with_country(cyw43_country)) {
-		printf("FATAL: cyw43_arch_init_with_country() failed\n");
+	bool use_default_country = (country[0] == '\0') ||
+				       (strlen(country) != 2) ||
+				       (!isalpha((unsigned char)country[0]) || !isalpha((unsigned char)country[1])) ||
+				       (toupper((unsigned char)country[0]) == 'X' &&
+				        toupper((unsigned char)country[1]) == 'X');
+	int init_rc = use_default_country ? cyw43_arch_init() : cyw43_arch_init_with_country(cyw43_country);
+	if (init_rc != 0) {
+		printf("FATAL: CYW43 init failed: %d\n", init_rc);
+		return false;
+	}
+	if (!cyw43_is_initialized(&cyw43_state)) {
+		printf("FATAL: CYW43 driver did not initialize\n");
 		return false;
 	}
 	cyw43_arch_enable_sta_mode();
@@ -598,13 +608,16 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 
 int main(void) {
 	init_bridge_components();
-	if (!init_wifi_stack()) {
-		return 1;
-	}
 
 	char ssid[WIFI_SSID_MAX_LEN + 1] = {0};
 	char password[WIFI_PASS_MAX_LEN + 1] = {0};
 	bool have_creds = load_wifi_credentials(ssid, sizeof(ssid), password, sizeof(password));
+	// First boot may have no saved Wi‑Fi credentials; the CYW43 stack is only
+	// required once a valid SSID/password has been provisioned.
+	if (have_creds && !init_wifi_stack()) {
+		return 1;
+	}
+
 	bool wifi_up = false;
 	bool watchdog_on = false;
 

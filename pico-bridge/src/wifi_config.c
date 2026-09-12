@@ -251,16 +251,15 @@ bool wifi_config_save_country(const char *country) {
 }
 
 uint32_t wifi_config_country_to_cyw43(const char *country) {
-	if (!country) {
-		return CYW43_COUNTRY_WORLDWIDE;
-	}
-
-	if (strlen(country) < WIFI_COUNTRY_LEN) {
+	if (!country || strlen(country) != WIFI_COUNTRY_LEN) {
 		return CYW43_COUNTRY_WORLDWIDE;
 	}
 
 	char c0 = (char)toupper((unsigned char)country[0]);
 	char c1 = (char)toupper((unsigned char)country[1]);
+	if (!isalpha((unsigned char)c0) || !isalpha((unsigned char)c1)) {
+		return CYW43_COUNTRY_WORLDWIDE;
+	}
 	if (c0 == 'X' && c1 == 'X') {
 		return CYW43_COUNTRY_WORLDWIDE;
 	}
