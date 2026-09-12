@@ -460,20 +460,29 @@ static bool init_wifi_stack(void) {
 				       (!isalpha((unsigned char)country[0]) || !isalpha((unsigned char)country[1])) ||
 				       (toupper((unsigned char)country[0]) == 'X' &&
 				        toupper((unsigned char)country[1]) == 'X');
+	if (use_default_country) {
+		printf("WiFi init: no valid saved country; using CYW43 default WORLDWIDE\n");
+	} else {
+		printf("WiFi init: trying saved country %s -> CYW43 0x%08x\n",
+			   country, (unsigned int)cyw43_country);
+	}
 	int init_rc = use_default_country ? cyw43_arch_init() : cyw43_arch_init_with_country(cyw43_country);
 	if (init_rc != 0 && !use_default_country) {
-		printf("CYW43 init with country %s failed (%d); retrying with WORLDWIDE\n",
+		printf("WiFi init: configured country %s rejected by CYW43 (rc=%d); retrying with WORLDWIDE\n",
 			   country, init_rc);
 		init_rc = cyw43_arch_init();
 	}
 	if (init_rc != 0) {
-		printf("FATAL: CYW43 init failed: %d\n", init_rc);
+		printf("FATAL: CYW43 init failed after country init attempt (country=%s, rc=%d)\n",
+			   country, init_rc);
 		return false;
 	}
 	if (!cyw43_is_initialized(&cyw43_state)) {
-		printf("FATAL: CYW43 driver did not initialize\n");
+		printf("FATAL: CYW43 driver did not initialize after arch init (country=%s)\n",
+			   country);
 		return false;
 	}
+	printf("WiFi init: CYW43 initialized successfully with country=%s\n", country);
 	cyw43_arch_enable_sta_mode();
 	return true;
 }
