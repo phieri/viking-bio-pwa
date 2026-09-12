@@ -36,8 +36,63 @@
 #define DNS_TYPE_SRV 33
 #define DNS_TYPE_AAAA 28
 
-/* Service type label expected in SRV/PTR names */
+/* Service type and instance name expected from the configurator */
 #define SERVICE_LABEL "_viking-bio._tcp"
+#define CONFIGURATOR_NAME "Viking Bio Configurator"
+#define CONFIGURATOR_FULL_NAME CONFIGURATOR_NAME "." SERVICE_LABEL ".local"
+
+static char normalize_dns_name_char(char c) {
+	if (c >= 'A' && c <= 'Z')
+		return (char)(c + ('a' - 'A'));
+	if (c >= 'a' && c <= 'z')
+		return c;
+	if (c >= '0' && c <= '9')
+		return c;
+	if (c == '-' || c == '_' || c == ' ' || c == '.')
+		return c;
+	return '\0';
+}
+
+static void normalize_dns_name(char *out, size_t out_size, const char *in) {
+	if (out_size == 0)
+		return;
+	out[0] = '\0';
+	if (in == NULL)
+		return;
+	for (size_t i = 0, o = 0; in[i] != '\0' && o + 1 < out_size; i++) {
+		char c = normalize_dns_name_char(in[i]);
+		if (c == '\0')
+			continue;
+		if (c == '.') {
+			if (o == 0 || out[o - 1] == '.')
+				continue;
+		}
+		out[o++] = c;
+		out[o] = '\0';
+	}
+	size_t out_len = strlen(out);
+	if (out_len > 0 && out[out_len - 1] == '.') {
+		out[out_len - 1] = '\0';
+	}
+}
+
+static const char *expected_service_name(void) {
+	static char expected[96] = {0};
+	static bool initialized = false;
+	if (!initialized) {
+		normalize_dns_name(expected, sizeof(expected), CONFIGURATOR_FULL_NAME);
+		initialized = true;
+	}
+	return expected;
+}
+
+static bool service_name_matches(const char *name) {
+	if (name == NULL)
+		return false;
+	char normalized[96] = {0};
+	normalize_dns_name(normalized, sizeof(normalized), name);
+	return strcmp(normalized, expected_service_name()) == 0;
+}
 
 /* Maximum DNS records scanned in a single response */
 #define DNS_MAX_SCAN_RECORDS 16
@@ -216,7 +271,7 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 		if (rdata_start + rdlen > len)
 			return;
 
-		if (rtype == DNS_TYPE_SRV && rdlen >= 7 && strstr(name, SERVICE_LABEL) != NULL) {
+		if (rtype == DNS_TYPE_SRV && rdlen >= 7 && service_name_matches(name)) {
 			uint16_t port = ((uint16_t)data[rdata_start + 4] << 8) | data[rdata_start + 5];
 			char target[64];
 			if (dns_decode_name(data, len, rdata_start + 6, target, sizeof(target)) >= 0) {
@@ -340,7 +395,21 @@ static void mdns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const i
  * Public API
  * ------------------------------------------------------------------------- */
 
+void dns_sd_browser_stop(void) {
+	if (s_pcb == NULL) {
+		return;
+	}
+	udp_recv(s_pcb, NULL, NULL);
+	udp_remove(s_pcb);
+	s_pcb = NULL;
+	s_found_cb = NULL;
+	printf("dns_sd: passive listener stopped\n");
+}
+
 bool dns_sd_browser_start(dns_sd_found_cb_t cb) {
+	if (s_pcb != NULL) {
+		dns_sd_browser_stop();
+	}
 	s_found_cb = cb;
 
 	s_pcb = udp_new();

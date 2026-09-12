@@ -98,7 +98,7 @@ func Load() (*Config, error) {
 
 	mdnsName := firstNonEmptyEnv("MDNS_NAME")
 	if mdnsName == "" {
-		mdnsName = "Viking Bio"
+		mdnsName = "Viking Bio Configurator"
 	}
 
 	return &Config{

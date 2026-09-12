@@ -40,7 +40,7 @@ make run
 | `INGEST_TCP_TLS` | `false` | Require TLS on the ingest listener (uses `TLS_CERT_PATH`/`TLS_KEY_PATH`) |
 | `TLS_CERT_PATH` | _(empty)_ | Path to TLS certificate (PEM) |
 | `TLS_KEY_PATH` | _(empty)_ | Path to TLS private key (PEM) |
-| `MDNS_NAME` | `Viking Bio` | mDNS/DNS-SD service instance name |
+| `MDNS_NAME` | `Viking Bio Configurator` | mDNS/DNS-SD service instance name |
 | `MDNS_DISABLE` | `false` | Disable mDNS advertisement (`1` or `true`) |
 | `PICO_SERIAL_PORT` | _(empty)_ | Default serial port for the local provisioning GUI |
 | `CONFIGURATOR_LANGUAGE` | auto-detected from locale | Override the provisioning GUI/TUI language (`en`, `sv`, `no`, `fi`, `da`, `is`) |
@@ -60,7 +60,7 @@ Example `.env` / `viking-bio.conf` snippet:
 
 ```env
 INGEST_TCP_PORT=9000
-MDNS_NAME=Viking Bio
+MDNS_NAME=Viking Bio Configurator
 ```
 
 The bridge owns outbound webhook delivery during runtime; the configurator stays
@@ -141,9 +141,10 @@ normal state/update/notification pipeline, and writes overflow traffic to
 
 ## mDNS / DNS-SD
 
-The configurator advertises itself as `_viking-bio._tcp` on the ingest port used by
-Pico devices. Disable with `MDNS_DISABLE=1` (useful in Docker/CI environments without
-multicast).
+The configurator advertises itself as `Viking Bio Configurator._viking-bio._tcp`
+on the ingest port used by Pico devices, with a periodic re-announcement every
+30 seconds to keep discovery alive while the bridge is idle.
+Disable with `MDNS_DISABLE=1` (useful in Docker/CI environments without multicast).
 
 ### Local-only IPv6 addressing
 
