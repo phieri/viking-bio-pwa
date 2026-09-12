@@ -52,9 +52,9 @@ The configurator loads configuration in this order (earlier sources take precede
 
 1. **Environment variables** – highest priority.
 2. **`.env`** – read from the current working directory at startup.
-3. **`<DATA_DIR>/viking-bio.conf`** – created automatically on first run as a commented
-   template; edit it and restart the configurator to apply changes without a `.env` file next
-   to the binary.
+3. **`<DATA_DIR>/viking-bio.conf`** – created automatically on first run if it does not exist,
+   but an existing file is never overwritten or reset; the binary only fills in a template when
+   the file is missing.
 
 Example `.env` / `viking-bio.conf` snippet:
 
@@ -198,6 +198,6 @@ nssm start VikingBioConfigurator
 
 | File | Description |
 |---|---|
-| `<DATA_DIR>/viking-bio.conf` | Configurator configuration template (created on first run) |
+| `<DATA_DIR>/viking-bio.conf` | Local config file; created on first run if missing, otherwise preserved |
 | `<DATA_DIR>/devices.json` | Provisioned device secrets and last accepted sequence numbers |
 | `<DATA_DIR>/ingest-fallback.log` | JSONL fallback log when the ingest queue overflows |

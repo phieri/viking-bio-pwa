@@ -3,7 +3,6 @@
 package storage
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,7 +21,8 @@ type Store struct {
 }
 
 // NewStore creates a Store backed by the given data directory.
-// The directory is created if it does not exist.
+// The directory is created if it does not exist. A default viking-bio.conf is
+// created only when the file is absent; an existing file is never reset.
 func NewStore(dataDir string) (*Store, error) {
 	dataDir = strings.TrimSpace(dataDir)
 	if dataDir == "" {
@@ -32,8 +32,31 @@ func NewStore(dataDir string) (*Store, error) {
 		return nil, err
 	}
 	cfgPath := filepath.Join(dataDir, "viking-bio.conf")
-	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		conf := `# Viking Bio Configurator configuration
+	if err := ensureConfigTemplate(cfgPath); err != nil {
+		return nil, err
+	}
+
+	s := &Store{
+		dataDir:      dataDir,
+		devicesPath:  filepath.Join(dataDir, "devices.json"),
+		fallbackPath: filepath.Join(dataDir, "ingest-fallback.log"),
+		devices:      make(map[string]DeviceRecord),
+	}
+	s.loadDevices()
+	return s, nil
+}
+
+func ensureConfigTemplate(path string) error {
+	info, err := os.Stat(path)
+	if err == nil {
+		if info.Mode().IsRegular() && info.Size() > 0 {
+			return nil
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	conf := `# Viking Bio Configurator configuration
 # Copy or edit this file, then restart the configurator.
 # Lines starting with '#' are comments. Uncommented lines set a value.
 # Environment variables always take precedence over values in this file.
@@ -52,16 +75,5 @@ func NewStore(dataDir string) (*Store, error) {
 # Device provisioning stores per-device secrets in devices.json here.
 # DATA_DIR=/var/lib/viking-bio-configurator
 `
-		if err := os.WriteFile(cfgPath, []byte(conf), 0o644); err != nil {
-			log.Printf("storage: failed to write %s: %v", cfgPath, err)
-		}
-	}
-	s := &Store{
-		dataDir:      dataDir,
-		devicesPath:  filepath.Join(dataDir, "devices.json"),
-		fallbackPath: filepath.Join(dataDir, "ingest-fallback.log"),
-		devices:      make(map[string]DeviceRecord),
-	}
-	s.loadDevices()
-	return s, nil
+	return os.WriteFile(path, []byte(conf), 0o644)
 }
