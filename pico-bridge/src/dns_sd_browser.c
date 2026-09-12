@@ -39,7 +39,6 @@
 /* Service type and instance name expected from the configurator */
 #define SERVICE_LABEL "_viking-bio._tcp"
 #define CONFIGURATOR_NAME "Viking Bio Configurator"
-#define LEGACY_CONFIGURATOR_NAME "Viking Bio"
 #define CONFIGURATOR_FULL_NAME "Viking Bio Configurator._viking-bio._tcp.local"
 
 static char normalize_dns_name_char(char c) {
@@ -82,10 +81,8 @@ static bool service_name_matches(const char *name) {
 	char normalized[96] = {0};
 	normalize_dns_name(normalized, sizeof(normalized), name);
 	char expected[96] = {0};
-	char legacy[96] = {0};
 	normalize_dns_name(expected, sizeof(expected), CONFIGURATOR_FULL_NAME);
-	normalize_dns_name(legacy, sizeof(legacy), LEGACY_CONFIGURATOR_NAME "." SERVICE_LABEL ".local");
-	return strcmp(normalized, expected) == 0 || strcmp(normalized, legacy) == 0;
+	return strcmp(normalized, expected) == 0;
 }
 
 /* Maximum DNS records scanned in a single response */
