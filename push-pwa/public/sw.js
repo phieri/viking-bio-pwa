@@ -150,12 +150,9 @@ self.addEventListener('notificationclick', (event) => {
     const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of clientsList) {
       const clientUrl = normaliseNotificationTarget(client.url || '/');
-      if (clientUrl === targetUrl || clientUrl === '/') {
+      if (clientUrl === targetUrl) {
         if (typeof client.focus === 'function') {
           await client.focus();
-        }
-        if (typeof client.navigate === 'function' && clientUrl !== targetUrl) {
-          await client.navigate(targetUrl);
         }
         return;
       }
