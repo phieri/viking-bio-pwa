@@ -22,7 +22,7 @@ Viking Bio 20 ──UART──► Pico bridge ──signed TCP──► configur
 ```bash
 cd pico-bridge
 mkdir -p build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico_w -DWIFI_SSID="your_network" -DWIFI_PASSWORD="your_password"
+cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=pico2_w -DWIFI_SSID="your_network" -DWIFI_PASSWORD="your_password"
 make -j$(nproc)
 ```
 
