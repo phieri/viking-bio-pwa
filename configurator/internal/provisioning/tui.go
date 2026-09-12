@@ -150,9 +150,7 @@ func (t *TUI) sendAndPrint(cmd string) {
 		t.printLogBox("command log", lines)
 		return
 	}
-	for _, l := range resp {
-		lines = append(lines, l)
-	}
+	lines = append(lines, resp...)
 	t.printLogBox("command log", lines)
 }
 
@@ -165,9 +163,7 @@ func (t *TUI) sendSilent(cmd string) {
 		t.printLogBox("command log", lines)
 		return
 	}
-	for _, l := range resp {
-		lines = append(lines, l)
-	}
+	lines = append(lines, resp...)
 	t.printLogBox("command log", lines)
 }
 
