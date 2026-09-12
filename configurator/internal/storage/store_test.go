@@ -25,3 +25,32 @@ func TestNewStoreUsesConfiguredDefaultDir(t *testing.T) {
 		t.Fatalf("default data dir was not created: %v", err)
 	}
 }
+
+func TestNewStoreHandlesEmptyDevicesFile(t *testing.T) {
+	for _, fixture := range []string{"", "null"} {
+		t.Run("content="+fixture, func(t *testing.T) {
+			dir := t.TempDir()
+			devicesPath := filepath.Join(dir, "devices.json")
+			if err := os.WriteFile(devicesPath, []byte(fixture), 0o600); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+
+			store, err := NewStore(dir)
+			if err != nil {
+				t.Fatalf("NewStore: %v", err)
+			}
+			if store == nil {
+				t.Fatal("NewStore returned nil store")
+			}
+			if store.devices == nil {
+				t.Fatal("expected devices map to be initialized")
+			}
+			if err := store.ProvisionDevice("pico-1234", "super-secret"); err != nil {
+				t.Fatalf("ProvisionDevice: %v", err)
+			}
+			if record, ok := store.Device("pico-1234"); !ok || record.Key != "super-secret" {
+				t.Fatalf("unexpected device record: %+v, ok=%v", record, ok)
+			}
+		})
+	}
+}

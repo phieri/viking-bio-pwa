@@ -3,6 +3,7 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,12 +23,20 @@ func (s *Store) loadDevices() {
 	if s == nil || s.devicesPath == "" {
 		return
 	}
+	s.devices = make(map[string]DeviceRecord)
 	data, err := os.ReadFile(s.devicesPath)
 	if os.IsNotExist(err) {
 		return
 	}
 	if err != nil {
 		log.Printf("storage: failed to read %s: %v", s.devicesPath, err)
+		return
+	}
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return
+	}
+	if bytes.Equal(trimmed, []byte("null")) {
 		return
 	}
 	var devices map[string]DeviceRecord
@@ -42,6 +51,11 @@ func (s *Store) loadDevices() {
 func (s *Store) saveDevicesLocked() error {
 	if s == nil {
 		return fmt.Errorf("storage is nil")
+	}
+	// Guard against partially-initialized stores or manually created zero-value
+	// instances where the device registry was never loaded into memory.
+	if s.devices == nil {
+		s.devices = make(map[string]DeviceRecord)
 	}
 	if err := writeAtomicJSON(s.devicesPath, s.devices, 0o600); err != nil {
 		return err
