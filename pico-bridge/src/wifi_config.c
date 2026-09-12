@@ -250,16 +250,85 @@ bool wifi_config_save_country(const char *country) {
 	return true;
 }
 
-uint32_t wifi_config_country_to_cyw43(const char *country) {
+bool wifi_config_country_is_supported(const char *country) {
 	if (!country || strlen(country) != WIFI_COUNTRY_LEN) {
+		return false;
+	}
+
+	unsigned char c0 = (unsigned char)toupper((unsigned char)country[0]);
+	unsigned char c1 = (unsigned char)toupper((unsigned char)country[1]);
+	if (!isalpha(c0) || !isalpha(c1)) {
+		return false;
+	}
+	if (c0 == 'X' && c1 == 'X') {
+		return true;
+	}
+
+	switch (((unsigned)c0 << 8) | (unsigned)c1) {
+		case (('A' << 8) | 'U'):
+		case (('A' << 8) | 'T'):
+		case (('B' << 8) | 'E'):
+		case (('B' << 8) | 'R'):
+		case (('C' << 8) | 'A'):
+		case (('C' << 8) | 'L'):
+		case (('C' << 8) | 'N'):
+		case (('C' << 8) | 'O'):
+		case (('C' << 8) | 'Z'):
+		case (('D' << 8) | 'K'):
+		case (('E' << 8) | 'E'):
+		case (('F' << 8) | 'I'):
+		case (('F' << 8) | 'R'):
+		case (('D' << 8) | 'E'):
+		case (('G' << 8) | 'R'):
+		case (('H' << 8) | 'K'):
+		case (('H' << 8) | 'U'):
+		case (('I' << 8) | 'S'):
+		case (('I' << 8) | 'N'):
+		case (('I' << 8) | 'L'):
+		case (('I' << 8) | 'T'):
+		case (('J' << 8) | 'P'):
+		case (('K' << 8) | 'E'):
+		case (('L' << 8) | 'V'):
+		case (('L' << 8) | 'I'):
+		case (('L' << 8) | 'T'):
+		case (('L' << 8) | 'U'):
+		case (('M' << 8) | 'Y'):
+		case (('M' << 8) | 'T'):
+		case (('M' << 8) | 'X'):
+		case (('N' << 8) | 'L'):
+		case (('N' << 8) | 'Z'):
+		case (('N' << 8) | 'G'):
+		case (('N' << 8) | 'O'):
+		case (('P' << 8) | 'E'):
+		case (('P' << 8) | 'H'):
+		case (('P' << 8) | 'L'):
+		case (('P' << 8) | 'T'):
+		case (('S' << 8) | 'G'):
+		case (('S' << 8) | 'K'):
+		case (('S' << 8) | 'I'):
+		case (('Z' << 8) | 'A'):
+		case (('K' << 8) | 'R'):
+		case (('E' << 8) | 'S'):
+		case (('S' << 8) | 'E'):
+		case (('C' << 8) | 'H'):
+		case (('T' << 8) | 'W'):
+		case (('T' << 8) | 'H'):
+		case (('T' << 8) | 'R'):
+		case (('G' << 8) | 'B'):
+		case (('U' << 8) | 'S'):
+			return true;
+		default:
+			return false;
+	}
+}
+
+uint32_t wifi_config_country_to_cyw43(const char *country) {
+	if (!wifi_config_country_is_supported(country)) {
 		return CYW43_COUNTRY_WORLDWIDE;
 	}
 
 	char c0 = (char)toupper((unsigned char)country[0]);
 	char c1 = (char)toupper((unsigned char)country[1]);
-	if (!isalpha((unsigned char)c0) || !isalpha((unsigned char)c1)) {
-		return CYW43_COUNTRY_WORLDWIDE;
-	}
 	if (c0 == 'X' && c1 == 'X') {
 		return CYW43_COUNTRY_WORLDWIDE;
 	}

@@ -78,6 +78,13 @@ bool wifi_config_save_country(const char *country);
 uint32_t wifi_config_country_to_cyw43(const char *country);
 
 /**
+ * Check whether a country code is supported by the CYW43 driver.
+ * Unknown or malformed values must fall back to WORLDWIDE instead of hitting
+ * the low-level init path with an unsupported region.
+ */
+bool wifi_config_country_is_supported(const char *country);
+
+/**
  * Load the configurator server IP address and port from storage (LittleFS).
  * @param ip      Output buffer for IP string (at least WIFI_SERVER_IP_MAX_LEN+1 bytes)
  * @param ip_len  Size of ip buffer

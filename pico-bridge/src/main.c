@@ -455,13 +455,17 @@ static bool init_wifi_stack(void) {
 
 	printf("Initializing WiFi...\n");
 	uint32_t cyw43_country = wifi_config_country_to_cyw43(country);
-	bool use_default_country = (country[0] == '\0') ||
-				       (strlen(country) != 2) ||
-				       (!isalpha((unsigned char)country[0]) || !isalpha((unsigned char)country[1])) ||
+	bool country_supported = wifi_config_country_is_supported(country);
+	bool use_default_country = (!country_supported) ||
 				       (toupper((unsigned char)country[0]) == 'X' &&
 				        toupper((unsigned char)country[1]) == 'X');
 	if (use_default_country) {
-		printf("WiFi init: no valid saved country; using CYW43 default WORLDWIDE\n");
+		if (!country_supported) {
+			printf("WiFi init: unsupported saved country %s; using CYW43 default WORLDWIDE\n",
+				   country);
+		} else {
+			printf("WiFi init: no valid saved country; using CYW43 default WORLDWIDE\n");
+		}
 	} else {
 		printf("WiFi init: trying saved country %s -> CYW43 0x%08x\n",
 			   country, (unsigned int)cyw43_country);
