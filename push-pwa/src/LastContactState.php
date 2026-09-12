@@ -108,7 +108,7 @@ final class LastContactState
 
     private function load(): array
     {
-        $mtime = is_file($this->path) ? filemtime($this->path) : false;
+        $mtime = $this->fileMTime();
         if (function_exists('apcu_fetch')) {
             $cachedState = apcu_fetch($this->cacheKey(), $success);
             if ($success && is_array($cachedState) && ($cachedState['mtime'] ?? null) === $mtime && is_array($cachedState['state'] ?? null)) {
@@ -137,7 +137,7 @@ final class LastContactState
         }
 
         if (function_exists('apcu_store')) {
-            $mtime = filemtime($this->path);
+            $mtime = $this->fileMTime();
             apcu_store($this->cacheKey(), ['mtime' => $mtime, 'state' => $state], 86400);
         }
 
@@ -236,5 +236,15 @@ final class LastContactState
     private function cacheKey(): string
     {
         return self::CACHE_KEY_PREFIX . sha1($this->path);
+    }
+
+    private function fileMTime(): ?int
+    {
+        if (!is_file($this->path)) {
+            return null;
+        }
+
+        $mtime = filemtime($this->path);
+        return is_int($mtime) ? $mtime : null;
     }
 }

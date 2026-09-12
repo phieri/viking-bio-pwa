@@ -97,6 +97,7 @@ function parsePushPayload(event) {
       }
     }
   } catch (error) {
+    console.warn('Ignoring malformed push payload JSON', error);
   }
 
   const text = typeof event.data.text === 'function' ? event.data.text() : '';
