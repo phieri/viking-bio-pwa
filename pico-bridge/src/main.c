@@ -73,6 +73,25 @@ static void bridge_status_led_set_state(bool enabled) {
 	}
 }
 
+static void init_status_led(void) {
+	if (s_status_led_available || !status_led_supported()) {
+		return;
+	}
+
+	async_context_t *context = cyw43_arch_async_context();
+	if (context == NULL) {
+		return;
+	}
+
+	if (!status_led_init_with_context(context)) {
+		printf("WARNING: status LED initialisation failed\n");
+		return;
+	}
+
+	s_status_led_available = true;
+	bridge_status_led_set_state(false);
+}
+
 static void led_update(void) {
 	bool wifi_up = wifi_link_is_up();
 
@@ -425,11 +444,7 @@ static void init_bridge_components(void) {
 
 	s_led_blink_time = get_absolute_time();
 	s_serial_blink_end = get_absolute_time();
-	s_status_led_available = status_led_supported();
-	if (s_status_led_available) {
-		status_led_init();
-		bridge_status_led_set_state(false);
-	}
+	s_status_led_available = false;
 
 	printf("Initializing protocol parser...\n");
 	vikingbio_init();
@@ -482,6 +497,7 @@ static bool init_wifi_stack(void) {
 			   country);
 		return false;
 	}
+	init_status_led();
 	printf("WiFi init: CYW43 initialized successfully with country=%s\n", country);
 	cyw43_arch_enable_sta_mode();
 	return true;
