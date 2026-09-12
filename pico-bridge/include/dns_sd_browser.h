@@ -23,10 +23,9 @@ typedef void (*dns_sd_found_cb_t)(const char *ip6addr, uint16_t port);
  * _viking-bio._tcp is received, @p cb is invoked with the configurator address
  * and port.
  *
- * Note: because the Pico does not query, discovery depends on the configurator
- * sending a spontaneous announcement. This happens automatically when the
- * configurator (re-)starts. If the configurator was already running before the
- * Pico connected, restart the configurator to trigger a fresh announcement.
+ * The listener is only useful while the Pico does not have a live TCP session to
+ * the configurator; active telemetry sessions are allowed to proceed without
+ * listening for repeated mDNS traffic.
  *
  * Must be called after WiFi is connected.
  *
@@ -34,5 +33,10 @@ typedef void (*dns_sd_found_cb_t)(const char *ip6addr, uint16_t port);
  * @return true on success
  */
 bool dns_sd_browser_start(dns_sd_found_cb_t cb);
+
+/**
+ * Stop the passive mDNS listener.
+ */
+void dns_sd_browser_stop(void);
 
 #endif // DNS_SD_BROWSER_H

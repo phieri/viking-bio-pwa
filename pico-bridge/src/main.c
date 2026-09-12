@@ -530,7 +530,7 @@ static bool start_wifi_services(const char *ssid, const char *password, bool hav
 		return false;
 	}
 
-	if (!s_dns_started) {
+	if (!s_dns_started && !tcp_client_is_active()) {
 		dns_sd_browser_start(on_configurator_discovered);
 		s_dns_started = true;
 	}
@@ -691,6 +691,15 @@ int main(void) {
 			printf("WiFi link lost – scheduling reconnect\n");
 			wifi_up = false;
 			wifi_retry_reset();
+		}
+
+		if (s_dns_started && (!wifi_up || tcp_client_is_active())) {
+			dns_sd_browser_stop();
+			s_dns_started = false;
+		}
+		if (wifi_up && !tcp_client_is_active() && !s_dns_started) {
+			dns_sd_browser_start(on_configurator_discovered);
+			s_dns_started = true;
 		}
 
 		// Networking (Wi-Fi + lwIP) is serviced by the CYW43 arch background
