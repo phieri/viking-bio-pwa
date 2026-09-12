@@ -109,7 +109,7 @@ final class LastContactState
     private function load(): array
     {
         $mtime = $this->fileMTime();
-        if (function_exists('apcu_fetch')) {
+        if ($this->apcuAvailable()) {
             $cachedState = apcu_fetch($this->cacheKey(), $success);
             if ($success && is_array($cachedState) && ($cachedState['mtime'] ?? null) === $mtime && is_array($cachedState['state'] ?? null)) {
                 return $cachedState['state'];
@@ -117,7 +117,7 @@ final class LastContactState
         }
 
         $state = $this->loadFromFile();
-        if (function_exists('apcu_store')) {
+        if ($this->apcuAvailable()) {
             apcu_store($this->cacheKey(), ['mtime' => $mtime, 'state' => $state], 86400);
         }
 
@@ -136,7 +136,7 @@ final class LastContactState
             return false;
         }
 
-        if (function_exists('apcu_store')) {
+        if ($this->apcuAvailable()) {
             $mtime = $this->fileMTime();
             apcu_store($this->cacheKey(), ['mtime' => $mtime, 'state' => $state], 86400);
         }
@@ -216,7 +216,7 @@ final class LastContactState
 
         $timestamp = (int) $candidate;
         $maximumTimestamp = (int) floor(microtime(true) * 1000) + self::MAX_CLOCK_SKEW_MS;
-        if ($timestamp < 0 || $timestamp > $maximumTimestamp) {
+        if ($timestamp <= 0 || $timestamp > $maximumTimestamp) {
             return null;
         }
 
@@ -246,5 +246,10 @@ final class LastContactState
 
         $mtime = filemtime($this->path);
         return is_int($mtime) ? $mtime : null;
+    }
+
+    private function apcuAvailable(): bool
+    {
+        return function_exists('apcu_fetch') && function_exists('apcu_store');
     }
 }

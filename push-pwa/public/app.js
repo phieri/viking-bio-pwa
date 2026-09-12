@@ -185,6 +185,7 @@ let lastOfflineNotificationAt = 0;
 let currentLanguage = detectLanguage();
 let latestHeartbeatPayload = null;
 let serviceWorkerMessageListenerRegistered = false;
+let serviceWorkerControllerChangeListenerRegistered = false;
 let enableNotificationsInFlight = false;
 let sendTestAlertInFlight = false;
 
@@ -392,6 +393,31 @@ function applyHeartbeatUpdate(payload) {
   lfsBox.dataset.state = 'data';
 }
 
+function registerServiceWorkerMessageListener() {
+  if (!('serviceWorker' in navigator) || serviceWorkerMessageListenerRegistered) {
+    return;
+  }
+
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const payload = event.data && typeof event.data === 'object' ? (event.data.payload || event.data) : null;
+    if (payload && payload.type === 'heartbeat') {
+      applyHeartbeatUpdate(payload);
+    }
+  });
+  serviceWorkerMessageListenerRegistered = true;
+}
+
+function registerServiceWorkerControllerChangeListener() {
+  if (!('serviceWorker' in navigator) || serviceWorkerControllerChangeListenerRegistered) {
+    return;
+  }
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    syncServiceWorkerLanguage().catch(() => {});
+  });
+  serviceWorkerControllerChangeListenerRegistered = true;
+}
+
 async function loadLastContactStatus() {
   if (latestHeartbeatPayload) {
     applyHeartbeatUpdate(latestHeartbeatPayload);
@@ -428,16 +454,8 @@ async function registerServiceWorker() {
   }
 
   await syncServiceWorkerLanguage();
-
-  if (!serviceWorkerMessageListenerRegistered) {
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      const payload = event.data && typeof event.data === 'object' ? (event.data.payload || event.data) : null;
-      if (payload && payload.type === 'heartbeat') {
-        applyHeartbeatUpdate(payload);
-      }
-    });
-    serviceWorkerMessageListenerRegistered = true;
-  }
+  registerServiceWorkerMessageListener();
+  registerServiceWorkerControllerChangeListener();
 }
 
 async function fetchPublicKey() {
