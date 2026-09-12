@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 
 include(FetchContent)
 
-# This firmware requires a Pico W variant for WiFi support
+# This firmware requires a Pico W variant for WiFi support.
+# Default to the Pico 2 W target because that is the board used by the shipped
+# bridge hardware; override explicitly for older Pico W builds when needed.
 if(NOT DEFINED PICO_BOARD OR PICO_BOARD STREQUAL "")
-    set(PICO_BOARD pico_w CACHE STRING "Board type" FORCE)
-    message(STATUS "Setting PICO_BOARD to pico_w (required for WiFi)")
+    set(PICO_BOARD pico2_w CACHE STRING "Board type" FORCE)
+    message(STATUS "Setting PICO_BOARD to pico2_w (default WiFi target for the current bridge hardware)")
 elseif(NOT PICO_BOARD STREQUAL "pico_w" AND NOT PICO_BOARD STREQUAL "pico2_w")
     message(FATAL_ERROR "This firmware requires a WiFi-capable board (pico_w or pico2_w); current: ${PICO_BOARD}")
 endif()

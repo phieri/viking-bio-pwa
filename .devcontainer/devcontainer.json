@@ -7,7 +7,7 @@
   "workspaceFolder": "/workspaces/viking-bio-pwa",
   "containerEnv": {
     "PICO_SDK_PATH": "/workspaces/viking-bio-pwa/pico-sdk",
-    "PICO_BOARD": "pico_w"
+    "PICO_BOARD": "pico2_w"
   },
   "customizations": {
     "vscode": {

@@ -13,7 +13,7 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "PICO_SDK_PATH": "${env:PICO_SDK_PATH}",
-        "PICO_BOARD": "pico_w"
+        "PICO_BOARD": "pico2_w"
       }
     }
   ],
