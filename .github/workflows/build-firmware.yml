@@ -64,7 +64,7 @@ jobs:
 
     - name: Configure CMake
       working-directory: pico-bridge/build
-      run: cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=${{ matrix.board }} -DWIFI_SSID="ci_build" -DWIFI_PASSWORD="ci_build"
+      run: cmake .. -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=${{ matrix.board }}
 
     - name: Build firmware
       working-directory: pico-bridge/build
