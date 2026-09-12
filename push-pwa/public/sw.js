@@ -1,9 +1,5 @@
 /* Copyright (C) 2026 Philip Eriksson. All rights reserved. */
 
-const HEARTBEAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const OFFLINE_HEARTBEATS_THRESHOLD = 3;
-const DEVICE_OFFLINE_THRESHOLD_MS = HEARTBEAT_INTERVAL_MS * OFFLINE_HEARTBEATS_THRESHOLD;
-const offlineNotifications = new Map();
 let preferredLanguage = 'en';
 
 const messages = {
@@ -88,8 +84,31 @@ async function forwardHeartbeatToClients(payload) {
   }
 }
 
+function parsePushPayload(event) {
+  if (!event.data) {
+    return { title: t('title'), body: t('defaultBody') };
+  }
+
+  try {
+    if (typeof event.data.json === 'function') {
+      const payload = event.data.json();
+      if (payload && typeof payload === 'object') {
+        return payload;
+      }
+    }
+  } catch (error) {
+  }
+
+  const text = typeof event.data.text === 'function' ? event.data.text() : '';
+  if (typeof text === 'string' && text.trim() !== '') {
+    return { title: t('title'), body: text.trim() };
+  }
+
+  return { title: t('title'), body: t('defaultBody') };
+}
+
 self.addEventListener('push', (event) => {
-  const payload = event.data && event.data.json ? event.data.json() : { title: t('title'), body: t('defaultBody') };
+  const payload = parsePushPayload(event);
   const rawTimestamp = payload.timestamp;
   const urgency = String(payload.urgency || 'normal').toLowerCase();
 
@@ -126,6 +145,21 @@ self.addEventListener('notificationclick', (event) => {
 
   const payload = event.notification && event.notification.data ? event.notification.data : {};
   const targetUrl = normaliseNotificationTarget(payload.url || payload.uiUrl || '/');
-  const openPage = () => self.clients.openWindow(targetUrl);
-  event.waitUntil(openPage());
+  event.waitUntil((async () => {
+    const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of clientsList) {
+      const clientUrl = normaliseNotificationTarget(client.url || '/');
+      if (clientUrl === targetUrl || clientUrl === '/') {
+        if (typeof client.focus === 'function') {
+          await client.focus();
+        }
+        if (typeof client.navigate === 'function' && clientUrl !== targetUrl) {
+          await client.navigate(targetUrl);
+        }
+        return;
+      }
+    }
+
+    await self.clients.openWindow(targetUrl);
+  })());
 });

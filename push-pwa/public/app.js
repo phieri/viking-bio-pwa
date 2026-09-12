@@ -183,6 +183,10 @@ const lfsBox = document.getElementById('lfs-status');
 let installPromptEvent = null;
 let lastOfflineNotificationAt = 0;
 let currentLanguage = detectLanguage();
+let latestHeartbeatPayload = null;
+let serviceWorkerMessageListenerRegistered = false;
+let enableNotificationsInFlight = false;
+let sendTestAlertInFlight = false;
 
 function normaliseLanguage(value) {
   const candidate = String(value || '').trim().toLowerCase().replace(/_/g, '-');
@@ -243,6 +247,10 @@ function setText(id, value) {
 function setStatus(message, type = '') {
   statusBox.textContent = message;
   statusBox.className = `status ${type}`.trim();
+}
+
+function errorMessage(error, fallback) {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function applyTranslations() {
@@ -369,6 +377,12 @@ function applyHeartbeatUpdate(payload) {
   const rawTimestamp = Number(payload.timestamp);
   const stamp = Number.isFinite(rawTimestamp) ? new Date(rawTimestamp) : new Date();
   const label = Number.isNaN(stamp.getTime()) ? t('unknownTime') : stamp.toLocaleString();
+  latestHeartbeatPayload = {
+    type: 'heartbeat',
+    rssi: rssiValue,
+    lfsHealth,
+    timestamp: Number.isNaN(stamp.getTime()) ? Date.now() : stamp.getTime(),
+  };
 
   lastContactBox.textContent = t('lastContact', { label });
   lastContactBox.dataset.state = 'data';
@@ -379,7 +393,17 @@ function applyHeartbeatUpdate(payload) {
 }
 
 async function loadLastContactStatus() {
-  return Promise.resolve();
+  if (latestHeartbeatPayload) {
+    applyHeartbeatUpdate(latestHeartbeatPayload);
+    return;
+  }
+
+  lastContactBox.textContent = t('waitingHeartbeat');
+  lastContactBox.dataset.state = 'waiting';
+  rssiBox.textContent = t('waitingRssi');
+  rssiBox.dataset.state = 'waiting';
+  lfsBox.textContent = t('waitingLfs');
+  lfsBox.dataset.state = 'waiting';
 }
 
 async function loadConfig() {
@@ -405,12 +429,15 @@ async function registerServiceWorker() {
 
   await syncServiceWorkerLanguage();
 
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    const payload = event.data && typeof event.data === 'object' ? (event.data.payload || event.data) : null;
-    if (payload && payload.type === 'heartbeat') {
-      applyHeartbeatUpdate(payload);
-    }
-  });
+  if (!serviceWorkerMessageListenerRegistered) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const payload = event.data && typeof event.data === 'object' ? (event.data.payload || event.data) : null;
+      if (payload && payload.type === 'heartbeat') {
+        applyHeartbeatUpdate(payload);
+      }
+    });
+    serviceWorkerMessageListenerRegistered = true;
+  }
 }
 
 async function fetchPublicKey() {
@@ -467,6 +494,12 @@ function buildSubscriptionYaml(subscription) {
 }
 
 async function enableNotifications() {
+  if (enableNotificationsInFlight) {
+    return;
+  }
+
+  enableNotificationsInFlight = true;
+  enablePushButton.disabled = true;
   try {
     setStatus(t('loadingConfig'));
     statusBox.dataset.i18nState = 'custom';
@@ -503,11 +536,20 @@ async function enableNotifications() {
     subscriptionYaml.value = JSON.stringify(payload, null, 2);
     setStatus(t('generatedYaml'), 'success');
   } catch (error) {
-    setStatus(error.message, 'error');
+    setStatus(errorMessage(error, t('loadConfigError')), 'error');
+  } finally {
+    enableNotificationsInFlight = false;
+    enablePushButton.disabled = false;
   }
 }
 
 async function sendTestAlert() {
+  if (sendTestAlertInFlight) {
+    return;
+  }
+
+  sendTestAlertInFlight = true;
+  sendTestButton.disabled = true;
   try {
     if (!sendToken) {
       await loadConfig();
@@ -543,7 +585,10 @@ async function sendTestAlert() {
     const data = await response.json();
     setStatus(t('sentCount', { count: data.sent }), 'success');
   } catch (error) {
-    setStatus(error.message, 'error');
+    setStatus(errorMessage(error, t('testNotificationError')), 'error');
+  } finally {
+    sendTestAlertInFlight = false;
+    sendTestButton.disabled = false;
   }
 }
 
