@@ -461,6 +461,11 @@ static bool init_wifi_stack(void) {
 				       (toupper((unsigned char)country[0]) == 'X' &&
 				        toupper((unsigned char)country[1]) == 'X');
 	int init_rc = use_default_country ? cyw43_arch_init() : cyw43_arch_init_with_country(cyw43_country);
+	if (init_rc != 0 && !use_default_country) {
+		printf("CYW43 init with country %s failed (%d); retrying with WORLDWIDE\n",
+			   country, init_rc);
+		init_rc = cyw43_arch_init();
+	}
 	if (init_rc != 0) {
 		printf("FATAL: CYW43 init failed: %d\n", init_rc);
 		return false;

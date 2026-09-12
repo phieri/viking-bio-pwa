@@ -264,8 +264,7 @@ uint32_t wifi_config_country_to_cyw43(const char *country) {
 		return CYW43_COUNTRY_WORLDWIDE;
 	}
 
-	return ((uint32_t)(unsigned char)c0) |
-	       ((uint32_t)(unsigned char)c1 << 8);
+	return CYW43_COUNTRY((unsigned char)c0, (unsigned char)c1, 0U);
 }
 
 bool wifi_config_load_server(char *ip, size_t ip_len, uint16_t *port) {
