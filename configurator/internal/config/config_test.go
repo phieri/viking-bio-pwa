@@ -94,7 +94,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DataDir != expectedDataDir {
 		t.Fatalf("unexpected default data dir: %q", cfg.DataDir)
 	}
-	if cfg.MDNSName != "Viking Bio" {
+	if cfg.MDNSName != "Viking Bio Configurator" {
 		t.Fatalf("unexpected default MDNS name: %q", cfg.MDNSName)
 	}
 }
