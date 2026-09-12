@@ -61,3 +61,36 @@ func TestParseStatusIgnoresUnconfiguredServer(t *testing.T) {
 		t.Fatalf("expected empty server, got %q:%d", status.Server, status.Port)
 	}
 }
+
+func TestSelectAutoPortEmptyList(t *testing.T) {
+	t.Parallel()
+
+	port, err := selectAutoPort(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != "" {
+		t.Fatalf("expected empty port name, got %q", port)
+	}
+}
+
+func TestSelectAutoPortUsesSingleAttachedPort(t *testing.T) {
+	t.Parallel()
+
+	port, err := selectAutoPort([]string{"/dev/ttyACM0"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != "/dev/ttyACM0" {
+		t.Fatalf("expected /dev/ttyACM0, got %q", port)
+	}
+}
+
+func TestSelectAutoPortRejectsMultiplePorts(t *testing.T) {
+	t.Parallel()
+
+	_, err := selectAutoPort([]string{"/dev/ttyACM0", "/dev/ttyUSB0"})
+	if err == nil {
+		t.Fatal("expected error for multiple attached serial ports")
+	}
+}
