@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,16 +27,24 @@ func TestLoadDotEnvDoesNotOverwriteExistingValues(t *testing.T) {
 	}
 }
 
-func TestNewStoreDoesNotCreateOrOverwriteConfigFile(t *testing.T) {
+func TestNewStoreCreatesDefaultConfigWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 
 	if _, err := storage.NewStore(dir); err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "viking-bio.conf")); !os.IsNotExist(err) {
-		t.Fatalf("NewStore should not create viking-bio.conf automatically: %v", err)
+	cfgPath := filepath.Join(dir, "viking-bio.conf")
+	content, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("read created config: %v", err)
 	}
+	if len(content) == 0 || !contains(content, "INGEST_TCP_PORT") {
+		t.Fatalf("created config should contain the default template, got %q", string(content))
+	}
+}
 
+func TestNewStorePreservesExistingConfigFile(t *testing.T) {
+	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "viking-bio.conf")
 	want := "INGEST_TCP_PORT=9123\n"
 	if err := os.WriteFile(cfgPath, []byte(want), 0o600); err != nil {
@@ -51,4 +60,8 @@ func TestNewStoreDoesNotCreateOrOverwriteConfigFile(t *testing.T) {
 	if string(got) != want {
 		t.Fatalf("existing config should be preserved, got %q", string(got))
 	}
+}
+
+func contains(b []byte, want string) bool {
+	return bytes.Contains(b, []byte(want))
 }
