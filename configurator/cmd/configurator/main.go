@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -117,10 +118,16 @@ func runServer() {
 	}()
 
 	if provisioning.ShouldLaunchLocalUI(cfg.PicoSerialPort) {
-		if err := provisioning.RunLocalUI(cfg.PicoSerialPort, store, srv.State()); err != nil {
-			log.Printf("provisioning: %v", err)
+		if err := provisioning.RunLocalUI(ctx, cancel, cfg.PicoSerialPort, store, srv.State()); err != nil {
+			if errors.Is(err, provisioning.ErrPortWatchActive) {
+				// Keep the server alive while the configured port is retried in the background.
+			} else {
+				log.Printf("provisioning: %v", err)
+				cancel()
+			}
+		} else {
+			cancel()
 		}
-		cancel()
 	}
 
 	<-ctx.Done()

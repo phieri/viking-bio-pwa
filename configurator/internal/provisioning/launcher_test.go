@@ -1,6 +1,7 @@
 package provisioning
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
 	"testing"
@@ -10,10 +11,13 @@ import (
 func TestWaitForConnectionRetriesUntilAvailable(t *testing.T) {
 	t.Parallel()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
 	var attempts atomic.Int32
 	connected := make(chan struct{}, 1)
 
-	waitForConnection(func() error {
+	waitForConnection(ctx, func() error {
 		if attempts.Add(1) < 3 {
 			return errors.New("not ready")
 		}
@@ -23,7 +27,9 @@ func TestWaitForConnectionRetriesUntilAvailable(t *testing.T) {
 
 	select {
 	case <-connected:
-	case <-time.After(200 * time.Millisecond):
+		cancel()
+	case <-time.After(500 * time.Millisecond):
+		cancel()
 		t.Fatal("expected connection retry to succeed")
 	}
 }
