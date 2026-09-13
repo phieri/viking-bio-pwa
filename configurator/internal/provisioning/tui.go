@@ -7,8 +7,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
@@ -42,12 +45,71 @@ func color(s, c string) string {
 }
 
 // TUI provides the interactive device configurator menu.
+type tuiLogBuffer struct {
+	mu       sync.Mutex
+	lines    []string
+	maxLines int
+}
+
+func newTuiLogBuffer(maxLines int) *tuiLogBuffer {
+	if maxLines <= 0 {
+		maxLines = 24
+	}
+	return &tuiLogBuffer{maxLines: maxLines}
+}
+
+func (b *tuiLogBuffer) add(line string) {
+	if b == nil {
+		return
+	}
+	line = strings.TrimRight(line, "\r\n")
+	if line == "" {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.lines = append(b.lines, line)
+	if len(b.lines) > b.maxLines {
+		b.lines = b.lines[len(b.lines)-b.maxLines:]
+	}
+}
+
+func (b *tuiLogBuffer) snapshot() []string {
+	if b == nil {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]string, len(b.lines))
+	copy(out, b.lines)
+	return out
+}
+
+type tuiLogWriter struct {
+	buffer *tuiLogBuffer
+}
+
+func (w *tuiLogWriter) Write(p []byte) (int, error) {
+	if w == nil || w.buffer == nil {
+		return len(p), nil
+	}
+	for _, part := range strings.Split(strings.TrimRight(string(p), "\r\n"), "\n") {
+		if strings.TrimSpace(part) == "" {
+			continue
+		}
+		w.buffer.add(part)
+	}
+	return len(p), nil
+}
+
 type TUI struct {
 	bridge         *serial.Bridge
 	store          *storage.Store
 	scanner        *bufio.Scanner
 	telemetryState *server.State
 	localizer      provisioningLocalizer
+	logBuffer      *tuiLogBuffer
+	logWriter      io.Writer
 }
 
 // NewTUI creates a TUI attached to the given bridge.
@@ -56,13 +118,16 @@ func NewTUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 	if len(telemetryState) > 0 {
 		state = telemetryState[0]
 	}
-	return &TUI{
+	t := &TUI{
 		bridge:         bridge,
 		store:          store,
 		scanner:        bufio.NewScanner(os.Stdin),
 		telemetryState: state,
 		localizer:      newProvisioningLocalizer(),
+		logBuffer:      newTuiLogBuffer(24),
 	}
+	t.logWriter = &tuiLogWriter{buffer: t.logBuffer}
+	return t
 }
 
 func (t *TUI) readLine(prompt string) string {
@@ -99,11 +164,10 @@ func formatBoxLine(content string, width int) string {
 	return content + strings.Repeat(" ", width-len([]rune(content)))
 }
 
-func (t *TUI) printLogBox(title string, lines []string) {
+func renderBox(title string, lines []string, width int) {
 	if len(lines) == 0 {
 		return
 	}
-	const width = 62
 	newlineLines := make([]string, 0, len(lines))
 	for _, line := range lines {
 		for _, part := range strings.Split(line, "\n") {
@@ -129,6 +193,27 @@ func (t *TUI) printLogBox(title string, lines []string) {
 	fmt.Println()
 }
 
+func (t *TUI) printStatusBox(title string, lines []string) {
+	renderBox(title, lines, 62)
+}
+
+func (t *TUI) appendLog(lines ...string) {
+	for _, line := range lines {
+		t.logBuffer.add(line)
+	}
+}
+
+func (t *TUI) printLogBox(title string) {
+	if title == "" {
+		title = "configurator log"
+	}
+	logLines := t.logBuffer.snapshot()
+	if len(logLines) == 0 {
+		return
+	}
+	renderBox(title, logLines, 62)
+}
+
 func (t *TUI) printMenu() {
 	fmt.Println(color("  1.", colorYellow) + " " + t.localizer.Text("menu.option1"))
 	fmt.Println(color("  2.", colorYellow) + " " + t.localizer.Text("menu.option2"))
@@ -147,11 +232,13 @@ func (t *TUI) sendAndPrint(cmd string) {
 	resp, err := t.bridge.SendCommand(cmd)
 	if err != nil {
 		lines = append(lines, "Error: "+err.Error())
-		t.printLogBox("command log", lines)
+		t.appendLog(lines...)
+		t.printLogBox("command log")
 		return
 	}
 	lines = append(lines, resp...)
-	t.printLogBox("command log", lines)
+	t.appendLog(lines...)
+	t.printLogBox("command log")
 }
 
 // sendSilent sends a command without echoing it to stdout (for sensitive values).
@@ -160,11 +247,13 @@ func (t *TUI) sendSilent(cmd string) {
 	resp, err := t.bridge.SendCommand(cmd)
 	if err != nil {
 		lines = append(lines, "Error: "+err.Error())
-		t.printLogBox("command log", lines)
+		t.appendLog(lines...)
+		t.printLogBox("command log")
 		return
 	}
 	lines = append(lines, resp...)
-	t.printLogBox("command log", lines)
+	t.appendLog(lines...)
+	t.printLogBox("command log")
 }
 
 func formatDeviceStatus(localizer provisioningLocalizer, status *serial.StatusResult, prefix string) string {
@@ -225,10 +314,10 @@ func formatTelemetrySnapshot(localizer provisioningLocalizer, flame bool, fan, t
 func (t *TUI) showStatus() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		t.printLogBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
+		t.printStatusBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
 		return
 	}
-	t.printLogBox("status", []string{
+	t.printStatusBox("status", []string{
 		t.localizer.Text("tui.device_status"),
 		formatDeviceStatus(t.localizer, &status, "  "),
 	})
@@ -236,15 +325,15 @@ func (t *TUI) showStatus() {
 
 func (t *TUI) showTelemetry() {
 	if t.telemetryState == nil {
-		t.printLogBox("telemetry", []string{t.localizer.Text("status.live_telemetry_unavailable")})
+		t.printStatusBox("telemetry", []string{t.localizer.Text("status.live_telemetry_unavailable")})
 		return
 	}
 	snapshot := t.telemetryState.Snapshot()
 	if snapshot.UpdatedAt == 0 {
-		t.printLogBox("telemetry", []string{t.localizer.Text("status.live_telemetry_empty")})
+		t.printStatusBox("telemetry", []string{t.localizer.Text("status.live_telemetry_empty")})
 		return
 	}
-	t.printLogBox("telemetry", []string{
+	t.printStatusBox("telemetry", []string{
 		t.localizer.Text("tui.live_telemetry"),
 		strings.ReplaceAll(formatTelemetrySnapshot(
 			t.localizer,
@@ -262,20 +351,20 @@ func (t *TUI) showTelemetry() {
 func (t *TUI) configureWiFi() {
 	ssid := t.readLine(t.localizer.Text("form.ssid") + ": ")
 	if ssid == "" {
-		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
+		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	password := t.readLine(t.localizer.Text("form.password") + ": ")
 	t.sendAndPrint("SSID=" + ssid)
 	t.sendSilent("PASS=" + password)
-	t.printLogBox("status", []string{t.localizer.Text("tui.credentials_saved")})
+	t.printStatusBox("status", []string{t.localizer.Text("tui.credentials_saved")})
 }
 
 func (t *TUI) setCountry() {
 	cc := t.readLine(t.localizer.Text("tui.country_prompt"))
 	cc = strings.ToUpper(strings.TrimSpace(cc))
 	if len(cc) != 2 {
-		t.printLogBox("status", []string{t.localizer.Text("tui.invalid_country")})
+		t.printStatusBox("status", []string{t.localizer.Text("tui.invalid_country")})
 		return
 	}
 	t.sendAndPrint("COUNTRY=" + cc)
@@ -284,7 +373,7 @@ func (t *TUI) setCountry() {
 func (t *TUI) setServer() {
 	addr := t.readLine(t.localizer.Text("tui.server_prompt"))
 	if addr == "" {
-		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
+		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	port := t.readLine(t.localizer.Text("tui.server_port_prompt"))
@@ -298,11 +387,11 @@ func (t *TUI) setServer() {
 func (t *TUI) setWebhook() {
 	url := t.readLine(t.localizer.Text("tui.webhook_prompt"))
 	if url == "" {
-		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
+		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		t.printLogBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
+		t.printStatusBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
 		return
 	}
 	t.sendAndPrint("WEBHOOK=" + url)
@@ -319,41 +408,47 @@ func randomDeviceKey() (string, error) {
 func (t *TUI) provisionDeviceKey() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		t.printLogBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
+		t.printStatusBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
 		return
 	}
 	if status.DeviceID == "" {
-		t.printLogBox("status", []string{t.localizer.Text("error.device_id_missing")})
+		t.printStatusBox("status", []string{t.localizer.Text("error.device_id_missing")})
 		return
 	}
 	key, err := randomDeviceKey()
 	if err != nil {
-		t.printLogBox("status", []string{t.localizer.Text("error.generating_key", err.Error())})
+		t.printStatusBox("status", []string{t.localizer.Text("error.generating_key", err.Error())})
 		return
 	}
 	if err := t.store.ProvisionDevice(status.DeviceID, key); err != nil {
-		t.printLogBox("status", []string{t.localizer.Text("error.storing_key", err.Error())})
+		t.printStatusBox("status", []string{t.localizer.Text("error.storing_key", err.Error())})
 		return
 	}
 	t.sendAndPrint("DEVICEKEY=" + key)
-	t.printLogBox("status", []string{t.localizer.Text("tui.telemetry_provisioned", status.DeviceID)})
+	t.printStatusBox("status", []string{t.localizer.Text("tui.telemetry_provisioned", status.DeviceID)})
 }
 
 func (t *TUI) clearCredentials() {
 	confirm := t.readLine(t.localizer.Text("tui.clear_confirm"))
 	if confirm != "YES" {
-		t.printLogBox("status", []string{t.localizer.Text("tui.cancelled")})
+		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
 	t.sendAndPrint("CLEAR")
-	t.printLogBox("status", []string{t.localizer.Text("tui.credentials_cleared")})
+	t.printStatusBox("status", []string{t.localizer.Text("tui.credentials_cleared")})
 }
 
 // Run starts the interactive TUI loop.
 func (t *TUI) Run() {
-	t.printHeader()
+	prevLogWriter := log.Writer()
+	log.SetOutput(t.logWriter)
+	defer func() {
+		log.SetOutput(prevLogWriter)
+	}()
 	for {
+		t.printHeader()
 		t.printMenu()
+		t.printLogBox("configurator log")
 		choice := t.readLine(color(t.localizer.Text("menu.choice"), colorBold))
 		switch choice {
 		case "1":
@@ -373,10 +468,10 @@ func (t *TUI) Run() {
 		case "8":
 			t.showTelemetry()
 		case "0", "q", "quit", "exit":
-			t.printLogBox("status", []string{t.localizer.Text("tui.bye")})
+			t.printStatusBox("status", []string{t.localizer.Text("tui.bye")})
 			return
 		default:
-			t.printLogBox("status", []string{t.localizer.Text("error.unknown_option")})
+			t.printStatusBox("status", []string{t.localizer.Text("error.unknown_option")})
 		}
 	}
 }
