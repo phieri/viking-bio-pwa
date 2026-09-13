@@ -7,12 +7,21 @@ payloads itself.
 
 ## Build
 
+Build the desktop GUI version on Ubuntu/Linux with CGO enabled. The GUI is compiled from the `cgo` build tag and falls back to the TUI only when no graphical display is available.
+
 ```bash
 cd configurator
-go build -o viking-bio-configurator ./cmd/configurator
+
+# Ubuntu/Linux desktop build (GUI enabled)
+sudo apt-get update -q
+sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libglfw3-dev libxkbcommon-dev
+
+CGO_ENABLED=1 go build -o viking-bio-configurator ./cmd/configurator
 # or
 make build
 ```
+
+For a headless-only build, use `CGO_ENABLED=0` or `make build-headless`. That intentionally disables the Fyne GUI and leaves the TUI-only path active.
 
 ## Run
 
@@ -106,18 +115,20 @@ sign each TCP telemetry frame with HMAC-SHA256.
 
 ### Building with GUI support on Linux
 
-The Fyne GUI requires a few native development libraries at compile time.  Install
-them before running `go build` on Linux:
+The Fyne GUI requires native C libraries at compile time. Install the Ubuntu/Linux desktop dependencies before building the GUI version:
 
 ```bash
-sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
+sudo apt-get update -q
+sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libglfw3-dev libxkbcommon-dev
 ```
 
-For cross-compilation and producing distribution packages, see the
-[Fyne packaging docs](https://docs.fyne.io/started/packaging) and
-[fyne-cross](https://github.com/fyne-io/fyne-cross).  In CI, add the above
-packages to the build step (or set `CGO_ENABLED=0` and build a static binary
-without GUI support where only the TUI path is needed).
+Then build with CGO enabled so the Fyne GUI code is included:
+
+```bash
+CGO_ENABLED=1 go build -o viking-bio-configurator ./cmd/configurator
+```
+
+The app checks `DISPLAY` and `WAYLAND_DISPLAY` before launching the Fyne window. When neither is set it remains in terminal/TUI mode. For headless-only builds, use `CGO_ENABLED=0` or `make build-headless` to intentionally disable the desktop GUI.
 
 ## Telemetry ingest
 

@@ -47,15 +47,15 @@ jobs:
 
     - name: go vet
       working-directory: configurator
-      run: CGO_ENABLED=0 go vet ./...
+      run: CGO_ENABLED=1 go vet ./...
 
     - name: go test
       working-directory: configurator
-      run: CGO_ENABLED=0 go test ./...
+      run: CGO_ENABLED=1 go test ./...
 
     - name: Build binary (linux/amd64)
       working-directory: configurator
-      run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-configurator ./cmd/configurator
+      run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o dist/linux_amd64/viking-bio-configurator ./cmd/configurator
 
     - name: "Smoke-test: ingest listener accepts signed telemetry"
       run: |
