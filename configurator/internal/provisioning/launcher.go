@@ -3,11 +3,14 @@
 package provisioning
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
@@ -76,7 +79,72 @@ func ShouldLaunchLocalUI(explicitPort string) bool {
 	return true
 }
 
-func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*server.State) error {
+func waitForConnection(ctx context.Context, connect func() error, portName string, pollInterval time.Duration, onConnected func()) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if pollInterval <= 0 {
+		pollInterval = 100 * time.Millisecond
+	}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			if err := connect(); err == nil {
+				if onConnected != nil {
+					onConnected()
+				}
+				return
+			}
+			if portName != "" {
+				log.Printf("serial: waiting for configured port %s to become available", portName)
+			}
+			timer := time.NewTimer(pollInterval)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+		}
+	}()
+}
+
+var ErrPortWatchActive = fmt.Errorf("provisioning: waiting for configured serial port")
+
+func startPortMonitor(ctx context.Context, cancel func(), bridge *serial.Bridge, store *storage.Store, telemetryState ...*server.State) {
+	waitForConnection(ctx, func() error {
+		return bridge.Connect()
+	}, bridge.PortName(), 2*time.Second, func() {
+		if displayAvailable() {
+			RunGUI(bridge, store, telemetryState...)
+			bridge.Disconnect()
+			if cancel != nil {
+				cancel()
+			}
+			return
+		}
+		if interactiveSession() {
+			NewTUI(bridge, store, telemetryState...).Run()
+			bridge.Disconnect()
+			if cancel != nil {
+				cancel()
+			}
+			return
+		}
+		if cancel != nil {
+			cancel()
+		}
+	})
+}
+
+func RunLocalUI(ctx context.Context, cancel func(), explicitPort string, store *storage.Store, telemetryState ...*server.State) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	port, err := resolvePort(explicitPort)
 	if err != nil {
 		if strings.TrimSpace(explicitPort) == "" && (displayAvailable() || interactiveSession()) {
@@ -93,6 +161,11 @@ func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*se
 
 	bridge := serial.New(port)
 	if err := bridge.Connect(); err != nil {
+		if strings.TrimSpace(explicitPort) != "" {
+			log.Printf("provisioning: configured port %s is unavailable; waiting for it to appear", port)
+			startPortMonitor(ctx, cancel, bridge, store, telemetryState...)
+			return ErrPortWatchActive
+		}
 		return err
 	}
 	defer bridge.Disconnect()
@@ -102,6 +175,9 @@ func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*se
 		return nil
 	}
 
-	NewTUI(bridge, store, telemetryState...).Run()
+	if interactiveSession() {
+		NewTUI(bridge, store, telemetryState...).Run()
+		return nil
+	}
 	return nil
 }
