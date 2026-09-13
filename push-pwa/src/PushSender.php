@@ -388,20 +388,17 @@ final class PushSender
             return true;
         }
 
-        // "very-low" is intentionally a broadcast priority: it should reach every
-        // subscriber on the target device, regardless of that subscriber's low/normal/high
-        // allowlist settings.
-        if ($requestedPriority === 'very-low') {
-            return true;
-        }
-
         if ($configuredLevel === null) {
             return true;
         }
 
+        // Heartbeat and other very-low notifications are lower than the UI's explicit
+        // low/normal/high preference model, so they must still respect a subscriber's
+        // allowlist instead of being broadcast to every client.
+        $effectivePriority = $requestedPriority === 'very-low' ? 'low' : $requestedPriority;
         $levels = PushStorage::normalizeNotificationLevels($configuredLevel);
 
-        return $levels[$requestedPriority] ?? false;
+        return $levels[$effectivePriority] ?? false;
     }
 
     private function isPermanentThrowableError(\Throwable $throwable): bool
