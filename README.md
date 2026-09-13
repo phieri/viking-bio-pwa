@@ -28,11 +28,16 @@ make -j$(nproc)
 
 ### Configurator
 
+On Ubuntu/Linux desktop systems, install the GUI dependencies before building the desktop app:
+
 ```bash
 cd configurator
-go build -o viking-bio-configurator ./cmd/configurator
+sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev libglfw3-dev libxkbcommon-dev
+CGO_ENABLED=1 go build -o viking-bio-configurator ./cmd/configurator
 ./viking-bio-configurator
 ```
+
+On headless/TTY systems, the app falls back to the terminal TUI automatically when `DISPLAY` and `WAYLAND_DISPLAY` are unset; the desktop GUI is only used when a graphical session is available.
 
 ### Push app
 
