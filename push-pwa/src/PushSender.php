@@ -64,6 +64,10 @@ final class PushSender
             return $safeFallback;
         }
 
+        if (str_starts_with($candidate, '//')) {
+            return $safeFallback;
+        }
+
         if (preg_match('/^[\/?#]/', $candidate) === 1) {
             return $candidate;
         }
@@ -392,13 +396,15 @@ final class PushSender
             return true;
         }
 
-        // Heartbeat and other very-low notifications are lower than the UI's explicit
-        // low/normal/high preference model, so they must still respect a subscriber's
-        // allowlist instead of being broadcast to every client.
-        $effectivePriority = $requestedPriority === 'very-low' ? 'low' : $requestedPriority;
-        $levels = PushStorage::normalizeNotificationLevels($configuredLevel);
+        // Very-low heartbeat and status notifications are intentionally broadcast to all
+        // subscribed clients for the target device, regardless of the per-subscriber
+        // low/normal/high preference. Higher-priority alerts still respect the allowlist.
+        if ($requestedPriority === 'very-low') {
+            return true;
+        }
 
-        return $levels[$effectivePriority] ?? false;
+        $levels = PushStorage::normalizeNotificationLevels($configuredLevel);
+        return $levels[$requestedPriority] ?? false;
     }
 
     private function isPermanentThrowableError(\Throwable $throwable): bool
