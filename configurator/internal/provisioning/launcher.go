@@ -4,10 +4,12 @@ package provisioning
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/phieri/viking-bio-pwa/configurator/internal/serial"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
@@ -76,6 +78,40 @@ func ShouldLaunchLocalUI(explicitPort string) bool {
 	return true
 }
 
+func waitForConnection(connect func() error, portName string, pollInterval time.Duration, onConnected func()) {
+	go func() {
+		for {
+			if err := connect(); err == nil {
+				if onConnected != nil {
+					onConnected()
+				}
+				return
+			}
+			if portName != "" {
+				log.Printf("serial: waiting for configured port %s to become available", portName)
+			}
+			if pollInterval > 0 {
+				time.Sleep(pollInterval)
+			}
+		}
+	}()
+}
+
+func startPortMonitor(bridge *serial.Bridge, store *storage.Store, telemetryState ...*server.State) {
+	waitForConnection(func() error {
+		return bridge.Connect()
+	}, bridge.PortName(), 2*time.Second, func() {
+		if displayAvailable() {
+			RunGUI(bridge, store, telemetryState...)
+			return
+		}
+		if interactiveSession() {
+			NewTUI(bridge, store, telemetryState...).Run()
+			return
+		}
+	})
+}
+
 func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*server.State) error {
 	port, err := resolvePort(explicitPort)
 	if err != nil {
@@ -93,6 +129,11 @@ func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*se
 
 	bridge := serial.New(port)
 	if err := bridge.Connect(); err != nil {
+		if strings.TrimSpace(explicitPort) != "" {
+			log.Printf("provisioning: configured port %s is unavailable; waiting for it to appear", port)
+			startPortMonitor(bridge, store, telemetryState...)
+			return nil
+		}
 		return err
 	}
 	defer bridge.Disconnect()
@@ -102,6 +143,9 @@ func RunLocalUI(explicitPort string, store *storage.Store, telemetryState ...*se
 		return nil
 	}
 
-	NewTUI(bridge, store, telemetryState...).Run()
+	if interactiveSession() {
+		NewTUI(bridge, store, telemetryState...).Run()
+		return nil
+	}
 	return nil
 }
