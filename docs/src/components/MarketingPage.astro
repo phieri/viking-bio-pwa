@@ -1,284 +1,35 @@
 ---
-import fs from 'node:fs';
-import path from 'node:path';
 import '../styles.css';
 const { lang, details, supportedLanguages } = Astro.props;
 const base = import.meta.env.BASE_URL;
 const sectionIds = ['overview', 'features', 'architecture', 'project'];
 if (details.nav.length !== sectionIds.length) {
-  throw new Error(`Locale navigation mismatch for ${lang}: expected ${sectionIds.length}, got ${details.nav.length}`);
+ throw new Error(`Locale navigation mismatch for ${lang}: expected ${sectionIds.length}, got ${details.nav.length}`);
 }
 const widget = details.widget ?? {
-  setup: 'Local setup',
-  bridge: 'Bridge',
-  online: 'Online',
-  telemetry: 'Telemetry',
-  signed: 'Signed',
-  config: 'Config',
-  ready: 'Ready',
-  wifi: 'Wi‑Fi',
-  stable: 'Stable',
-  fan: 'Fan',
-  flame: 'Flame',
-  healthy: 'Healthy',
-  state: 'State',
-  idle: 'Idle',
+ setup: 'Local setup',
+ bridge: 'Bridge',
+ online: 'Online',
+ telemetry: 'Telemetry',
+ signed: 'Signed',
+ config: 'Config',
+ ready: 'Ready',
+ wifi: 'Wi‑Fi',
+ stable: 'Stable',
+ fan: 'Fan',
+ flame: 'Flame',
+ healthy: 'Healthy',
+ state: 'State',
+ idle: 'Idle',
 };
 const architectureSteps = details.architectureSteps ?? [
-  'Burner serial data',
-  'Pico W / Pico 2 W firmware',
-  'Signed TCP ingest',
-  'Go runtime + local APIs',
-  'Browser notifications',
+ 'Burner serial data',
+ 'Pico W / Pico 2 W firmware',
+ 'Signed TCP ingest',
+ 'Go runtime + local APIs',
+ 'Browser notifications',
 ];
 const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, href: `${base}${code}/` }));
-const pushPwaDir = path.resolve(process.cwd(), '..', 'push-pwa', 'public');
-let pushPwaHtml = '';
-let pushPwaCss = '';
-let pushPwaJs = '';
-try {
-  pushPwaHtml = fs.readFileSync(path.join(pushPwaDir, 'index.html'), 'utf8');
-  pushPwaCss = fs.readFileSync(path.join(pushPwaDir, 'style.css'), 'utf8');
-  pushPwaJs = fs.readFileSync(path.join(pushPwaDir, 'app.js'), 'utf8');
-} catch (error) {
-  throw new Error(`Unable to load the push-pwa preview files from ${pushPwaDir}. Make sure the push-pwa app exists in the repository root.`, { cause: error });
-}
-const demoPreviewStyles = `
- .demo-toast-container {
-   position: fixed;
-   top: 0.75rem;
-   left: 50%;
-   transform: translateX(-50%);
-   display: flex;
-   flex-direction: column;
-   gap: 0.55rem;
-   width: min(22rem, calc(100vw - 2rem));
-   z-index: 100;
-   pointer-events: none;
- }
- .demo-toast {
-   background: rgba(15, 23, 42, 0.88);
-   border: 1px solid rgba(148, 163, 184, 0.25);
-   border-radius: 1rem;
-   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.28);
-   color: #f8fafc;
-   padding: 0.8rem 0.9rem 0.9rem;
-   backdrop-filter: blur(12px);
-   animation: demo-toast-in 0.28s ease-out forwards;
- }
- .demo-toast[data-tone="success"] { border-color: rgba(52, 211, 153, 0.4); }
- .demo-toast[data-tone="warning"] { border-color: rgba(251, 191, 36, 0.45); }
- .demo-toast[data-tone="info"] { border-color: rgba(59, 130, 246, 0.4); }
- .demo-toast-title {
-   font-size: 0.9rem;
-   font-weight: 700;
-   margin-bottom: 0.15rem;
- }
- .demo-toast-body {
-   font-size: 0.8rem;
-   color: rgba(226, 232, 240, 0.9);
-   line-height: 1.4;
- }
- .status.info {
-   color: #7dd3fc;
- }
- .status.warning {
-   color: #fbbf24;
- }
- @keyframes demo-toast-in {
-   from {
-     opacity: 0;
-     transform: translateY(-12px) scale(0.96);
-   }
-   to {
-     opacity: 1;
-     transform: translateY(0) scale(1);
-   }
- }
-`;
-
-const demoNotificationScript = `
-  window.addEventListener('DOMContentLoaded', function () {
-    const senderInput = document.getElementById('subscription-sender');
-    const languageSelect = document.getElementById('app-language');
-    const prioritySelect = document.getElementById('subscription-priority');
-    const lowLevel = document.getElementById('notification-level-low');
-    const normalLevel = document.getElementById('notification-level-normal');
-    const highLevel = document.getElementById('notification-level-high');
-    const yamlGenerator = document.getElementById('yaml-generator');
-    const installBanner = document.getElementById('install-banner');
-    const statusBox = document.getElementById('status');
-    const lastContact = document.getElementById('last-contact-status');
-    const rssi = document.getElementById('rssi-status');
-    const lfs = document.getElementById('lfs-status');
-    const sendTestButton = document.getElementById('send-test');
-
-    if (yamlGenerator) yamlGenerator.style.display = 'none';
-    if (installBanner) installBanner.style.display = 'none';
-    if (sendTestButton) sendTestButton.textContent = 'Live demo';
-    if (senderInput) senderInput.value = 'viking-bio-01';
-    if (languageSelect) languageSelect.value = 'en';
-    if (prioritySelect) prioritySelect.value = 'normal';
-    if (lowLevel) lowLevel.checked = false;
-    if (normalLevel) normalLevel.checked = true;
-    if (highLevel) highLevel.checked = false;
-
-    const demoState = window.__vikingBioDemoState || (window.__vikingBioDemoState = { timer: null, container: null, toastTimers: [], beforeUnloadHandler: null, astroBeforeSwapHandler: null, tick: 0 });
-    if (demoState.beforeUnloadHandler) {
-      window.removeEventListener('beforeunload', demoState.beforeUnloadHandler);
-    }
-    if (demoState.astroBeforeSwapHandler) {
-      document.removeEventListener('astro:before-swap', demoState.astroBeforeSwapHandler);
-    }
-    if (demoState.timer) {
-      clearInterval(demoState.timer);
-      demoState.timer = null;
-    }
-    if (demoState.container && demoState.container.parentNode) {
-      demoState.container.parentNode.removeChild(demoState.container);
-    }
-    if (demoState.toastTimers.length) {
-      for (const timer of demoState.toastTimers) {
-        clearTimeout(timer);
-      }
-      demoState.toastTimers = [];
-    }
-    const existingToastContainer = document.getElementById('demo-toast-container');
-    if (existingToastContainer && existingToastContainer !== demoState.container) {
-      existingToastContainer.remove();
-    }
-    demoState.container = document.createElement('div');
-    demoState.container.id = 'demo-toast-container';
-    demoState.container.className = 'demo-toast-container';
-    document.body.appendChild(demoState.container);
-    demoState.toastTimers = [];
-
-    function showToast(title, body, tone) {
-      const toast = document.createElement('div');
-      toast.className = 'demo-toast';
-      toast.dataset.tone = tone || 'info';
-      toast.style.transition = 'opacity 180ms ease';
-
-      const titleNode = document.createElement('div');
-      titleNode.className = 'demo-toast-title';
-      titleNode.textContent = title;
-
-      const bodyNode = document.createElement('div');
-      bodyNode.className = 'demo-toast-body';
-      bodyNode.textContent = body;
-
-      toast.appendChild(titleNode);
-      toast.appendChild(bodyNode);
-      demoState.container.appendChild(toast);
-
-      const fadeTimer = setTimeout(() => {
-        toast.style.opacity = '0';
-      }, 2300);
-      const removeTimer = setTimeout(() => toast.remove(), 2900);
-      demoState.toastTimers.push(fadeTimer, removeTimer);
-    }
-
-    const heartbeatSequence = [
-      {
-        label: 'just now',
-        rssi: 'RSSI: -62 dBm',
-        lfs: 'LittleFS: healthy',
-        status: 'Bridge online • heartbeat received just now.',
-        title: 'Heartbeat healthy',
-        body: 'Burner bridge is live and reporting stable operation.',
-        tone: 'success'
-      },
-      {
-        label: '14 seconds ago',
-        rssi: 'RSSI: -59 dBm',
-        lfs: 'LittleFS: healthy',
-        status: 'Bridge online • heartbeat received 14 seconds ago.',
-        title: 'Flame stable',
-        body: 'Heat output remains within normal limits.',
-        tone: 'info'
-      },
-      {
-        label: '2 minutes ago',
-        rssi: 'RSSI: -71 dBm',
-        lfs: 'LittleFS: healthy',
-        status: 'Bridge online • heartbeat received 2 minutes ago.',
-        title: 'Cleaning reminder',
-        body: 'Service reminder is ready for the next maintenance window.',
-        tone: 'warning'
-      },
-      {
-        label: '5 minutes ago',
-        rssi: 'RSSI: -68 dBm',
-        lfs: 'LittleFS: healthy',
-        status: 'Bridge online • heartbeat received 5 minutes ago.',
-        title: 'Normal operation',
-        body: 'No active burner alarms reported in the last cycle.',
-        tone: 'success'
-      }
-    ];
-
-    const cleanupDemo = () => {
-      if (demoState.timer) {
-        clearInterval(demoState.timer);
-        demoState.timer = null;
-      }
-      for (const timer of demoState.toastTimers) {
-        clearTimeout(timer);
-      }
-      demoState.toastTimers = [];
-      if (demoState.container) {
-        for (const toast of demoState.container.querySelectorAll('.demo-toast')) {
-          toast.remove();
-        }
-        if (demoState.container.parentNode) {
-          demoState.container.parentNode.removeChild(demoState.container);
-        }
-        demoState.container = null;
-      }
-    };
-
-    const demoToneStyleMap = {
-      warning: 'warning',
-      info: 'info',
-      success: 'success'
-    };
-
-    function applyDemoState(entry) {
-      if (lastContact) lastContact.textContent = 'Last device contact: ' + entry.label;
-      if (rssi) rssi.textContent = entry.rssi;
-      if (lfs) lfs.textContent = entry.lfs;
-      if (statusBox) {
-        const toneClass = Object.prototype.hasOwnProperty.call(demoToneStyleMap, entry.tone) ? entry.tone : 'success';
-        statusBox.textContent = entry.status;
-        statusBox.className = 'status ' + toneClass;
-      }
-      showToast(entry.title, entry.body, entry.tone);
-    }
-
-    demoState.tick = 0;
-    applyDemoState(heartbeatSequence[0]);
-    demoState.timer = setInterval(function () {
-      demoState.tick = (demoState.tick + 1) % heartbeatSequence.length;
-      applyDemoState(heartbeatSequence[demoState.tick]);
-    }, 4200);
-
-    demoState.beforeUnloadHandler = cleanupDemo;
-    demoState.astroBeforeSwapHandler = cleanupDemo;
-    window.addEventListener('beforeunload', demoState.beforeUnloadHandler);
-    document.addEventListener('astro:before-swap', demoState.astroBeforeSwapHandler);
-  });
-`;
-const safePushPwaJs = pushPwaJs.replaceAll('</script>', '<\\/script>');
-let notificationPreview = pushPwaHtml.replace(/<link[^>]+href=["']\/style\.css["'][^>]*>/i, `<style>${pushPwaCss}</style>`);
-if (notificationPreview === pushPwaHtml) {
-  throw new Error('Failed to inject the push-pwa stylesheet into the marketing preview. Expected a /style.css link in the app HTML.');
-}
-notificationPreview = notificationPreview.replace(/<head[^>]*>/i, `$&<style>${demoPreviewStyles}</style>`);
-const previewBeforeScriptInjection = notificationPreview;
-notificationPreview = notificationPreview.replace(/<script[^>]+src=["']\/app\.js["'][^>]*><\/script>/i, `<script>${safePushPwaJs}\n${demoNotificationScript}<\/script>`);
-if (notificationPreview === previewBeforeScriptInjection) {
-  throw new Error('Failed to inject the push-pwa script into the marketing preview. Expected a /app.js script tag in the app HTML.');
-}
 ---
 
 <html lang={lang}>
@@ -365,21 +116,6 @@ if (notificationPreview === previewBeforeScriptInjection) {
             <h3>{details.featureNetworkTitle}</h3>
             <p>{details.featureNetworkBody}</p>
           </article>
-        </div>
-      </section>
-
-      <section class="section notification-demo" aria-labelledby="notification-demo-heading">
-        <div class="notification-demo-layout">
-          <div class="notification-copy">
-            <div class="eyebrow">{details.notificationPreviewEyebrow ?? 'Notifications'}</div>
-            <h2 id="notification-demo-heading">{details.notificationPreviewTitle ?? 'A live preview of the browser notification app'}</h2>
-            <p>
-              {details.notificationPreviewBody ?? 'This demo shows the mobile notification interface used for burner alerts and reminder messages. It is a preview of the browser app that sends notifications to the operator.'}
-            </p>
-          </div>
-          <div class="phone-frame">
-            <iframe title="Browser notification preview" srcdoc={notificationPreview} sandbox="allow-scripts" loading="lazy"></iframe>
-          </div>
         </div>
       </section>
 
