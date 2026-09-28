@@ -42,8 +42,11 @@ final class VapidConfig
         }
 
         $dir = dirname($this->storagePath);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0700, true);
+        if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+            throw new \RuntimeException('Unable to create VAPID configuration directory');
+        }
+        if (is_link($this->storagePath) || (file_exists($this->storagePath) && !is_file($this->storagePath))) {
+            throw new \RuntimeException('VAPID configuration path must be a regular file');
         }
 
         if (file_exists($this->storagePath)) {
@@ -55,6 +58,7 @@ final class VapidConfig
                     $data = null;
                 }
                 if (is_array($data) && !empty($data['publicKey']) && !empty($data['privateKey'])) {
+                    $this->secureStorageFile();
                     return [
                         'publicKey' => (string) $data['publicKey'],
                         'privateKey' => (string) $data['privateKey'],
@@ -71,9 +75,25 @@ final class VapidConfig
             'subject' => $subject,
         ];
 
-        file_put_contents($this->storagePath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
-        chmod($this->storagePath, 0600);
+        $json = json_encode($config, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if (file_put_contents($this->storagePath, $json, LOCK_EX) === false) {
+            throw new \RuntimeException('Unable to write VAPID configuration');
+        }
+        $this->secureStorageFile();
 
         return $config;
+    }
+
+    private function secureStorageFile(): void
+    {
+        if (chmod($this->storagePath, 0600) !== false) {
+            return;
+        }
+
+        if (is_file($this->storagePath) && unlink($this->storagePath) === false) {
+            throw new \RuntimeException('Unable to secure VAPID configuration permissions or remove the unsecured file');
+        }
+
+        throw new \RuntimeException('Unable to secure VAPID configuration file permissions');
     }
 }

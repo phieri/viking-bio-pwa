@@ -54,7 +54,9 @@ final class ReminderState
             throw new \RuntimeException('Unable to write reminder state');
         }
 
-        chmod($this->path, 0600);
+        if (chmod($this->path, 0600) === false) {
+            throw new \RuntimeException('Unable to secure reminder state file permissions');
+        }
     }
 
     public function lastSentAt(): ?int

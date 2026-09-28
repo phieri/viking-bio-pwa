@@ -241,7 +241,7 @@ final class PushSender
             'body' => $body,
             'icon' => $icon ?? '/icon.svg',
             ...$extra,
-        ], JSON_UNESCAPED_SLASHES);
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     }
 
     /**
