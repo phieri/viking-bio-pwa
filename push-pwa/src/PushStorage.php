@@ -118,7 +118,9 @@ final class PushStorage
             return false;
         }
 
-        chmod($this->path, 0600);
+        if (chmod($this->path, 0600) === false) {
+            throw new \RuntimeException('Unable to secure subscription storage file permissions');
+        }
 
         return true;
     }

@@ -27,4 +27,14 @@ assertTrue(VikingBioPush\PushSender::normalizeUiTargetUrl('//evil.example', 'htt
 assertTrue(VikingBioPush\PushSender::normalizeUiTargetUrl('/status?device=a', 'https://ui.example') === '/status?device=a', 'same-origin relative links should be kept as-is');
 assertTrue(VikingBioPush\PushSender::normalizeUiTargetUrl('https://ui.example/status', 'https://ui.example') === 'https://ui.example/status', 'same-host absolute URLs should be accepted');
 
+$payloadMethod = new \ReflectionMethod(VikingBioPush\PushSender::class, 'buildPayload');
+$payloadMethod->setAccessible(true);
+$jsonErrorThrown = false;
+try {
+    $payloadMethod->invoke($instance, "\xFF", 'body', null, []);
+} catch (JsonException) {
+    $jsonErrorThrown = true;
+}
+assertTrue($jsonErrorThrown, 'invalid UTF-8 payloads should fail with a JSON exception');
+
 echo "PushSender validation checks passed\n";
