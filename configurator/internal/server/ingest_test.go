@@ -164,3 +164,32 @@ func TestProcessPayloadAppendsFallbackWhenPipelineUnavailable(t *testing.T) {
 		t.Fatal("expected fallback log entry to be written")
 	}
 }
+
+func TestProcessPayloadReturnsErrorWhenFallbackAppendFails(t *testing.T) {
+	t.Parallel()
+
+	dataDir := t.TempDir()
+	store, err := storage.NewStore(dataDir)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	if err := store.ProvisionDevice("pico-1234", "super-secret"); err != nil {
+		t.Fatalf("ProvisionDevice: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(dataDir, "ingest-fallback.log"), 0o700); err != nil {
+		t.Fatalf("create fallback path conflict: %v", err)
+	}
+
+	ingest := newTCPIngestServer(&config.Config{IngestTCPPort: 9000}, store, nil)
+	ingest.pipeline = nil
+	payload := signPayload(t, "super-secret", ingestcodec.Payload{
+		Device: "pico-1234",
+		Seq:    1,
+		TS:     time.Now().Unix(),
+		Data:   ingestcodec.TelemetryData{Valid: true},
+	})
+
+	if err := ingest.processPayload(payload, "[::1]:12345", time.Now()); err == nil {
+		t.Fatal("expected fallback append error to be returned")
+	}
+}

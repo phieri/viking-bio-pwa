@@ -348,7 +348,7 @@ func (s *tcpIngestServer) enqueueAcceptedPayload(payload ingestcodec.Payload, re
 	}
 	if err := s.store.AppendIngestFallback(buildIngestFallbackRecord(payload, remote, receivedAt)); err != nil {
 		log.Printf("ingest: failed to append fallback record: %v", err)
-		return nil
+		return fmt.Errorf("append ingest fallback: %w", err)
 	}
 	log.Printf("ingest: queued overflow fallback for device=%s seq=%d", payload.Device, payload.Seq)
 	return nil
