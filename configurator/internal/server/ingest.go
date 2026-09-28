@@ -211,6 +211,7 @@ func (s *tcpIngestServer) Start(ctx context.Context) error {
 		return fmt.Errorf("ingest listen: %w", err)
 	}
 	if s.cfg.IngestTCPTLS {
+		log.Printf("ingest: TLS is enabled; the Pico bridge TCP client does not support TLS and cannot connect")
 		if s.cfg.TLSCertPath == "" || s.cfg.TLSKeyPath == "" {
 			_ = ln.Close()
 			return fmt.Errorf("ingest TLS requires TLS_CERT_PATH and TLS_KEY_PATH")

@@ -36,10 +36,8 @@
 #define DNS_TYPE_SRV 33
 #define DNS_TYPE_AAAA 28
 
-/* Service type and instance name expected from the configurator */
-#define SERVICE_LABEL "_viking-bio._tcp"
-#define CONFIGURATOR_NAME "Viking Bio Configurator"
-#define CONFIGURATOR_FULL_NAME CONFIGURATOR_NAME "." SERVICE_LABEL ".local"
+/* Service type; the instance name is configurable on the Go side. */
+#define SERVICE_SUFFIX "._viking-bio._tcp.local"
 
 static char normalize_dns_name_char(char c) {
 	if (c >= 'A' && c <= 'Z')
@@ -76,22 +74,15 @@ static void normalize_dns_name(char *out, size_t out_size, const char *in) {
 	}
 }
 
-static const char *expected_service_name(void) {
-	static char expected[96] = {0};
-	static bool initialized = false;
-	if (!initialized) {
-		normalize_dns_name(expected, sizeof(expected), CONFIGURATOR_FULL_NAME);
-		initialized = true;
-	}
-	return expected;
-}
-
 static bool service_name_matches(const char *name) {
 	if (name == NULL)
 		return false;
 	char normalized[96] = {0};
 	normalize_dns_name(normalized, sizeof(normalized), name);
-	return strcmp(normalized, expected_service_name()) == 0;
+	size_t name_len = strlen(normalized);
+	size_t suffix_len = strlen(SERVICE_SUFFIX);
+	return name_len > suffix_len &&
+		   strcmp(normalized + name_len - suffix_len, SERVICE_SUFFIX) == 0;
 }
 
 /* Maximum DNS records scanned in a single response */

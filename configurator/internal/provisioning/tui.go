@@ -390,7 +390,7 @@ func (t *TUI) setWebhook() {
 		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+	if !strings.HasPrefix(url, "http://") {
 		t.printStatusBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
 		return
 	}
@@ -420,11 +420,15 @@ func (t *TUI) provisionDeviceKey() {
 		t.printStatusBox("status", []string{t.localizer.Text("error.generating_key", err.Error())})
 		return
 	}
+	if err := t.bridge.SendConfirmedCommand("DEVICEKEY="+key, "telemetry: device key saved – reboot to apply"); err != nil {
+		t.printStatusBox("status", []string{err.Error()})
+		return
+	}
+	t.appendLog("→ DEVICEKEY=*** (confirmed)")
 	if err := t.store.ProvisionDevice(status.DeviceID, key); err != nil {
 		t.printStatusBox("status", []string{t.localizer.Text("error.storing_key", err.Error())})
 		return
 	}
-	t.sendAndPrint("DEVICEKEY=" + key)
 	t.printStatusBox("status", []string{t.localizer.Text("tui.telemetry_provisioned", status.DeviceID)})
 }
 

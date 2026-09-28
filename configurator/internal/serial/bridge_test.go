@@ -4,6 +4,26 @@ package serial
 
 import "testing"
 
+func TestConfirmedResponse(t *testing.T) {
+	t.Parallel()
+	confirmation := "telemetry: device key saved – reboot to apply"
+	for _, tc := range []struct {
+		name  string
+		lines []string
+		want  bool
+	}{
+		{"success", []string{"noise", "  " + confirmation}, true},
+		{"failure", []string{"telemetry: ERROR saving device key"}, false},
+		{"no reply", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := confirmedResponse(tc.lines, confirmation); got != tc.want {
+				t.Fatalf("confirmedResponse() = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseStatusHandlesRuntimeFields(t *testing.T) {
 	t.Parallel()
 

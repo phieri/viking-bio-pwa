@@ -14,7 +14,9 @@ void http_webhook_init(void);
 
 /**
  * Override the configured webhook URL for the next request cycle.
- * @param url Absolute HTTP(S) webhook URL
+ * @param url Absolute HTTP(S) webhook URL. HTTPS delivery is currently disabled
+ *            rather than falling back to unencrypted TCP: this firmware does not
+ *            provision CA trust anchors or a trusted wall clock for verification.
  */
 void http_webhook_set_url(const char *url);
 
@@ -34,7 +36,8 @@ void http_webhook_send_alert(const vikingbio_data_t *data, const char *type, con
 
 /**
  * Poll the outbound webhook client state machine. Must be called repeatedly from the
- * main loop while Wi-Fi is up.
+ * main loop while Wi-Fi is up, outside the CYW43 lwIP lock (which this function
+ * acquires internally).
  */
 void http_webhook_poll(void);
 

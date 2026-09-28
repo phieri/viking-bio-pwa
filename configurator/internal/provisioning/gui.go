@@ -307,7 +307,7 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				return
 			}
 			url := strings.TrimSpace(urlEntry.Text)
-			if url == "" || (!strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://")) {
+			if !strings.HasPrefix(url, "http://") {
 				dialog.ShowError(localizedError(localizer, "error.invalid_webhook"), provisioningWindow)
 				return
 			}
@@ -349,20 +349,16 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				dialog.ShowError(err, provisioningWindow)
 				return
 			}
-			if err := store.ProvisionDevice(status.DeviceID, key); err != nil {
-				appendLog(localizer.Text("error.storing_key", err.Error()))
-				dialog.ShowError(err, provisioningWindow)
-				return
-			}
 			appendLog("→ DEVICEKEY=*** (sending to device)")
-			lines, err := bridge.SendCommand("DEVICEKEY=" + key)
-			if err != nil {
+			if err := bridge.SendConfirmedCommand("DEVICEKEY="+key, "telemetry: device key saved – reboot to apply"); err != nil {
 				appendLog("Error: " + err.Error())
 				dialog.ShowError(err, provisioningWindow)
 				return
 			}
-			for _, l := range lines {
-				appendLog("  " + l)
+			if err := store.ProvisionDevice(status.DeviceID, key); err != nil {
+				appendLog(localizer.Text("error.storing_key", err.Error()))
+				dialog.ShowError(err, provisioningWindow)
+				return
 			}
 			msg := localizer.Text("tui.telemetry_provisioned", status.DeviceID)
 			appendLog(msg)

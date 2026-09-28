@@ -36,7 +36,7 @@ volatile uint32_t event_flags = 0;
 
 #define LED_BLINK_INTERVAL_MS 250
 #define SERIAL_LED_BLINK_MS 50
-#define USB_COMMAND_BUFFER_SIZE 160
+#define USB_COMMAND_BUFFER_SIZE (sizeof(USB_WEBHOOK_PREFIX) + WIFI_WEBHOOK_URL_MAX_LEN)
 #define WIFI_CONNECT_TIMEOUT_MS 30000
 #define WIFI_RETRY_INITIAL_MS 1000U
 #define WIFI_RETRY_MAX_MS (24U * 60U * 60U * 1000U)
@@ -115,8 +115,10 @@ static void led_update(void) {
 // --- USB serial configuration ---
 static char s_usb_buf[USB_COMMAND_BUFFER_SIZE];
 static size_t s_usb_buf_len = 0;
+static bool s_usb_discard_line = false;
 static char s_pending_ssid[WIFI_SSID_MAX_LEN + 1];
 static bool s_has_pending_ssid = false;
+static vikingbio_stream_t s_uart_stream;
 
 typedef bool (*usb_command_handler_fn)(const char *arg);
 
@@ -222,8 +224,12 @@ static bool handle_device_key_command(const char *arg) {
 }
 
 static bool handle_webhook_command(const char *arg) {
-	if (strncmp(arg, "http://", 7) != 0 && strncmp(arg, "https://", 8) != 0) {
-		printf("notifications: webhook URL must start with http:// or https://\n");
+	if (strncmp(arg, "https://", 8) == 0) {
+		printf("notifications: HTTPS unavailable until CA trust and trusted time are provisioned\n");
+		return false;
+	}
+	if (strncmp(arg, "http://", 7) != 0) {
+		printf("notifications: webhook URL must start with http://\n");
 		return false;
 	}
 	if (wifi_config_save_webhook_url(arg)) {
@@ -326,13 +332,23 @@ static bool process_usb_commands(void) {
 		if (c == '\r') {
 			continue;
 		}
+		if (s_usb_discard_line) {
+			if (c == '\n') {
+				s_usb_discard_line = false;
+			}
+			continue;
+		}
 
-		if (c == '\n' || s_usb_buf_len >= sizeof(s_usb_buf) - 1) {
+		if (c == '\n') {
 			s_usb_buf[s_usb_buf_len] = '\0';
 			s_usb_buf_len = 0;
 			if (handle_usb_command(s_usb_buf)) {
 				return true;
 			}
+		} else if (s_usb_buf_len >= sizeof(s_usb_buf) - 1) {
+			s_usb_buf_len = 0;
+			s_usb_discard_line = true;
+			printf("usb: command too long\n");
 		} else {
 			s_usb_buf[s_usb_buf_len++] = (char)c;
 		}
@@ -448,6 +464,7 @@ static void init_bridge_components(void) {
 
 	printf("Initializing protocol parser...\n");
 	vikingbio_init();
+	vikingbio_stream_init(&s_uart_stream);
 
 	printf("Initializing serial handler...\n");
 	serial_handler_init();
@@ -563,12 +580,30 @@ static void init_periodic_timer(struct repeating_timer *timer) {
 	}
 }
 
+static void accept_serial_data(const vikingbio_data_t *data, bool wifi_up,
+							   bool *timeout_triggered, bool *flame_on) {
+	*timeout_triggered = false;
+	*flame_on = data->flame_detected;
+	if (wifi_up && http_webhook_is_configured()) {
+		if (data->flame_detected != s_last_webhook_flame) {
+			http_webhook_send_alert(data, "flame",
+							data->flame_detected ? "on" : "off");
+			s_last_webhook_flame = data->flame_detected;
+		}
+		if (data->error_code != 0U && data->error_code != s_last_webhook_error) {
+			http_webhook_send_alert(data, "error", "detected");
+			s_last_webhook_error = data->error_code;
+		} else if (data->error_code == 0U) {
+			s_last_webhook_error = 0U;
+		}
+	}
+	if (wifi_up) {
+		tcp_client_send_data(data);
+	}
+}
+
 static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up,
 							   bool *timeout_triggered, bool *flame_on) {
-	if (!serial_handler_data_available()) {
-		return;
-	}
-
 	size_t bytes = serial_handler_read(buffer, buffer_size);
 	if (bytes == 0) {
 		return;
@@ -577,28 +612,11 @@ static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up
 	s_serial_blink_end = make_timeout_time_ms(SERIAL_LED_BLINK_MS);
 	bridge_status_led_set_state(true);
 
-	vikingbio_data_t new_data;
-	if (!vikingbio_parse_data(buffer, bytes, &new_data)) {
-		return;
-	}
-
-	*timeout_triggered = false;
-	*flame_on = new_data.flame_detected;
-	if (wifi_up && http_webhook_is_configured()) {
-		if (new_data.flame_detected != s_last_webhook_flame) {
-			http_webhook_send_alert(&new_data, "flame",
-							new_data.flame_detected ? "on" : "off");
-			s_last_webhook_flame = new_data.flame_detected;
+	for (size_t i = 0; i < bytes; i++) {
+		vikingbio_data_t data;
+		if (vikingbio_stream_push(&s_uart_stream, buffer[i], &data)) {
+			accept_serial_data(&data, wifi_up, timeout_triggered, flame_on);
 		}
-		if (new_data.error_code != 0U && new_data.error_code != s_last_webhook_error) {
-			http_webhook_send_alert(&new_data, "error", "detected");
-			s_last_webhook_error = new_data.error_code;
-		} else if (new_data.error_code == 0U) {
-			s_last_webhook_error = 0U;
-		}
-	}
-	if (wifi_up) {
-		tcp_client_send_data(&new_data);
 	}
 }
 
@@ -631,8 +649,8 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 	if (wifi_up) {
 		cyw43_arch_lwip_begin();
 		tcp_client_poll();
-		http_webhook_poll();
 		cyw43_arch_lwip_end();
+		http_webhook_poll();
 	}
 }
 

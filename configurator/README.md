@@ -74,6 +74,12 @@ MDNS_NAME=Viking Bio Configurator
 
 The bridge owns outbound webhook delivery during runtime; the configurator stays
 responsible for provisioning the Pico and managing the local USB setup flow.
+The Pico's signed TCP client does not support TLS. Leave `INGEST_TCP_TLS=false`
+for a direct Pico connection; enabling it prevents the Pico from connecting.
+The Pico webhook does not yet implement certificate-verified HTTPS, so HTTPS
+targets are rejected during USB provisioning rather than sent over plaintext
+TCP. HTTP is only appropriate for testing on an isolated, trusted local
+network; do not send a webhook token across an untrusted network.
 
 ## TLS / HTTPS
 
@@ -112,6 +118,9 @@ The configurator allows you to:
 Provisioning stores the configurator-side device secret in `<DATA_DIR>/devices.json`
 and sends the same key to the Pico over USB. The Pico then uses that key to
 sign each TCP telemetry frame with HMAC-SHA256.
+The configurator requires the Pico's success response before saving its copy of
+the key. Power-cycle the Pico after setting its key, server, port, country, or
+webhook URL; those values are loaded when the firmware starts.
 
 ### Building with GUI support on Linux
 
@@ -166,9 +175,13 @@ Pico devices always discover a local-network address.  If no ULA or link-local
 addresses are found the configurator falls back to advertising all addresses and logs
 a warning.
 
-The Pico-bridge DNS-SD browser applies the same policy when selecting an
-address from an mDNS announcement: it prefers link-local, then ULA, and
-ignores packets that carry only global IPv6 addresses.
+The Pico-bridge DNS-SD browser accepts any instance name under
+`_viking-bio._tcp.local`, including a customised `MDNS_NAME`. It applies the
+same local-address policy when selecting an address from an mDNS announcement:
+it prefers link-local, then ULA, and ignores packets carrying only global IPv6
+addresses. The Pico only listens for unsolicited announcements containing the
+service record and address in the same packet; confirm multicast reachability
+on the actual network if discovery does not occur.
 
 ## Running as a systemd Service
 

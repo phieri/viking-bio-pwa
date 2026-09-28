@@ -37,4 +37,31 @@ try {
 }
 assertTrue($jsonErrorThrown, 'invalid UTF-8 payloads should fail with a JSON exception');
 
+$subscriptionPath = __DIR__ . '/.subscriptions-' . bin2hex(random_bytes(6)) . '.yaml';
+try {
+    $storage = new VikingBioPush\PushStorage($subscriptionPath);
+    $endpoint = 'https://push.example/subscriber?name=quoted"device';
+    file_put_contents($subscriptionPath, "subscriptions:\n"
+        . '  - endpoint: ' . json_encode($endpoint, JSON_UNESCAPED_SLASHES) . "\n"
+        . "    keys:\n"
+        . "      p256dh: \"public-key\"\n"
+        . "      auth: \"auth-key\"\n"
+        . "    sender: \"viking-bio-01\"\n"
+        . "    language: \"en\"\n"
+        . "    notificationLevel:\n"
+        . "      low: true\n"
+        . "      normal: true\n"
+        . "      high: false\n"
+        . "    uiUrl: \"https://ui.example\"\n");
+    $subscriptions = $storage->all();
+    assertTrue(count($subscriptions) === 1, 'manually pasted YAML snippet should produce one subscription');
+    assertTrue($subscriptions[0]['endpoint'] === $endpoint, 'JSON-quoted YAML scalar should preserve punctuation');
+    assertTrue($subscriptions[0]['keys']['auth'] === 'auth-key', 'manual YAML should preserve subscription keys');
+    assertTrue($subscriptions[0]['notificationLevel']['high'] === false, 'manual YAML should preserve notification levels');
+} finally {
+    if (is_file($subscriptionPath)) {
+        unlink($subscriptionPath);
+    }
+}
+
 echo "PushSender validation checks passed\n";

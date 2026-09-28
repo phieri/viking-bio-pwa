@@ -30,7 +30,7 @@ const MESSAGES = {
     priorityNormal: 'normal',
     priorityHigh: 'high',
     sendTest: 'Send test alert',
-    yamlHelp: 'Generate a single YAML snippet for a client subscription and paste it into the subscription file manually.',
+    yamlHelp: 'Generate a client snippet and ask the server operator to paste it under subscriptions: in storage/subscriptions.yaml.',
     generateYaml: 'Generate client YAML',
     copyYaml: 'Copy YAML',
     yamlAria: 'Subscription YAML snippet',
@@ -373,7 +373,7 @@ function applyHeartbeatUpdate(payload) {
     return;
   }
 
-  const rssiValue = Number.isFinite(Number(payload.rssi)) ? Number(payload.rssi) : null;
+  const rssiValue = payload.rssi !== null && Number.isFinite(Number(payload.rssi)) ? Number(payload.rssi) : null;
   const lfsHealth = Object.prototype.hasOwnProperty.call(payload, 'lfsHealth') ? payload.lfsHealth : null;
   const rawTimestamp = Number(payload.timestamp);
   const stamp = Number.isFinite(rawTimestamp) ? new Date(rawTimestamp) : new Date();
@@ -424,12 +424,36 @@ async function loadLastContactStatus() {
     return;
   }
 
-  lastContactBox.textContent = t('waitingHeartbeat');
-  lastContactBox.dataset.state = 'waiting';
-  rssiBox.textContent = t('waitingRssi');
-  rssiBox.dataset.state = 'waiting';
-  lfsBox.textContent = t('waitingLfs');
-  lfsBox.dataset.state = 'waiting';
+  try {
+    const response = await fetch('/status.php', {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      throw new Error(t('loadHeartbeatError'));
+    }
+
+    const status = await response.json();
+    if (latestHeartbeatPayload) {
+      return;
+    }
+    if (status.lastContact !== null && Number.isFinite(status.lastContact) && status.lastContact > 0) {
+      applyHeartbeatUpdate({
+        type: 'heartbeat',
+        timestamp: status.lastContact,
+        rssi: status.lastRssi,
+        lfsHealth: status.lastLfsHealth,
+      });
+    } else {
+      lastContactBox.textContent = t('noHeartbeatYet');
+      lastContactBox.dataset.state = 'empty';
+    }
+  } catch (error) {
+    if (!latestHeartbeatPayload) {
+      lastContactBox.textContent = t('heartbeatUnavailable');
+      lastContactBox.dataset.state = 'error';
+    }
+  }
 }
 
 async function loadConfig() {
@@ -496,19 +520,20 @@ function getNotificationLevels() {
 function buildSubscriptionYaml(subscription) {
   const keys = subscription.toJSON ? subscription.toJSON().keys : subscription.keys || {};
   const sender = (senderInput.value || '').trim();
-  return {
-    subscriptions: [{
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: keys.p256dh || '',
-        auth: keys.auth || '',
-      },
-      sender,
-      language: currentLanguage,
-      notificationLevel: getNotificationLevels(),
-      uiUrl,
-    }],
-  };
+  const levels = getNotificationLevels();
+  return [
+    `  - endpoint: ${JSON.stringify(subscription.endpoint)}`,
+    '    keys:',
+    `      p256dh: ${JSON.stringify(keys.p256dh || '')}`,
+    `      auth: ${JSON.stringify(keys.auth || '')}`,
+    `    sender: ${JSON.stringify(sender)}`,
+    `    language: ${JSON.stringify(currentLanguage)}`,
+    '    notificationLevel:',
+    `      low: ${levels.low}`,
+    `      normal: ${levels.normal}`,
+    `      high: ${levels.high}`,
+    `    uiUrl: ${JSON.stringify(uiUrl)}`,
+  ].join('\n');
 }
 
 async function enableNotifications() {
@@ -550,8 +575,7 @@ async function enableNotifications() {
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     });
 
-    const payload = buildSubscriptionYaml(subscription);
-    subscriptionYaml.value = JSON.stringify(payload, null, 2);
+    subscriptionYaml.value = buildSubscriptionYaml(subscription);
     setStatus(t('generatedYaml'), 'success');
   } catch (error) {
     setStatus(errorMessage(error, t('loadConfigError')), 'error');
@@ -659,3 +683,4 @@ installButton.addEventListener('click', async () => {
 
 enablePushButton.addEventListener('click', enableNotifications);
 sendTestButton.addEventListener('click', sendTestAlert);
+loadLastContactStatus();

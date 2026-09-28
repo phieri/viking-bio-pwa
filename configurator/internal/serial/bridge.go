@@ -194,6 +194,27 @@ func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
 	return lines, nil
 }
 
+// SendConfirmedCommand requires the Pico's success response, not just a successful USB write.
+func (b *Bridge) SendConfirmedCommand(cmd, confirmation string) error {
+	lines, err := b.SendCommand(cmd)
+	if err != nil {
+		return err
+	}
+	if confirmedResponse(lines, confirmation) {
+		return nil
+	}
+	return fmt.Errorf("serial: Pico did not confirm command")
+}
+
+func confirmedResponse(lines []string, confirmation string) bool {
+	for _, line := range lines {
+		if strings.TrimSpace(line) == confirmation {
+			return true
+		}
+	}
+	return false
+}
+
 // GetStatus sends the STATUS command and parses the result.
 func (b *Bridge) GetStatus() (StatusResult, error) {
 	lines, err := b.SendCommand("STATUS")

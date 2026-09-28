@@ -206,6 +206,53 @@ bool vikingbio_parse_data(const uint8_t *buffer, size_t length, vikingbio_data_t
     return vikingbio_detect_and_parse(&g_default_context, buffer, length, data);
 }
 
+void vikingbio_stream_init(vikingbio_stream_t *stream) {
+    if (stream != NULL) {
+        memset(stream, 0, sizeof(*stream));
+    }
+}
+
+bool vikingbio_stream_push(vikingbio_stream_t *stream, uint8_t byte, vikingbio_data_t *data) {
+    if (stream == NULL || data == NULL) {
+        return false;
+    }
+    bool parsed = false;
+    if (stream->binary_len == 0 && byte == VIKINGBIO_BINARY_START_BYTE) {
+        stream->binary[stream->binary_len++] = byte;
+    } else if (stream->binary_len > 0) {
+        stream->binary[stream->binary_len++] = byte;
+        if (stream->binary_len == sizeof(stream->binary)) {
+            parsed = vikingbio_parse_data(stream->binary, stream->binary_len, data);
+            stream->binary_len = 0;
+            if (!parsed) {
+                for (size_t j = 1; j < sizeof(stream->binary); j++) {
+                    if (stream->binary[j] == VIKINGBIO_BINARY_START_BYTE) {
+                        stream->binary_len = sizeof(stream->binary) - j;
+                        memmove(stream->binary, stream->binary + j, stream->binary_len);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (byte == '\n' || byte == '\r') {
+        if (stream->text_len > 0 && !parsed) {
+            parsed = vikingbio_parse_data(stream->text, stream->text_len, data);
+        }
+        stream->text_len = 0;
+    } else if (byte >= 0x20 && byte <= 0x7e) {
+        if (stream->text_len < sizeof(stream->text) - 1) {
+            stream->text[stream->text_len++] = byte;
+        } else {
+            stream->text_len = 0;
+        }
+    } else {
+        stream->text_len = 0;
+    }
+    return parsed;
+}
+
 void vikingbio_get_current_data(vikingbio_data_t *data) {
     if (data == NULL) {
         return;
@@ -221,5 +268,4 @@ bool vikingbio_is_data_stale(uint32_t timeout_ms) {
     const uint32_t elapsed = now - g_default_context.last_success_ms;
     return elapsed >= timeout_ms;
 }
-
 
