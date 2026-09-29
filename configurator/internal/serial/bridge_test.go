@@ -2,7 +2,47 @@
 
 package serial
 
-import "testing"
+import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"math/big"
+	"testing"
+	"time"
+)
+
+func TestParseWebhookCA(t *testing.T) {
+	t.Parallel()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := x509.CreateCertificate(rand.Reader, &x509.Certificate{
+		SerialNumber: big.NewInt(1), IsCA: true, BasicConstraintsValid: true,
+		KeyUsage: x509.KeyUsageCertSign, NotBefore: time.Now().Add(-time.Hour),
+		NotAfter: time.Now().Add(time.Hour),
+	}, &x509.Certificate{
+		SerialNumber: big.NewInt(1), IsCA: true, BasicConstraintsValid: true,
+		KeyUsage: x509.KeyUsageCertSign,
+	}, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range [][]byte{cert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert})} {
+		got, err := ParseWebhookCA(input)
+		if err != nil || string(got) != string(cert) {
+			t.Fatalf("ParseWebhookCA(valid) = %x, %v", got, err)
+		}
+	}
+	for _, input := range [][]byte{nil, []byte("not a certificate"), make([]byte, maxWebhookCACertBytes+1),
+		append(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert}), []byte("extra")...)} {
+		if _, err := ParseWebhookCA(input); err == nil {
+			t.Fatalf("ParseWebhookCA should reject invalid input of length %d", len(input))
+		}
+	}
+}
 
 func TestConfirmedResponse(t *testing.T) {
 	t.Parallel()
@@ -37,6 +77,7 @@ func TestParseStatusHandlesRuntimeFields(t *testing.T) {
 		"  device:  pico-1234",
 		"  device key: (set)",
 		"  webhook: not set",
+		"  webhook CA: (set)",
 		"  telemetry: active",
 	})
 
@@ -63,6 +104,9 @@ func TestParseStatusHandlesRuntimeFields(t *testing.T) {
 	}
 	if status.Webhook != "not set" {
 		t.Fatalf("expected webhook marker, got %q", status.Webhook)
+	}
+	if status.WebhookCA != "(set)" {
+		t.Fatalf("expected webhook CA marker, got %q", status.WebhookCA)
 	}
 	if status.Telemetry != "active" {
 		t.Fatalf("expected telemetry active, got %q", status.Telemetry)

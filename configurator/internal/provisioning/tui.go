@@ -223,6 +223,8 @@ func (t *TUI) printMenu() {
 	fmt.Println(color("  6.", colorYellow) + " " + t.localizer.Text("menu.option6"))
 	fmt.Println(color("  7.", colorYellow) + " " + t.localizer.Text("menu.option7"))
 	fmt.Println(color("  8.", colorYellow) + " " + t.localizer.Text("menu.option8"))
+	fmt.Println(color("  9.", colorYellow) + " " + t.localizer.Text("menu.option9"))
+	fmt.Println(color(" 10.", colorYellow) + " " + t.localizer.Text("menu.option10"))
 	fmt.Println(color("  0.", colorRed) + " " + t.localizer.Text("menu.option0"))
 	fmt.Println()
 }
@@ -287,6 +289,9 @@ func formatDeviceStatus(localizer provisioningLocalizer, status *serial.StatusRe
 	}
 	if status.Webhook != "" {
 		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.webhook")+":", normaliseConfiguredValue(status.Webhook)))
+	}
+	if status.WebhookCA != "" {
+		sb.WriteString(fmt.Sprintf("%s%-10s %s\n", prefix, localizer.Text("field.webhook_ca")+":", status.WebhookCA))
 	}
 	return strings.TrimRight(sb.String(), "\n")
 }
@@ -390,11 +395,44 @@ func (t *TUI) setWebhook() {
 		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
-	if !strings.HasPrefix(url, "http://") {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		t.printStatusBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
 		return
 	}
-	t.sendAndPrint("WEBHOOK=" + url)
+	if err := t.bridge.SendConfirmedCommand("WEBHOOK="+url, "notifications: webhook URL saved – reboot to apply"); err != nil {
+		t.printStatusBox("status", []string{err.Error()})
+		return
+	}
+	t.printStatusBox("status", []string{t.localizer.Text("tui.webhook_saved")})
+}
+
+func (t *TUI) setWebhookCA() {
+	path := t.readLine(t.localizer.Text("tui.webhook_ca_prompt"))
+	if path == "" {
+		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err == nil {
+		err = t.bridge.ProvisionWebhookCA(data)
+	}
+	if err != nil {
+		t.printStatusBox("status", []string{err.Error()})
+		return
+	}
+	t.printStatusBox("status", []string{t.localizer.Text("tui.webhook_ca_saved")})
+}
+
+func (t *TUI) clearWebhookCA() {
+	if t.readLine(t.localizer.Text("tui.webhook_ca_clear_confirm")) != "YES" {
+		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
+		return
+	}
+	if err := t.bridge.ClearWebhookCA(); err != nil {
+		t.printStatusBox("status", []string{err.Error()})
+		return
+	}
+	t.printStatusBox("status", []string{t.localizer.Text("tui.webhook_ca_cleared")})
 }
 
 func randomDeviceKey() (string, error) {
@@ -471,6 +509,10 @@ func (t *TUI) Run() {
 			t.clearCredentials()
 		case "8":
 			t.showTelemetry()
+		case "9":
+			t.setWebhookCA()
+		case "10":
+			t.clearWebhookCA()
 		case "0", "q", "quit", "exit":
 			t.printStatusBox("status", []string{t.localizer.Text("tui.bye")})
 			return

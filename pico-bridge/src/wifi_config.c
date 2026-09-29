@@ -9,6 +9,7 @@
 #include "pico/unique_id.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/sha256.h"
+#include "mbedtls/x509_crt.h"
 #include "wifi_config.h"
 #include "lfs_hal.h"
 
@@ -18,6 +19,7 @@
 #define WIFI_SERVER_FILE       "/server.dat"
 #define WIFI_DEVICE_KEY_FILE   "/device_key.dat"
 #define WIFI_WEBHOOK_URL_FILE  "/webhook_url.dat"
+#define WIFI_WEBHOOK_CA_FILE   "/webhook_ca.der"
 #define WIFI_BOOT_COUNTER_FILE "/boot_counter.dat"
 
 #define WIFI_CONFIG_MAGIC 0x57494649U  // "WIFI"
@@ -208,6 +210,9 @@ void wifi_config_clear(void) {
 	if (!lfs_hal_delete_file(WIFI_WEBHOOK_URL_FILE)) {
 		printf("wifi_config: WARNING failed to delete %s\n", WIFI_WEBHOOK_URL_FILE);
 	}
+	if (!wifi_config_clear_webhook_ca()) {
+		printf("wifi_config: ERROR clearing webhook CA\n");
+	}
 	if (!lfs_hal_delete_file(WIFI_BOOT_COUNTER_FILE)) {
 		printf("wifi_config: WARNING failed to delete %s\n", WIFI_BOOT_COUNTER_FILE);
 	}
@@ -362,8 +367,37 @@ bool wifi_config_save_webhook_url(const char *url) {
 		printf("wifi_config: ERROR saving webhook URL\n");
 		return false;
 	}
+
 	printf("wifi_config: webhook URL saved\n");
 	return true;
+}
+
+bool wifi_config_validate_webhook_ca(const uint8_t *der, size_t len) {
+	if (!der || len == 0 || len > WIFI_WEBHOOK_CA_MAX_LEN) return false;
+	mbedtls_x509_crt cert;
+	mbedtls_x509_crt_init(&cert);
+	bool valid = mbedtls_x509_crt_parse_der(&cert, der, len) == 0 &&
+				 cert.next == NULL && cert.raw.len == len &&
+				 cert.ca_istrue && (cert.key_usage & MBEDTLS_X509_KU_KEY_CERT_SIGN);
+	mbedtls_x509_crt_free(&cert);
+	return valid;
+}
+
+bool wifi_config_load_webhook_ca(uint8_t *der, size_t capacity, size_t *len) {
+	if (!der || !len || capacity < WIFI_WEBHOOK_CA_MAX_LEN + 1) return false;
+	int n = lfs_hal_read_file(WIFI_WEBHOOK_CA_FILE, der, WIFI_WEBHOOK_CA_MAX_LEN + 1);
+	if (n <= 0 || !wifi_config_validate_webhook_ca(der, (size_t)n)) return false;
+	*len = (size_t)n;
+	return true;
+}
+
+bool wifi_config_save_webhook_ca(const uint8_t *der, size_t len) {
+	return wifi_config_validate_webhook_ca(der, len) &&
+		   lfs_hal_write_file(WIFI_WEBHOOK_CA_FILE, der, len);
+}
+
+bool wifi_config_clear_webhook_ca(void) {
+	return lfs_hal_delete_file(WIFI_WEBHOOK_CA_FILE);
 }
 
 bool wifi_config_get_device_id(char *device_id, size_t len) {

@@ -13,8 +13,13 @@
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/tcp.h"
+#include "lwip/altcp.h"
+#include "lwip/altcp_tcp.h"
+#include "lwip/altcp_tls.h"
+#include "mbedtls/ssl.h"
 
 #include "http_webhook.h"
+#include "http_webhook_hostname.h"
 #include "http_webhook_response.h"
 #include "lfs_hal.h"
 #include "wifi_config.h"
@@ -34,11 +39,15 @@ typedef enum {
 	WEBHOOK_STATE_RETRY_WAIT,
 } http_webhook_state_t;
 
-static struct tcp_pcb *s_pcb = NULL;
+static struct altcp_pcb *s_pcb = NULL;
+static struct altcp_tls_config *s_tls_config = NULL;
+static uint8_t s_ca[WIFI_WEBHOOK_CA_MAX_LEN + 1];
+static size_t s_ca_len = 0;
 static http_webhook_state_t s_state = WEBHOOK_STATE_IDLE;
 static bool s_lwip_ready = false;
 
 static void send_http_request(void);
+static void webhook_err_cb(void *arg, err_t err);
 static bool build_payload(const vikingbio_data_t *data, const char *type, const char *detail,
 						  char *out, size_t out_len);
 
@@ -161,10 +170,14 @@ static bool queue_heartbeat(void) {
 
 static void abort_connection(void) {
 	if (s_pcb != NULL) {
-		struct tcp_pcb *pcb = s_pcb;
+		struct altcp_pcb *pcb = s_pcb;
 		s_pcb = NULL;
-		tcp_err(pcb, NULL);
-		tcp_abort(pcb);
+		altcp_err(pcb, NULL);
+		altcp_abort(pcb);
+	}
+	if (s_tls_config) {
+		altcp_tls_free_config(s_tls_config);
+		s_tls_config = NULL;
 	}
 }
 
@@ -211,12 +224,21 @@ static void set_retry_wait(void) {
 	s_retry_time = make_timeout_time_ms(WEBHOOK_RETRY_MS);
 }
 
-static err_t webhook_connected_cb(void *arg, struct tcp_pcb *pcb, err_t err) {
+static err_t webhook_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err) {
 	(void)arg;
 	if (err != ERR_OK || pcb == NULL) {
 		printf("webhook: connect failed (%d)\n", (int)err);
 		set_retry_wait();
 		return ERR_ABRT;
+	}
+	if (s_https) {
+		mbedtls_ssl_context *ssl = altcp_tls_context(pcb);
+		if (!ssl || !mbedtls_ssl_get_peer_cert(ssl) ||
+			mbedtls_ssl_get_verify_result(ssl) != 0) {
+			printf("webhook: TLS peer verification failed\n");
+			set_retry_wait();
+			return ERR_ABRT;
+		}
 	}
 
 	s_state = WEBHOOK_STATE_WAIT_RESPONSE;
@@ -226,7 +248,7 @@ static err_t webhook_connected_cb(void *arg, struct tcp_pcb *pcb, err_t err) {
 	return s_pcb == NULL ? ERR_ABRT : ERR_OK;
 }
 
-static err_t webhook_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
+static err_t webhook_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *p, err_t err) {
 	(void)arg;
 	if (err != ERR_OK) {
 		if (p != NULL) pbuf_free(p);
@@ -246,7 +268,7 @@ static err_t webhook_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
 			if (!valid) break;
 		}
 	}
-	tcp_recved(pcb, p->tot_len);
+	altcp_recved(pcb, p->tot_len);
 	pbuf_free(p);
 	if (!valid) {
 		printf("webhook: invalid or oversized HTTP response\n");
@@ -274,9 +296,42 @@ static void webhook_err_cb(void *arg, err_t err) {
 	(void)arg;
 	printf("webhook: TCP error %d\n", (int)err);
 	s_pcb = NULL;
+	/* lwIP may still close/free the TLS PCB after invoking this callback. */
 	s_dns_generation++;
 	s_state = WEBHOOK_STATE_RETRY_WAIT;
 	s_retry_time = make_timeout_time_ms(WEBHOOK_RETRY_MS);
+}
+
+static bool open_connection(void) {
+	if (s_https) {
+		if (!s_ca_len) return false;
+		s_tls_config = altcp_tls_create_config_client(s_ca, s_ca_len);
+		if (!s_tls_config) return false;
+		s_pcb = altcp_tls_new(s_tls_config, IP_GET_TYPE(&s_server_addr));
+		if (s_pcb) {
+			mbedtls_ssl_context *ssl = altcp_tls_context(s_pcb);
+			if (!ssl || mbedtls_ssl_set_hostname(ssl, s_host) != 0) {
+				abort_connection();
+				return false;
+			}
+		}
+	} else {
+		s_pcb = altcp_tcp_new_ip_type(IP_GET_TYPE(&s_server_addr));
+	}
+	if (!s_pcb) {
+		abort_connection();
+		return false;
+	}
+	altcp_err(s_pcb, webhook_err_cb);
+	altcp_recv(s_pcb, webhook_recv_cb);
+	s_state = WEBHOOK_STATE_CONNECTING;
+	s_timeout = make_timeout_time_ms(WEBHOOK_TIMEOUT_MS);
+	err_t err = altcp_connect(s_pcb, &s_server_addr, s_port, webhook_connected_cb);
+	if (err != ERR_OK) {
+		printf("webhook: connect failed (%d)\n", (int)err);
+		set_retry_wait();
+	}
+	return true;
 }
 
 static void webhook_dns_found_cb(const char *name, const ip_addr_t *addr, void *arg) {
@@ -292,26 +347,14 @@ static void webhook_dns_found_cb(const char *name, const ip_addr_t *addr, void *
 		return;
 	}
 
-	s_pcb = tcp_new_ip_type(IP_GET_TYPE(&s_server_addr));
-	if (s_pcb == NULL) {
-		set_retry_wait();
-		return;
-	}
-	tcp_err(s_pcb, webhook_err_cb);
-	tcp_recv(s_pcb, webhook_recv_cb);
-	s_state = WEBHOOK_STATE_CONNECTING;
-	s_timeout = make_timeout_time_ms(WEBHOOK_TIMEOUT_MS);
-	err_t err = tcp_connect(s_pcb, &s_server_addr, s_port, webhook_connected_cb);
-	if (err != ERR_OK) {
-		printf("webhook: tcp_connect failed (%d)\n", (int)err);
-		set_retry_wait();
-	}
+	if (!open_connection()) set_retry_wait();
 }
 
 static bool parse_url(const char *url) {
 	if (url == NULL || url[0] == '\0' || strlen(url) > WIFI_WEBHOOK_URL_MAX_LEN) {
 		return false;
 	}
+
 	for (const char *p = url; *p != '\0'; ++p) {
 		if ((unsigned char)*p <= ' ' || (unsigned char)*p == 127 || *p == '#') return false;
 	}
@@ -415,7 +458,31 @@ static bool parse_url(const char *url) {
 
 	if (strchr(s_host, '@') != NULL || strchr(s_host, '[') != NULL ||
 		strchr(s_host, ']') != NULL || strchr(s_host, '?') != NULL) return false;
+	if (s_https) {
+		ip_addr_t literal;
+		if (ipaddr_aton(s_host, &literal)) return false;
+		if (!webhook_dns_hostname_valid(s_host)) return false;
+	}
 	return s_host[0] != '\0';
+}
+
+bool http_webhook_valid_https_url(const char *url) {
+	if (!url || strncmp(url, "https://", 8) != 0) return false;
+	if (s_lwip_ready) cyw43_arch_lwip_begin();
+	char old_host[sizeof(s_host)], old_path[sizeof(s_path)], old_token[sizeof(s_auth_token)];
+	memcpy(old_host, s_host, sizeof(old_host));
+	memcpy(old_path, s_path, sizeof(old_path));
+	memcpy(old_token, s_auth_token, sizeof(old_token));
+	uint16_t old_port = s_port;
+	bool old_https = s_https;
+	bool valid = parse_url(url);
+	memcpy(s_host, old_host, sizeof(s_host));
+	memcpy(s_path, old_path, sizeof(s_path));
+	memcpy(s_auth_token, old_token, sizeof(s_auth_token));
+	s_port = old_port;
+	s_https = old_https;
+	if (s_lwip_ready) cyw43_arch_lwip_end();
+	return valid;
 }
 
 static bool build_payload(const vikingbio_data_t *data, const char *type, const char *detail,
@@ -476,11 +543,8 @@ static void do_connect(void) {
 		return;
 	}
 
-	/* No CA trust store or synchronised wall clock is available on this firmware.
-	 * Never send HTTPS requests over an unencrypted tcp_pcb. */
-	if (s_https) {
-		printf("webhook: HTTPS disabled: CA trust anchor provisioning and trusted time "
-			   "are unavailable; verified TLS is required\n");
+	if (s_https && !s_ca_len) {
+		printf("webhook: HTTPS requires a valid CA certificate\n");
 		s_state = WEBHOOK_STATE_RETRY_WAIT;
 		s_retry_time = make_timeout_time_ms(WEBHOOK_RETRY_MS);
 		return;
@@ -503,21 +567,7 @@ static void do_connect(void) {
 		return;
 	}
 
-	s_pcb = tcp_new_ip_type(IP_GET_TYPE(&s_server_addr));
-	if (s_pcb == NULL) {
-		printf("webhook: tcp_new failed\n");
-		set_retry_wait();
-		return;
-	}
-	tcp_err(s_pcb, webhook_err_cb);
-	tcp_recv(s_pcb, webhook_recv_cb);
-	s_state = WEBHOOK_STATE_CONNECTING;
-	s_timeout = make_timeout_time_ms(WEBHOOK_TIMEOUT_MS);
-	err_t err = tcp_connect(s_pcb, &s_server_addr, s_port, webhook_connected_cb);
-	if (err != ERR_OK) {
-		printf("webhook: tcp_connect failed (%d)\n", (int)err);
-		set_retry_wait();
-	}
+	if (!open_connection()) set_retry_wait();
 }
 
 static void start_connection(void) {
@@ -579,9 +629,9 @@ static void send_http_request(void) {
 		return;
 	}
 
-	err_t err = tcp_write(s_pcb, request, (u16_t)len, TCP_WRITE_FLAG_COPY);
+	err_t err = altcp_write(s_pcb, request, (u16_t)len, TCP_WRITE_FLAG_COPY);
 	if (err == ERR_OK) {
-		err = tcp_output(s_pcb);
+		err = altcp_output(s_pcb);
 		if (err == ERR_OK) {
 			printf("webhook: awaiting HTTP response from %s\n", s_host);
 			return;
@@ -607,6 +657,9 @@ void http_webhook_init(void) {
 	s_last_flame_state = false;
 	s_state = WEBHOOK_STATE_IDLE;
 	s_pcb = NULL;
+	s_tls_config = NULL;
+	s_ca_len = 0;
+	wifi_config_load_webhook_ca(s_ca, sizeof(s_ca), &s_ca_len);
 	clear_queue();
 	if (!wifi_config_load_webhook_url(url, sizeof(url))) {
 		return;
@@ -645,10 +698,7 @@ void http_webhook_set_url(const char *url) {
 	s_last_flame_state = false;
 	s_state = WEBHOOK_STATE_IDLE;
 	printf("webhook: configured %s\n", s_host);
-	if (s_https) {
-		printf("webhook: HTTPS disabled: CA trust anchor provisioning and trusted time "
-			   "are unavailable; alerts will not be sent\n");
-	}
+	if (s_https && !s_ca_len) printf("webhook: HTTPS requires a valid CA certificate\n");
 	if (s_lwip_ready) cyw43_arch_lwip_end();
 }
 
@@ -680,6 +730,10 @@ void http_webhook_send_alert(const vikingbio_data_t *data, const char *type, con
 void http_webhook_poll(void) {
 	s_lwip_ready = true;
 	cyw43_arch_lwip_begin();
+	if (s_pcb == NULL && s_tls_config != NULL) {
+		altcp_tls_free_config(s_tls_config);
+		s_tls_config = NULL;
+	}
 	if (s_state == WEBHOOK_STATE_RETRY_WAIT && time_reached(s_retry_time)) {
 		s_state = WEBHOOK_STATE_IDLE;
 	}

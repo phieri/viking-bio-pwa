@@ -4,11 +4,15 @@ package serial
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	goserial "go.bug.st/serial"
@@ -37,10 +41,12 @@ type StatusResult struct {
 	Telemetry       string
 	DeviceKey       string
 	Webhook         string
+	WebhookCA       string
 }
 
 // Bridge communicates with the Pico W over USB serial.
 type Bridge struct {
+	mu       sync.Mutex
 	portName string
 	port     goserial.Port
 }
@@ -140,6 +146,8 @@ func (b *Bridge) Disconnect() {
 // SendCommand sends a command and collects lines until silence or total timeout.
 // timeoutMs[0] overrides the default 4000 ms total timeout.
 func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.port == nil {
 		if err := b.EnsureConnected(); err != nil {
 			return nil, err
@@ -204,6 +212,52 @@ func (b *Bridge) SendConfirmedCommand(cmd, confirmation string) error {
 		return nil
 	}
 	return fmt.Errorf("serial: Pico did not confirm command")
+}
+
+const maxWebhookCACertBytes = 4096
+const webhookCAChunkBytes = 64
+
+// ParseWebhookCA accepts one PEM or DER CA certificate and returns its DER encoding.
+func ParseWebhookCA(contents []byte) ([]byte, error) {
+	if block, rest := pem.Decode(contents); block != nil {
+		if block.Type != "CERTIFICATE" || len(bytes.TrimSpace(rest)) != 0 {
+			return nil, fmt.Errorf("webhook CA must contain exactly one certificate")
+		}
+		contents = block.Bytes
+	}
+	if len(contents) == 0 || len(contents) > maxWebhookCACertBytes {
+		return nil, fmt.Errorf("webhook CA certificate must be 1–%d DER bytes", maxWebhookCACertBytes)
+	}
+	cert, err := x509.ParseCertificate(contents)
+	if err != nil || !cert.IsCA || cert.KeyUsage&x509.KeyUsageCertSign == 0 {
+		return nil, fmt.Errorf("webhook CA must be a valid certificate authority with certificate-signing usage")
+	}
+	return contents, nil
+}
+
+// ProvisionWebhookCA transfers a CA certificate to the Pico over USB in bounded chunks.
+func (b *Bridge) ProvisionWebhookCA(contents []byte) error {
+	der, err := ParseWebhookCA(contents)
+	if err != nil {
+		return err
+	}
+	if err := b.SendConfirmedCommand(fmt.Sprintf("CABEGIN=%d", len(der)), "tls: CA transfer started"); err != nil {
+		return err
+	}
+	for offset := 0; offset < len(der); offset += webhookCAChunkBytes {
+		end := offset + webhookCAChunkBytes
+		if end > len(der) {
+			end = len(der)
+		}
+		if err := b.SendConfirmedCommand("CACHUNK="+hex.EncodeToString(der[offset:end]), "tls: CA chunk received"); err != nil {
+			return err
+		}
+	}
+	return b.SendConfirmedCommand("CACOMMIT", "tls: CA certificate saved – reboot to apply")
+}
+
+func (b *Bridge) ClearWebhookCA() error {
+	return b.SendConfirmedCommand("CACLEAR", "tls: CA certificate cleared – reboot to apply")
 }
 
 func confirmedResponse(lines []string, confirmation string) bool {
@@ -283,6 +337,8 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 			r.DeviceKey = value
 		case "webhook":
 			r.Webhook = value
+		case "webhook ca":
+			r.WebhookCA = value
 		}
 	}
 	return r

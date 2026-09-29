@@ -22,7 +22,9 @@
 #define MBEDTLS_PLATFORM_FREE_MACRO     free
 #define MBEDTLS_PLATFORM_CALLOC_MACRO   calloc
 
-// Enable time support (Pico SDK provides mbedtls_time())
+// No trusted wall clock: MBEDTLS_HAVE_TIME_DATE stays undefined. Certificate
+// notBefore/expiry are not checked; chain, signature and DNS name still are.
+// Pico SDK provides monotonic mbedtls_time() for TLS internals.
 #define MBEDTLS_HAVE_TIME
 #define MBEDTLS_PLATFORM_MS_TIME_ALT
 

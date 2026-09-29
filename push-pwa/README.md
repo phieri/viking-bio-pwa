@@ -47,13 +47,15 @@ Set a shared token in `.env`:
 PUSH_WEBHOOK_TOKEN=your-token
 ```
 
-Pico firmware currently has no TLS trust anchors or trusted time, so it cannot
-verify HTTPS certificates and fails closed. HTTPS webhook delivery from the Pico
-is blocked until trusted TLS verification is implemented; do not provision an
-HTTPS token-in-URL target as though it works. Plain HTTP may be used only for
-explicitly insecure testing on an isolated, trusted LAN. HTTP exposes the token
-and payload to observers: never use it across untrusted networks or expose
-credentials publicly.
+For HTTPS delivery from the Pico, use the configurator's USB provisioning UI to
+load a single PEM or DER CA certificate that signs the push server's TLS
+certificate, then configure the `https://` webhook URL and reboot the Pico.
+The Pico requires a valid CA chain and matching DNS hostname; without a
+provisioned CA, HTTPS fails closed and never falls back to plaintext HTTP.
+The Pico has no trusted clock, so **TLS certificate validity dates are not
+checked**. Keep the CA narrowly scoped and rotate it as needed. Plain HTTP
+may be used only for explicitly insecure testing on an isolated, trusted LAN;
+HTTP exposes the token and payload to observers.
 
 The webhook handler validates the token and sends the alert to subscribers
 matching the device sender.

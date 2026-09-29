@@ -14,11 +14,14 @@ void http_webhook_init(void);
 
 /**
  * Override the configured webhook URL for the next request cycle.
- * @param url Absolute HTTP(S) webhook URL. HTTPS delivery is currently disabled
- *            rather than falling back to unencrypted TCP: this firmware does not
- *            provision CA trust anchors or a trusted wall clock for verification.
+ * @param url Absolute HTTP(S) webhook URL. HTTPS requires a provisioned DER CA
+ *            and a DNS name (not an IP literal). Without a trusted wall clock,
+ *            certificate notBefore and expiry dates are not checked.
  */
 void http_webhook_set_url(const char *url);
+
+/* Validate an HTTPS URL without changing the active webhook configuration. */
+bool http_webhook_valid_https_url(const char *url);
 
 /**
  * Whether a valid webhook URL is currently configured.
