@@ -47,6 +47,9 @@ jobs:
         cc -std=c11 -Wall -Wextra -Werror -Ipico-bridge/src \
           pico-bridge/tests/http_webhook_response_test.c -o /tmp/vikingbio-webhook-test
         /tmp/vikingbio-webhook-test
+        cc -std=c11 -Wall -Wextra -Werror -Ipico-bridge/src \
+          pico-bridge/tests/http_webhook_hostname_test.c -o /tmp/vikingbio-webhook-hostname-test
+        /tmp/vikingbio-webhook-hostname-test
 
     - name: Install dependencies
       run: |

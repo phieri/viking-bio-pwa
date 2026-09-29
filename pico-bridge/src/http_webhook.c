@@ -224,6 +224,10 @@ static void set_retry_wait(void) {
 	s_retry_time = make_timeout_time_ms(WEBHOOK_RETRY_MS);
 }
 
+static bool http_status_retryable(int status) {
+	return status == 408 || status == 425 || status == 429 || status >= 500;
+}
+
 static err_t webhook_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err) {
 	(void)arg;
 	if (err != ERR_OK || pcb == NULL) {
@@ -282,9 +286,14 @@ static err_t webhook_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *p, e
 			printf("webhook: delivered (HTTP %d)\n", status);
 			abort_connection();
 			s_state = WEBHOOK_STATE_IDLE;
-		} else {
+		} else if (http_status_retryable(status)) {
 			printf("webhook: HTTP %d, retrying\n", status);
 			set_retry_wait();
+		} else {
+			queue_pop();
+			printf("webhook: discarded (HTTP %d)\n", status);
+			abort_connection();
+			s_state = WEBHOOK_STATE_IDLE;
 		}
 		return ERR_ABRT;
 	}

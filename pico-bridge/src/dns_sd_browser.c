@@ -38,6 +38,7 @@
 
 /* Service type; the instance name is configurable on the Go side. */
 #define SERVICE_SUFFIX "._viking-bio._tcp.local"
+#define DNS_NAME_MAX_LEN 256
 
 static char normalize_dns_name_char(char c) {
 	if (c >= 'A' && c <= 'Z')
@@ -247,11 +248,11 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 
 	/* Pass 1: find the SRV record for a _viking-bio._tcp instance */
 	uint16_t srv_port = 0;
-	char srv_target[64] = {0};
+	char srv_target[DNS_NAME_MAX_LEN] = {0};
 
 	int scan = records_start;
 	for (int i = 0; i < total && scan >= 0 && scan < len; i++) {
-		char name[64];
+		char name[DNS_NAME_MAX_LEN];
 		int after_name = dns_decode_name(data, len, scan, name, sizeof(name));
 		if (after_name < 0 || after_name + 10 > len)
 			return;
@@ -264,7 +265,7 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 
 		if (rtype == DNS_TYPE_SRV && rdlen >= 7 && service_name_matches(name)) {
 			uint16_t port = ((uint16_t)data[rdata_start + 4] << 8) | data[rdata_start + 5];
-			char target[64];
+			char target[DNS_NAME_MAX_LEN];
 			if (dns_decode_name(data, len, rdata_start + 6, target, sizeof(target)) >= 0) {
 				srv_port = port;
 				snprintf(srv_target, sizeof(srv_target), "%s", target);
@@ -286,7 +287,7 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 
 	scan = records_start;
 	for (int i = 0; i < total && scan >= 0 && scan < len; i++) {
-		char name[64];
+		char name[DNS_NAME_MAX_LEN];
 		int after_name = dns_decode_name(data, len, scan, name, sizeof(name));
 		if (after_name < 0 || after_name + 10 > len)
 			return;
@@ -299,7 +300,7 @@ static void parse_mdns_packet(const uint8_t *data, int len) {
 
 		if (rtype == DNS_TYPE_AAAA && rdlen == 16) {
 			/* Strip trailing dot and compare names (case-insensitive) */
-			char srv_bare[64], rec_bare[64];
+			char srv_bare[DNS_NAME_MAX_LEN], rec_bare[DNS_NAME_MAX_LEN];
 			snprintf(srv_bare, sizeof(srv_bare), "%s", srv_target);
 			snprintf(rec_bare, sizeof(rec_bare), "%s", name);
 			size_t slen = strlen(srv_bare);

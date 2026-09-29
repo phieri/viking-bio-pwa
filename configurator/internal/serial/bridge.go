@@ -61,6 +61,8 @@ func (b *Bridge) PortName() string {
 	if b == nil {
 		return ""
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.portName
 }
 
@@ -87,6 +89,12 @@ func selectAutoPort(portNames []string) (string, error) {
 // or automatically selects a single attached port when the device is connected after
 // the UI has already started running.
 func (b *Bridge) EnsureConnected() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.ensureConnected()
+}
+
+func (b *Bridge) ensureConnected() error {
 	if b.port != nil {
 		return nil
 	}
@@ -131,11 +139,15 @@ func (b *Bridge) connectPort(portName string) error {
 
 // Connect opens the serial port.
 func (b *Bridge) Connect() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.connectPort(b.portName)
 }
 
 // Disconnect closes the serial port.
 func (b *Bridge) Disconnect() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.port != nil {
 		_ = b.port.Close()
 		b.port = nil
@@ -149,7 +161,7 @@ func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.port == nil {
-		if err := b.EnsureConnected(); err != nil {
+		if err := b.ensureConnected(); err != nil {
 			return nil, err
 		}
 	}
@@ -211,7 +223,10 @@ func (b *Bridge) SendConfirmedCommand(cmd, confirmation string) error {
 	if confirmedResponse(lines, confirmation) {
 		return nil
 	}
-	return fmt.Errorf("serial: Pico did not confirm command")
+	if len(lines) == 0 {
+		return fmt.Errorf("serial: Pico did not respond to command")
+	}
+	return fmt.Errorf("serial: Pico rejected command: %s", strings.Join(lines, "; "))
 }
 
 const maxWebhookCACertBytes = 4096
