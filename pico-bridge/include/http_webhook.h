@@ -14,9 +14,14 @@ void http_webhook_init(void);
 
 /**
  * Override the configured webhook URL for the next request cycle.
- * @param url Absolute HTTP(S) webhook URL
+ * @param url Absolute HTTP(S) webhook URL. HTTPS requires a provisioned DER CA
+ *            and a DNS name (not an IP literal). Without a trusted wall clock,
+ *            certificate notBefore and expiry dates are not checked.
  */
 void http_webhook_set_url(const char *url);
+
+/* Validate an HTTPS URL without changing the active webhook configuration. */
+bool http_webhook_valid_https_url(const char *url);
 
 /**
  * Whether a valid webhook URL is currently configured.
@@ -34,7 +39,8 @@ void http_webhook_send_alert(const vikingbio_data_t *data, const char *type, con
 
 /**
  * Poll the outbound webhook client state machine. Must be called repeatedly from the
- * main loop while Wi-Fi is up.
+ * main loop while Wi-Fi is up, outside the CYW43 lwIP lock (which this function
+ * acquires internally).
  */
 void http_webhook_poll(void);
 

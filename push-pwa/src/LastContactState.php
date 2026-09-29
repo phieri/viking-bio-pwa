@@ -101,6 +101,16 @@ final class LastContactState
         ];
     }
 
+    public function publicStatus(): array
+    {
+        $summary = $this->summary();
+        return [
+            'lastContact' => $summary['lastContact'],
+            'lastRssi' => $summary['lastRssi'],
+            'lastLfsHealth' => $summary['lastLfsHealth'],
+        ];
+    }
+
     private function normalizeInt(mixed $value): ?int
     {
         return is_numeric($value) ? (int) $value : null;

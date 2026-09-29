@@ -30,6 +30,8 @@
 #define LWIP_ALTCP 1
 #define LWIP_ALTCP_TLS 1
 #define LWIP_ALTCP_TLS_MBEDTLS 1
+// Refuse an untrusted certificate even if the TLS handshake otherwise succeeds.
+#define ALTCP_MBEDTLS_AUTHMODE MBEDTLS_SSL_VERIFY_REQUIRED
 
 #define MEM_ALIGNMENT 4
 #define MEM_SIZE (16 * 1024)

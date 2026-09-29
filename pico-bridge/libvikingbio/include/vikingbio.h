@@ -46,6 +46,16 @@ typedef struct {
     vikingbio_clock_fn now_ms;
 } vikingbio_context_t;
 
+typedef struct {
+    uint8_t binary[VIKINGBIO_MIN_BINARY_PACKET_SIZE];
+    size_t binary_len;
+    uint8_t text[VIKINGBIO_MAX_TEXT_LENGTH];
+    size_t text_len;
+} vikingbio_stream_t;
+
+void vikingbio_stream_init(vikingbio_stream_t *stream);
+bool vikingbio_stream_push(vikingbio_stream_t *stream, uint8_t byte, vikingbio_data_t *data);
+
 void vikingbio_context_init(vikingbio_context_t *ctx);
 void vikingbio_set_clock_provider(vikingbio_clock_fn clock);
 void vikingbio_register_parser(const vikingbio_parser_t *parser);

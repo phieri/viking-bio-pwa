@@ -74,6 +74,23 @@ MDNS_NAME=Viking Bio Configurator
 
 The bridge owns outbound webhook delivery during runtime; the configurator stays
 responsible for provisioning the Pico and managing the local USB setup flow.
+The Pico's signed TCP client does not support TLS. Leave `INGEST_TCP_TLS=false`
+for a direct Pico connection; enabling it prevents the Pico from connecting.
+For HTTPS webhook delivery, provision the certificate authority (CA) that signs
+the webhook server's certificate over USB before setting the HTTPS URL. In the
+device configurator, select **Provision webhook CA certificate** and choose a
+single CA certificate in PEM or DER format (maximum 4096 DER bytes). The
+configurator validates that it is a CA and transfers it to the Pico; reboot the
+Pico to apply it. The Pico verifies the certificate chain against that CA and
+checks the URL's DNS hostname, including SNI. An HTTPS target without a valid
+CA fails closed; TLS errors do not fall back to HTTP. Replacing the CA requires
+another reboot; clearing all credentials also removes it.
+
+**Certificate validity dates are not checked**: the Pico has no trusted clock,
+so an expired or not-yet-valid server certificate may be accepted if its chain
+and hostname are valid. Protect USB provisioning, keep the CA tightly scoped,
+and rotate it when appropriate. HTTP remains suitable only for testing on an
+isolated, trusted network; do not send webhook tokens across untrusted networks.
 
 ## TLS / HTTPS
 
@@ -106,12 +123,16 @@ The configurator allows you to:
 - Set Wi-Fi country code
 - Set server address and port
 - Set the bridge webhook URL for `push-pwa/public/webhook.php`
+- Provision the webhook server's CA certificate for HTTPS over USB
 - Provision and sync a per-device telemetry key over USB
 - Clear all stored credentials
 
 Provisioning stores the configurator-side device secret in `<DATA_DIR>/devices.json`
 and sends the same key to the Pico over USB. The Pico then uses that key to
 sign each TCP telemetry frame with HMAC-SHA256.
+The configurator requires the Pico's success response before saving its copy of
+the key. Power-cycle the Pico after setting its key, server, port, country, or
+webhook URL or webhook CA; those values are loaded when the firmware starts.
 
 ### Building with GUI support on Linux
 
@@ -166,9 +187,13 @@ Pico devices always discover a local-network address.  If no ULA or link-local
 addresses are found the configurator falls back to advertising all addresses and logs
 a warning.
 
-The Pico-bridge DNS-SD browser applies the same policy when selecting an
-address from an mDNS announcement: it prefers link-local, then ULA, and
-ignores packets that carry only global IPv6 addresses.
+The Pico-bridge DNS-SD browser accepts any instance name under
+`_viking-bio._tcp.local`, including a customised `MDNS_NAME`. It applies the
+same local-address policy when selecting an address from an mDNS announcement:
+it prefers link-local, then ULA, and ignores packets carrying only global IPv6
+addresses. The Pico only listens for unsolicited announcements containing the
+service record and address in the same packet; confirm multicast reachability
+on the actual network if discovery does not occur.
 
 ## Running as a systemd Service
 

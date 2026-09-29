@@ -36,7 +36,7 @@ volatile uint32_t event_flags = 0;
 
 #define LED_BLINK_INTERVAL_MS 250
 #define SERIAL_LED_BLINK_MS 50
-#define USB_COMMAND_BUFFER_SIZE 160
+#define USB_COMMAND_BUFFER_SIZE (sizeof(USB_WEBHOOK_PREFIX) + WIFI_WEBHOOK_URL_MAX_LEN)
 #define WIFI_CONNECT_TIMEOUT_MS 30000
 #define WIFI_RETRY_INITIAL_MS 1000U
 #define WIFI_RETRY_MAX_MS (24U * 60U * 60U * 1000U)
@@ -52,6 +52,8 @@ volatile uint32_t event_flags = 0;
 #define USB_PORT_PREFIX "PORT="
 #define USB_DEVICE_KEY_PREFIX "DEVICEKEY="
 #define USB_WEBHOOK_PREFIX "WEBHOOK="
+#define USB_CA_BEGIN_PREFIX "CABEGIN="
+#define USB_CA_CHUNK_PREFIX "CACHUNK="
 #define USB_STATUS_COMMAND "STATUS"
 #define USB_CLEAR_COMMAND "CLEAR"
 
@@ -115,8 +117,14 @@ static void led_update(void) {
 // --- USB serial configuration ---
 static char s_usb_buf[USB_COMMAND_BUFFER_SIZE];
 static size_t s_usb_buf_len = 0;
+static bool s_usb_discard_line = false;
 static char s_pending_ssid[WIFI_SSID_MAX_LEN + 1];
 static bool s_has_pending_ssid = false;
+static uint8_t s_pending_ca[WIFI_WEBHOOK_CA_MAX_LEN];
+static uint8_t s_ca_probe[WIFI_WEBHOOK_CA_MAX_LEN + 1];
+static size_t s_pending_ca_expected = 0;
+static size_t s_pending_ca_received = 0;
+static vikingbio_stream_t s_uart_stream;
 
 typedef bool (*usb_command_handler_fn)(const char *arg);
 
@@ -134,6 +142,10 @@ static void print_usb_help(void) {
 	printf("  PORT=<port>      – set configurator server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
 	printf("  DEVICEKEY=<key>  – set telemetry device key\n");
 	printf("  WEBHOOK=<url>    – set bridge notification webhook\n");
+	printf("  CABEGIN=<bytes>  – begin DER CA transfer (1–4096 bytes)\n");
+	printf("  CACHUNK=<hex>    – append up to 64 bytes of DER\n");
+	printf("  CACOMMIT         – validate and save CA (reboot to apply)\n");
+	printf("  CACLEAR          – remove CA (reboot to apply)\n");
 	printf("  STATUS           – show status\n");
 	printf("  CLEAR            – erase stored credentials\n");
 }
@@ -222,16 +234,89 @@ static bool handle_device_key_command(const char *arg) {
 }
 
 static bool handle_webhook_command(const char *arg) {
+	if (strncmp(arg, "https://", 8) == 0) {
+		if (!http_webhook_valid_https_url(arg)) {
+			printf("notifications: ERROR HTTPS requires a valid DNS hostname URL\n");
+			return false;
+		}
+		size_t len;
+		if (!wifi_config_load_webhook_ca(s_ca_probe, sizeof(s_ca_probe), &len)) {
+			printf("notifications: ERROR HTTPS requires a saved valid webhook CA\n");
+			return false;
+		}
+	}
 	if (strncmp(arg, "http://", 7) != 0 && strncmp(arg, "https://", 8) != 0) {
-		printf("notifications: webhook URL must start with http:// or https://\n");
+		printf("notifications: ERROR webhook URL must start with http:// or https://\n");
 		return false;
 	}
+
 	if (wifi_config_save_webhook_url(arg)) {
 		printf("notifications: webhook URL saved – reboot to apply\n");
 	} else {
 		printf("notifications: ERROR saving webhook URL (max %d chars)\n",
 			   WIFI_WEBHOOK_URL_MAX_LEN);
 	}
+	return false;
+}
+
+static bool handle_ca_begin_command(const char *arg) {
+	s_pending_ca_expected = 0;
+	s_pending_ca_received = 0;
+	if (*arg < '0' || *arg > '9') goto invalid;
+	char *end;
+	unsigned long len = strtoul(arg, &end, 10);
+	if (*end != '\0' || len == 0 || len > WIFI_WEBHOOK_CA_MAX_LEN) goto invalid;
+	s_pending_ca_expected = (size_t)len;
+	printf("tls: CA transfer started\n");
+	return false;
+invalid:
+	printf("tls: ERROR invalid CA length\n");
+	return false;
+}
+
+static int hex_digit(char c) {
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+	return -1;
+}
+
+static bool handle_ca_chunk_command(const char *arg) {
+	size_t chars = strlen(arg);
+	if (!s_pending_ca_expected || chars == 0 || chars > 128 || chars % 2 ||
+		chars / 2 > s_pending_ca_expected - s_pending_ca_received) goto invalid;
+	for (size_t i = 0; i < chars; ++i) {
+		if (hex_digit(arg[i]) < 0) goto invalid;
+	}
+	for (size_t i = 0; i < chars; i += 2) {
+		s_pending_ca[s_pending_ca_received++] =
+			(uint8_t)((hex_digit(arg[i]) << 4) | hex_digit(arg[i + 1]));
+	}
+	printf("tls: CA chunk received\n");
+	return false;
+invalid:
+	printf("tls: ERROR invalid CA chunk\n");
+	return false;
+}
+
+static bool handle_ca_commit_command(const char *arg) {
+	(void)arg;
+	bool ok = s_pending_ca_expected && s_pending_ca_received == s_pending_ca_expected &&
+			  wifi_config_save_webhook_ca(s_pending_ca, s_pending_ca_expected);
+	s_pending_ca_expected = 0;
+	s_pending_ca_received = 0;
+	printf(ok ? "tls: CA certificate saved – reboot to apply\n" :
+				"tls: ERROR invalid CA or save failed\n");
+	return false;
+}
+
+static bool handle_ca_clear_command(const char *arg) {
+	(void)arg;
+	s_pending_ca_expected = 0;
+	s_pending_ca_received = 0;
+	printf(wifi_config_clear_webhook_ca() ?
+		   "tls: CA certificate cleared – reboot to apply\n" :
+		   "tls: ERROR clearing CA certificate\n");
 	return false;
 }
 
@@ -273,6 +358,10 @@ static bool handle_status_command(const char *arg) {
 	char webhook_url[WIFI_WEBHOOK_URL_MAX_LEN + 1] = {0};
 	printf("  webhook: %s\n",
 		   wifi_config_load_webhook_url(webhook_url, sizeof(webhook_url)) ? "(set)" : "not set");
+	size_t ca_len;
+	printf("  webhook CA: %s\n",
+		   wifi_config_load_webhook_ca(s_ca_probe, sizeof(s_ca_probe), &ca_len) ?
+		   "(set)" : "not set");
 
 	printf("  telemetry: %s\n", tcp_client_is_active() ? "active" : "idle");
 
@@ -294,6 +383,10 @@ static const usb_command_entry_t s_usb_commands[] = {
 	{USB_PORT_PREFIX, false, handle_port_command},
 	{USB_DEVICE_KEY_PREFIX, false, handle_device_key_command},
 	{USB_WEBHOOK_PREFIX, false, handle_webhook_command},
+	{USB_CA_BEGIN_PREFIX, false, handle_ca_begin_command},
+	{USB_CA_CHUNK_PREFIX, false, handle_ca_chunk_command},
+	{"CACOMMIT", true, handle_ca_commit_command},
+	{"CACLEAR", true, handle_ca_clear_command},
 	{USB_STATUS_COMMAND, true, handle_status_command},
 	{USB_CLEAR_COMMAND, true, handle_clear_command},
 };
@@ -326,13 +419,23 @@ static bool process_usb_commands(void) {
 		if (c == '\r') {
 			continue;
 		}
+		if (s_usb_discard_line) {
+			if (c == '\n') {
+				s_usb_discard_line = false;
+			}
+			continue;
+		}
 
-		if (c == '\n' || s_usb_buf_len >= sizeof(s_usb_buf) - 1) {
+		if (c == '\n') {
 			s_usb_buf[s_usb_buf_len] = '\0';
 			s_usb_buf_len = 0;
 			if (handle_usb_command(s_usb_buf)) {
 				return true;
 			}
+		} else if (s_usb_buf_len >= sizeof(s_usb_buf) - 1) {
+			s_usb_buf_len = 0;
+			s_usb_discard_line = true;
+			printf("usb: ERROR command too long\n");
 		} else {
 			s_usb_buf[s_usb_buf_len++] = (char)c;
 		}
@@ -448,6 +551,7 @@ static void init_bridge_components(void) {
 
 	printf("Initializing protocol parser...\n");
 	vikingbio_init();
+	vikingbio_stream_init(&s_uart_stream);
 
 	printf("Initializing serial handler...\n");
 	serial_handler_init();
@@ -563,12 +667,30 @@ static void init_periodic_timer(struct repeating_timer *timer) {
 	}
 }
 
+static void accept_serial_data(const vikingbio_data_t *data, bool wifi_up,
+							   bool *timeout_triggered, bool *flame_on) {
+	*timeout_triggered = false;
+	*flame_on = data->flame_detected;
+	if (wifi_up && http_webhook_is_configured()) {
+		if (data->flame_detected != s_last_webhook_flame) {
+			http_webhook_send_alert(data, "flame",
+							data->flame_detected ? "on" : "off");
+			s_last_webhook_flame = data->flame_detected;
+		}
+		if (data->error_code != 0U && data->error_code != s_last_webhook_error) {
+			http_webhook_send_alert(data, "error", "detected");
+			s_last_webhook_error = data->error_code;
+		} else if (data->error_code == 0U) {
+			s_last_webhook_error = 0U;
+		}
+	}
+	if (wifi_up) {
+		tcp_client_send_data(data);
+	}
+}
+
 static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up,
 							   bool *timeout_triggered, bool *flame_on) {
-	if (!serial_handler_data_available()) {
-		return;
-	}
-
 	size_t bytes = serial_handler_read(buffer, buffer_size);
 	if (bytes == 0) {
 		return;
@@ -577,28 +699,11 @@ static void handle_serial_data(uint8_t *buffer, size_t buffer_size, bool wifi_up
 	s_serial_blink_end = make_timeout_time_ms(SERIAL_LED_BLINK_MS);
 	bridge_status_led_set_state(true);
 
-	vikingbio_data_t new_data;
-	if (!vikingbio_parse_data(buffer, bytes, &new_data)) {
-		return;
-	}
-
-	*timeout_triggered = false;
-	*flame_on = new_data.flame_detected;
-	if (wifi_up && http_webhook_is_configured()) {
-		if (new_data.flame_detected != s_last_webhook_flame) {
-			http_webhook_send_alert(&new_data, "flame",
-							new_data.flame_detected ? "on" : "off");
-			s_last_webhook_flame = new_data.flame_detected;
+	for (size_t i = 0; i < bytes; i++) {
+		vikingbio_data_t data;
+		if (vikingbio_stream_push(&s_uart_stream, buffer[i], &data)) {
+			accept_serial_data(&data, wifi_up, timeout_triggered, flame_on);
 		}
-		if (new_data.error_code != 0U && new_data.error_code != s_last_webhook_error) {
-			http_webhook_send_alert(&new_data, "error", "detected");
-			s_last_webhook_error = new_data.error_code;
-		} else if (new_data.error_code == 0U) {
-			s_last_webhook_error = 0U;
-		}
-	}
-	if (wifi_up) {
-		tcp_client_send_data(&new_data);
 	}
 }
 
@@ -631,8 +736,8 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 	if (wifi_up) {
 		cyw43_arch_lwip_begin();
 		tcp_client_poll();
-		http_webhook_poll();
 		cyw43_arch_lwip_end();
+		http_webhook_poll();
 	}
 }
 

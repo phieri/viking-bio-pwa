@@ -126,7 +126,9 @@ void serial_handler_task(void) {
 
         serial_baud_index++;
         if (serial_baud_index >= (sizeof(serial_baud_rates) / sizeof(serial_baud_rates[0]))) {
-            printf("serial: no valid Viking Bio data at 4800/9600/19200 baud, keeping %lu baud\n",
+            serial_handler_reset_rx_buffer();
+            serial_handler_configure_baud(VIKING_BIO_BAUD_RATE);
+            printf("serial: no valid Viking Bio data at 4800/9600/19200 baud, using %lu baud\n",
                    (unsigned long)serial_current_baud);
             serial_baud_probe_active = false;
             return;

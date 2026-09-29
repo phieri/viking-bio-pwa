@@ -4,11 +4,15 @@ package serial
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	goserial "go.bug.st/serial"
@@ -37,10 +41,12 @@ type StatusResult struct {
 	Telemetry       string
 	DeviceKey       string
 	Webhook         string
+	WebhookCA       string
 }
 
 // Bridge communicates with the Pico W over USB serial.
 type Bridge struct {
+	mu       sync.Mutex
 	portName string
 	port     goserial.Port
 }
@@ -55,6 +61,8 @@ func (b *Bridge) PortName() string {
 	if b == nil {
 		return ""
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.portName
 }
 
@@ -81,6 +89,12 @@ func selectAutoPort(portNames []string) (string, error) {
 // or automatically selects a single attached port when the device is connected after
 // the UI has already started running.
 func (b *Bridge) EnsureConnected() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.ensureConnected()
+}
+
+func (b *Bridge) ensureConnected() error {
 	if b.port != nil {
 		return nil
 	}
@@ -125,11 +139,15 @@ func (b *Bridge) connectPort(portName string) error {
 
 // Connect opens the serial port.
 func (b *Bridge) Connect() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.connectPort(b.portName)
 }
 
 // Disconnect closes the serial port.
 func (b *Bridge) Disconnect() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.port != nil {
 		_ = b.port.Close()
 		b.port = nil
@@ -140,8 +158,10 @@ func (b *Bridge) Disconnect() {
 // SendCommand sends a command and collects lines until silence or total timeout.
 // timeoutMs[0] overrides the default 4000 ms total timeout.
 func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.port == nil {
-		if err := b.EnsureConnected(); err != nil {
+		if err := b.ensureConnected(); err != nil {
 			return nil, err
 		}
 	}
@@ -192,6 +212,76 @@ func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
 		}
 	}
 	return lines, nil
+}
+
+// SendConfirmedCommand requires the Pico's success response, not just a successful USB write.
+func (b *Bridge) SendConfirmedCommand(cmd, confirmation string) error {
+	lines, err := b.SendCommand(cmd)
+	if err != nil {
+		return err
+	}
+	if confirmedResponse(lines, confirmation) {
+		return nil
+	}
+	if len(lines) == 0 {
+		return fmt.Errorf("serial: Pico did not respond to command")
+	}
+	return fmt.Errorf("serial: Pico rejected command: %s", strings.Join(lines, "; "))
+}
+
+const maxWebhookCACertBytes = 4096
+const webhookCAChunkBytes = 64
+
+// ParseWebhookCA accepts one PEM or DER CA certificate and returns its DER encoding.
+func ParseWebhookCA(contents []byte) ([]byte, error) {
+	if block, rest := pem.Decode(contents); block != nil {
+		if block.Type != "CERTIFICATE" || len(bytes.TrimSpace(rest)) != 0 {
+			return nil, fmt.Errorf("webhook CA must contain exactly one certificate")
+		}
+		contents = block.Bytes
+	}
+	if len(contents) == 0 || len(contents) > maxWebhookCACertBytes {
+		return nil, fmt.Errorf("webhook CA certificate must be 1–%d DER bytes", maxWebhookCACertBytes)
+	}
+	cert, err := x509.ParseCertificate(contents)
+	if err != nil || !cert.IsCA || cert.KeyUsage&x509.KeyUsageCertSign == 0 {
+		return nil, fmt.Errorf("webhook CA must be a valid certificate authority with certificate-signing usage")
+	}
+	return contents, nil
+}
+
+// ProvisionWebhookCA transfers a CA certificate to the Pico over USB in bounded chunks.
+func (b *Bridge) ProvisionWebhookCA(contents []byte) error {
+	der, err := ParseWebhookCA(contents)
+	if err != nil {
+		return err
+	}
+	if err := b.SendConfirmedCommand(fmt.Sprintf("CABEGIN=%d", len(der)), "tls: CA transfer started"); err != nil {
+		return err
+	}
+	for offset := 0; offset < len(der); offset += webhookCAChunkBytes {
+		end := offset + webhookCAChunkBytes
+		if end > len(der) {
+			end = len(der)
+		}
+		if err := b.SendConfirmedCommand("CACHUNK="+hex.EncodeToString(der[offset:end]), "tls: CA chunk received"); err != nil {
+			return err
+		}
+	}
+	return b.SendConfirmedCommand("CACOMMIT", "tls: CA certificate saved – reboot to apply")
+}
+
+func (b *Bridge) ClearWebhookCA() error {
+	return b.SendConfirmedCommand("CACLEAR", "tls: CA certificate cleared – reboot to apply")
+}
+
+func confirmedResponse(lines []string, confirmation string) bool {
+	for _, line := range lines {
+		if strings.TrimSpace(line) == confirmation {
+			return true
+		}
+	}
+	return false
 }
 
 // GetStatus sends the STATUS command and parses the result.
@@ -262,6 +352,8 @@ func (b *Bridge) ParseStatus(lines []string) StatusResult {
 			r.DeviceKey = value
 		case "webhook":
 			r.Webhook = value
+		case "webhook ca":
+			r.WebhookCA = value
 		}
 	}
 	return r

@@ -99,6 +99,7 @@ bool wifi_config_save_server(const char *ip, uint16_t port);
 
 // Outbound notification webhook URL max length
 #define WIFI_WEBHOOK_URL_MAX_LEN 512
+#define WIFI_WEBHOOK_CA_MAX_LEN 4096
 
 // Hex-encoded RP2040 unique ID length
 #define WIFI_DEVICE_ID_MAX_LEN 16
@@ -132,6 +133,13 @@ bool wifi_config_load_webhook_url(char *url, size_t len);
  * @return true on success, false on error
  */
 bool wifi_config_save_webhook_url(const char *url);
+
+/* A single DER-encoded X.509 CA with keyCertSign usage (including the extension);
+ * loads require a 4097-byte buffer to detect oversized files. */
+bool wifi_config_validate_webhook_ca(const uint8_t *der, size_t len);
+bool wifi_config_load_webhook_ca(uint8_t *der, size_t capacity, size_t *len);
+bool wifi_config_save_webhook_ca(const uint8_t *der, size_t len);
+bool wifi_config_clear_webhook_ca(void);
 
 /**
  * Fill the output buffer with the device ID derived from the RP2040 unique ID.

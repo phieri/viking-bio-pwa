@@ -35,6 +35,22 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v7
 
+    - name: Test host-side UART parser and stream
+      run: |
+        cc -std=c11 -Wall -Wextra -Werror -Ipico-bridge/libvikingbio/include \
+          pico-bridge/libvikingbio/src/vikingbio.c pico-bridge/libvikingbio/tests/stream_test.c \
+          -o /tmp/vikingbio-stream-test
+        /tmp/vikingbio-stream-test
+
+    - name: Test host-side webhook response parser
+      run: |
+        cc -std=c11 -Wall -Wextra -Werror -Ipico-bridge/src \
+          pico-bridge/tests/http_webhook_response_test.c -o /tmp/vikingbio-webhook-test
+        /tmp/vikingbio-webhook-test
+        cc -std=c11 -Wall -Wextra -Werror -Ipico-bridge/src \
+          pico-bridge/tests/http_webhook_hostname_test.c -o /tmp/vikingbio-webhook-hostname-test
+        /tmp/vikingbio-webhook-hostname-test
+
     - name: Install dependencies
       run: |
         sudo apt-get -qq update

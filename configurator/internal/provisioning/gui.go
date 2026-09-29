@@ -7,6 +7,7 @@ package provisioning
 import (
 	"context"
 	"errors"
+	"io"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -307,24 +308,64 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				return
 			}
 			url := strings.TrimSpace(urlEntry.Text)
-			if url == "" || (!strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://")) {
+			if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 				dialog.ShowError(localizedError(localizer, "error.invalid_webhook"), provisioningWindow)
 				return
 			}
 			go func() {
-				appendLog("→ WEBHOOK=" + url)
-				lines, err := bridge.SendCommand("WEBHOOK=" + url)
+				appendLog("→ WEBHOOK=***")
+				err := bridge.SendConfirmedCommand("WEBHOOK="+url, "notifications: webhook URL saved – reboot to apply")
 				if err != nil {
 					appendLog("Error: " + err.Error())
 					dialog.ShowError(err, provisioningWindow)
 					return
 				}
-				for _, l := range lines {
-					appendLog("  " + l)
-				}
+				appendLog(localizer.Text("tui.webhook_saved"))
 			}()
 		}, provisioningWindow)
 		d.Show()
+	})
+
+	btnWebhookCA := widget.NewButton(localizer.Text("button.set_webhook_ca"), func() {
+		dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
+			if err != nil {
+				dialog.ShowError(err, provisioningWindow)
+				return
+			}
+			if reader == nil {
+				return
+			}
+			defer reader.Close()
+			data, err := io.ReadAll(io.LimitReader(reader, 8192))
+			if err != nil {
+				dialog.ShowError(err, provisioningWindow)
+				return
+			}
+			go func() {
+				if err := bridge.ProvisionWebhookCA(data); err != nil {
+					appendLog("Error: " + err.Error())
+					dialog.ShowError(err, provisioningWindow)
+					return
+				}
+				appendLog(localizer.Text("tui.webhook_ca_saved"))
+			}()
+		}, provisioningWindow)
+	})
+
+	btnClearWebhookCA := widget.NewButton(localizer.Text("button.clear_webhook_ca"), func() {
+		dialog.ShowConfirm(localizer.Text("button.clear_webhook_ca"),
+			localizer.Text("dialog.webhook_ca.clear_body"), func(confirmed bool) {
+				if !confirmed {
+					return
+				}
+				go func() {
+					if err := bridge.ClearWebhookCA(); err != nil {
+						dialog.ShowError(err, provisioningWindow)
+						return
+					}
+					appendLog(localizer.Text("tui.webhook_ca_cleared"))
+				}()
+			}, provisioningWindow)
 	})
 
 	// ── Provision telemetry device key ──────────────────────────────────
@@ -349,20 +390,16 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 				dialog.ShowError(err, provisioningWindow)
 				return
 			}
-			if err := store.ProvisionDevice(status.DeviceID, key); err != nil {
-				appendLog(localizer.Text("error.storing_key", err.Error()))
-				dialog.ShowError(err, provisioningWindow)
-				return
-			}
 			appendLog("→ DEVICEKEY=*** (sending to device)")
-			lines, err := bridge.SendCommand("DEVICEKEY=" + key)
-			if err != nil {
+			if err := bridge.SendConfirmedCommand("DEVICEKEY="+key, "telemetry: device key saved – reboot to apply"); err != nil {
 				appendLog("Error: " + err.Error())
 				dialog.ShowError(err, provisioningWindow)
 				return
 			}
-			for _, l := range lines {
-				appendLog("  " + l)
+			if err := store.ProvisionDevice(status.DeviceID, key); err != nil {
+				appendLog(localizer.Text("error.storing_key", err.Error()))
+				dialog.ShowError(err, provisioningWindow)
+				return
 			}
 			msg := localizer.Text("tui.telemetry_provisioned", status.DeviceID)
 			appendLog(msg)
@@ -407,6 +444,8 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		btnCountry,
 		btnServer,
 		btnWebhook,
+		btnWebhookCA,
+		btnClearWebhookCA,
 		btnProvision,
 		btnClear,
 	)

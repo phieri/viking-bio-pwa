@@ -36,8 +36,8 @@ Current frame payload:
 ```
 
 The configurator verifies the device-specific HMAC, checks replay ordering via the
-persisted sequence number, and then forwards accepted telemetry into the normal
-state/update/notification pipeline.
+persisted sequence number, and updates its local runtime state. Alerts are sent
+separately from the Pico to the push app's webhook.
 
 ## Memory ownership and lifetime
 
@@ -56,6 +56,8 @@ state/update/notification pipeline.
 
 ## Notification delivery ownership
 
-- The configurator derives flame and error events from telemetry ingest frames.
+- The configurator stores the latest telemetry in memory for its local UI; it does
+  not deliver browser push notifications.
 - The active browser notification flow is the `push-pwa/` app, which maintains VAPID subscriptions and delivers operator-facing alerts.
-- The configurator or external services may still forward JSON payloads to configured endpoints when that delivery model is required.
+- The Pico sends flame/error/stale alerts and heartbeat payloads to its configured
+  outbound webhook independently of the TCP telemetry connection.

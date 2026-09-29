@@ -11,3 +11,11 @@ To add a new Viking Bio model later:
 5. Keep the shared data model and transport buffering outside the parser logic.
 
 The built-in handlers currently cover the Viking Bio 20 binary packet format (`0xAA ... 0x55`) and the text fallback (`F:...,S:...,T:...`).
+
+The stream parser retains partial packets between UART reads, handles consecutive
+six-byte binary packets and newline-terminated text records, and resynchronises
+after malformed binary starts. The host-side test uses synthetic records, not
+captures from a physical burner. Before relying on this for hardware operation,
+capture the actual burner UART output and confirm the signal voltage, wiring,
+baud rate, parity, framing, field meanings and checksum (if any). Add those
+captures as parser fixtures only when their format and sharing are authorised.
