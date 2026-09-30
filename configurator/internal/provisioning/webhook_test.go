@@ -105,6 +105,28 @@ func TestConfigureWebhookAutomaticallyProvisionsCABeforeURL(t *testing.T) {
 	}
 }
 
+func TestConfigureWebhookRejectsURLsThatDoNotFitBridgeBeforeProvisioningCA(t *testing.T) {
+	for _, rawURL := range []string{
+		"https://" + strings.Repeat("a", webhookHostMaxLen+1) + ".com/notify",
+		"https://hooks.example.com/" + strings.Repeat("a", webhookPathMaxLen),
+	} {
+		t.Run(rawURL, func(t *testing.T) {
+			bridge := &fakeWebhookBridge{}
+			discover := func(string) ([]byte, error) {
+				t.Fatal("invalid bridge URL should not trigger CA discovery")
+				return nil, nil
+			}
+
+			if _, err := configureWebhook(bridge, rawURL, discover); err == nil {
+				t.Fatal("expected unsupported bridge URL to be rejected")
+			}
+			if len(bridge.calls) != 0 {
+				t.Fatalf("bridge calls for unsupported URL = %v", bridge.calls)
+			}
+		})
+	}
+}
+
 func TestConfigureWebhookRequiresCAUnlessManuallyProvisioned(t *testing.T) {
 	discoveryErr := errors.New("untrusted server")
 	discover := func(string) ([]byte, error) { return nil, discoveryErr }

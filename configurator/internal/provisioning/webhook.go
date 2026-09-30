@@ -17,6 +17,11 @@ import (
 
 const webhookURLSavedConfirmation = "notifications: webhook URL saved – reboot to apply"
 
+const (
+	webhookHostMaxLen = 45
+	webhookPathMaxLen = 127
+)
+
 type webhookProvisioningBridge interface {
 	GetStatus() (serial.StatusResult, error)
 	ProvisionWebhookCA([]byte) error
@@ -31,6 +36,9 @@ func configureWebhook(bridge webhookProvisioningBridge, rawURL string, discoverC
 	}
 	if len(rawURL) > 512 || strings.ContainsAny(rawURL, "\r\n") {
 		return false, fmt.Errorf("webhook URL is invalid or too long")
+	}
+	if !webhookURLFitsBridge(rawURL) {
+		return false, fmt.Errorf("webhook URL cannot be represented by the bridge")
 	}
 
 	usedExistingCA := false
@@ -51,6 +59,24 @@ func configureWebhook(bridge webhookProvisioningBridge, rawURL string, discoverC
 		return false, err
 	}
 	return usedExistingCA, nil
+}
+
+func webhookURLFitsBridge(rawURL string) bool {
+	target, err := url.Parse(rawURL)
+	if err != nil || target.Hostname() == "" || len(target.Hostname()) > webhookHostMaxLen {
+		return false
+	}
+
+	schemeEnd := strings.Index(rawURL, "://")
+	if schemeEnd < 0 {
+		return false
+	}
+	authorityAndPath := rawURL[schemeEnd+3:]
+	pathStart := strings.IndexByte(authorityAndPath, '/')
+	if pathStart < 0 {
+		return !strings.ContainsAny(authorityAndPath, "?#")
+	}
+	return len(authorityAndPath[pathStart:]) <= webhookPathMaxLen
 }
 
 func discoverWebhookCA(rawURL string) ([]byte, error) {
