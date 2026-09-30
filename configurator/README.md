@@ -76,14 +76,20 @@ The bridge owns outbound webhook delivery during runtime; the configurator stays
 responsible for provisioning the Pico and managing the local USB setup flow.
 The Pico's signed TCP client does not support TLS. Leave `INGEST_TCP_TLS=false`
 for a direct Pico connection; enabling it prevents the Pico from connecting.
-For HTTPS webhook delivery, provision the certificate authority (CA) that signs
-the webhook server's certificate over USB before setting the HTTPS URL. In the
-device configurator, select **Provision webhook CA certificate** and choose a
-single CA certificate in PEM or DER format (maximum 4096 DER bytes). The
-configurator validates that it is a CA and transfers it to the Pico; reboot the
-Pico to apply it. The Pico verifies the certificate chain against that CA and
-checks the URL's DNS hostname, including SNI. An HTTPS target without a valid
-CA fails closed; TLS errors do not fall back to HTTP. Replacing the CA requires
+When setting an HTTPS webhook URL, the configurator connects to the endpoint
+using the computer's trusted CA store, verifies its certificate and hostname,
+then transfers the matching trusted root CA to the Pico over USB before saving
+the URL. Reboot the Pico to apply the settings. The Pico verifies the
+certificate chain against that CA and checks the URL's DNS hostname, including
+SNI. An HTTPS target without a valid CA fails closed; TLS errors do not fall
+back to HTTP.
+
+For a private CA that is not trusted by the configurator computer, manually
+provision its certificate first: select **Manually provision webhook CA
+certificate** and choose a single CA certificate in PEM or DER format (maximum
+4096 DER bytes). The configurator validates that it is a CA and transfers it
+to the Pico. When automatic verification cannot select a CA, the configurator
+will use an already-provisioned CA if present. Replacing the CA requires
 another reboot; clearing all credentials also removes it.
 
 **Certificate validity dates are not checked**: the Pico has no trusted clock,
@@ -123,7 +129,7 @@ The configurator allows you to:
 - Set Wi-Fi country code
 - Set server address and port
 - Set the bridge webhook URL for `push-pwa/public/webhook.php`
-- Provision the webhook server's CA certificate for HTTPS over USB
+- Automatically provision the trusted webhook CA for HTTPS, or manually provision a private CA
 - Provision and sync a per-device telemetry key over USB
 - Clear all stored credentials
 

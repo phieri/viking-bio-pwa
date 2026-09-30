@@ -399,11 +399,18 @@ func (t *TUI) setWebhook() {
 		t.printStatusBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
 		return
 	}
-	if err := t.bridge.SendConfirmedCommand("WEBHOOK="+url, "notifications: webhook URL saved – reboot to apply"); err != nil {
+	usedExistingCA, err := configureWebhook(t.bridge, url, discoverWebhookCA)
+	if err != nil {
 		t.printStatusBox("status", []string{err.Error()})
 		return
 	}
-	t.printStatusBox("status", []string{t.localizer.Text("tui.webhook_saved")})
+	lines := []string{t.localizer.Text("tui.webhook_saved")}
+	if strings.HasPrefix(url, "https://") && usedExistingCA {
+		lines = append(lines, t.localizer.Text("tui.webhook_ca_manual_used"))
+	} else if strings.HasPrefix(url, "https://") {
+		lines = append(lines, t.localizer.Text("tui.webhook_ca_auto_used"))
+	}
+	t.printStatusBox("status", lines)
 }
 
 func (t *TUI) setWebhookCA() {

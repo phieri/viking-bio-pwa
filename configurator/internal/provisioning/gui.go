@@ -314,13 +314,18 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 			}
 			go func() {
 				appendLog("→ WEBHOOK=***")
-				err := bridge.SendConfirmedCommand("WEBHOOK="+url, "notifications: webhook URL saved – reboot to apply")
+				usedExistingCA, err := configureWebhook(bridge, url, discoverWebhookCA)
 				if err != nil {
 					appendLog("Error: " + err.Error())
 					dialog.ShowError(err, provisioningWindow)
 					return
 				}
 				appendLog(localizer.Text("tui.webhook_saved"))
+				if strings.HasPrefix(url, "https://") && usedExistingCA {
+					appendLog(localizer.Text("tui.webhook_ca_manual_used"))
+				} else if strings.HasPrefix(url, "https://") {
+					appendLog(localizer.Text("tui.webhook_ca_auto_used"))
+				}
 			}()
 		}, provisioningWindow)
 		d.Show()
