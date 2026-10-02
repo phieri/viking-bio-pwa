@@ -36,6 +36,7 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="description" content={details.metaDescription} />
     <link rel="canonical" href={new URL(`${base}${lang}/`, Astro.site || 'https://phieri.github.io').href} />
     <title>{details.title}</title>
