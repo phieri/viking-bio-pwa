@@ -1,14 +1,62 @@
 :root {
+  color-scheme: light dark;
   --bg: #06130f;
-  --bg-alt: #0b1f18;
+  --bg-end: #091b17;
+  --hero-glow: rgba(79, 149, 110, 0.28);
+  --topbar: rgba(6, 19, 15, 0.7);
+  --topbar-border: rgba(138, 225, 176, 0.16);
   --panel: rgba(10, 26, 21, 0.78);
   --panel-border: rgba(157, 224, 186, 0.24);
+  --window-start: rgba(12, 20, 18, 0.96);
+  --window-end: rgba(17, 35, 29, 0.96);
+  --window-border: rgba(157, 224, 186, 0.18);
+  --card: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(157, 224, 186, 0.12);
+  --status-border: rgba(157, 224, 186, 0.08);
+  --metric: rgba(93, 180, 132, 0.12);
+  --metric-border: rgba(93, 180, 132, 0.25);
+  --tile: rgba(12, 22, 18, 0.8);
+  --tile-border: rgba(157, 224, 186, 0.14);
+  --step: rgba(11, 31, 24, 0.92);
+  --footer-border: rgba(157, 224, 186, 0.15);
+  --secondary-button: rgba(14, 28, 24, 0.75);
   --text: #ebf7f0;
   --muted: #cfe4d5;
   --brand: #8ae1b0;
   --brand-strong: #60d498;
-  --accent: #d7f7e2;
+  --button-text: #062d1f;
   --shadow: rgba(0, 0, 0, 0.28);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6faf7;
+    --bg-end: #e9f3ec;
+    --hero-glow: rgba(79, 149, 110, 0.16);
+    --topbar: rgba(246, 250, 247, 0.88);
+    --topbar-border: rgba(24, 105, 67, 0.16);
+    --panel: rgba(255, 255, 255, 0.82);
+    --panel-border: rgba(24, 105, 67, 0.2);
+    --window-start: rgba(255, 255, 255, 0.98);
+    --window-end: rgba(236, 246, 239, 0.98);
+    --window-border: rgba(24, 105, 67, 0.16);
+    --card: rgba(255, 255, 255, 0.72);
+    --card-border: rgba(24, 105, 67, 0.14);
+    --status-border: rgba(24, 105, 67, 0.12);
+    --metric: rgba(41, 153, 93, 0.1);
+    --metric-border: rgba(41, 153, 93, 0.24);
+    --tile: rgba(255, 255, 255, 0.82);
+    --tile-border: rgba(24, 105, 67, 0.14);
+    --step: rgba(255, 255, 255, 0.78);
+    --footer-border: rgba(24, 105, 67, 0.16);
+    --secondary-button: rgba(255, 255, 255, 0.78);
+    --text: #183324;
+    --muted: #4b6253;
+    --brand: #19764b;
+    --brand-strong: #0f623c;
+    --button-text: #ffffff;
+    --shadow: rgba(25, 66, 43, 0.12);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -22,8 +70,8 @@ body {
   margin: 0;
   font-family: Inter, "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at top, rgba(79, 149, 110, 0.28), transparent 40%),
-    linear-gradient(180deg, var(--bg) 0%, #091b17 100%);
+    radial-gradient(circle at top, var(--hero-glow), transparent 40%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-end) 100%);
   color: var(--text);
   line-height: 1.6;
 }
@@ -48,8 +96,8 @@ main {
   top: 0;
   z-index: 20;
   backdrop-filter: blur(12px);
-  background: rgba(6, 19, 15, 0.7);
-  border-bottom: 1px solid rgba(138, 225, 176, 0.16);
+  background: var(--topbar);
+  border-bottom: 1px solid var(--topbar-border);
 }
 
 .topbar-inner {
@@ -77,7 +125,7 @@ main {
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%);
-  color: #062d1f;
+  color: var(--button-text);
   font-size: 1.15rem;
   box-shadow: 0 14px 28px rgba(30, 122, 85, 0.38);
 }
@@ -176,12 +224,12 @@ h1 {
 
 .button.secondary {
   border-color: rgba(138, 225, 176, 0.2);
-  background: rgba(14, 28, 24, 0.75);
+  background: var(--secondary-button);
   color: var(--text);
 }
 
 .showcase {
-  background: rgba(11, 31, 24, 0.78);
+  background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 1.7rem;
   box-shadow: 0 38px 60px var(--shadow);
@@ -189,9 +237,9 @@ h1 {
 }
 
 .showcase-window {
-  background: linear-gradient(180deg, rgba(12, 20, 18, 0.96), rgba(17, 35, 29, 0.96));
+  background: linear-gradient(180deg, var(--window-start), var(--window-end));
   border-radius: 1.1rem;
-  border: 1px solid rgba(157, 224, 186, 0.18);
+  border: 1px solid var(--window-border);
   padding: 1rem;
 }
 
@@ -221,8 +269,8 @@ h1 {
 }
 
 .card {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(157, 224, 186, 0.12);
+  background: var(--card);
+  border: 1px solid var(--card-border);
   border-radius: 1rem;
   padding: 1rem;
 }
@@ -245,15 +293,15 @@ h1 {
   justify-content: space-between;
   gap: 1rem;
   color: var(--muted);
-  border-bottom: 1px solid rgba(157, 224, 186, 0.08);
+  border-bottom: 1px solid var(--status-border);
   padding-bottom: 0.35rem;
 }
 
 .metric {
   padding: 0.7rem 0.8rem;
   border-radius: 0.85rem;
-  background: rgba(93, 180, 132, 0.12);
-  border: 1px solid rgba(93, 180, 132, 0.25);
+  background: var(--metric);
+  border: 1px solid var(--metric-border);
   color: var(--text);
   font-weight: 700;
   text-align: center;
@@ -285,8 +333,8 @@ h1 {
 .architecture-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
 .tile {
-  background: rgba(12, 22, 18, 0.8);
-  border: 1px solid rgba(157, 224, 186, 0.14);
+  background: var(--tile);
+  border: 1px solid var(--tile-border);
   border-radius: 1.25rem;
   padding: 1.25rem;
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.18);
@@ -298,8 +346,8 @@ h1 {
 }
 
 .architecture-step {
-  background: rgba(11, 31, 24, 0.92);
-  border: 1px solid rgba(157, 224, 186, 0.14);
+  background: var(--step);
+  border: 1px solid var(--tile-border);
   border-radius: 1rem;
   padding: 1rem;
   font-weight: 600;
@@ -311,7 +359,7 @@ h1 {
 }
 
 .footer-inner {
-  border-top: 1px solid rgba(157, 224, 186, 0.15);
+  border-top: 1px solid var(--footer-border);
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
