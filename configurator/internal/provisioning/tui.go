@@ -260,33 +260,51 @@ func (t *TUI) printMenu() {
 	fmt.Println()
 }
 
-func (t *TUI) sendAndPrint(cmd string) {
-	lines := []string{"→ " + cmd}
-	resp, err := t.bridge.SendCommand(cmd)
-	if err != nil {
-		lines = append(lines, "Error: "+err.Error())
-		t.appendLog(lines...)
-		t.printLogBox("command log")
-		return
-	}
-	lines = append(lines, resp...)
-	t.appendLog(lines...)
-	t.printLogBox("command log")
+func (t *TUI) sendAndPrint(cmd string, confirmation ...string) error {
+	return t.sendCommand(cmd, false, confirmation...)
 }
 
 // sendSilent sends a command without echoing it to stdout (for sensitive values).
-func (t *TUI) sendSilent(cmd string) {
-	lines := []string{"(hidden)"}
+func (t *TUI) sendSilent(cmd string, confirmation ...string) error {
+	return t.sendCommand(cmd, true, confirmation...)
+}
+
+func (t *TUI) sendCommand(cmd string, hidden bool, confirmation ...string) error {
+	lines := []string{"→ " + cmd}
+	if hidden {
+		lines = []string{"(hidden)"}
+	}
 	resp, err := t.bridge.SendCommand(cmd)
 	if err != nil {
 		lines = append(lines, "Error: "+err.Error())
 		t.appendLog(lines...)
 		t.printLogBox("command log")
-		return
+		return err
 	}
 	lines = append(lines, resp...)
+	if len(confirmation) > 0 {
+		if err := commandConfirmationError(resp, confirmation[0]); err != nil {
+			lines = append(lines, "Error: "+err.Error())
+			t.appendLog(lines...)
+			t.printLogBox("command log")
+			return err
+		}
+	}
 	t.appendLog(lines...)
 	t.printLogBox("command log")
+	return nil
+}
+
+func commandConfirmationError(lines []string, confirmation string) error {
+	for _, line := range lines {
+		if strings.TrimSpace(line) == confirmation {
+			return nil
+		}
+	}
+	if len(lines) == 0 {
+		return fmt.Errorf("serial: Pico did not respond to command")
+	}
+	return fmt.Errorf("serial: Pico rejected command: %s", strings.Join(lines, "; "))
 }
 
 func formatDeviceStatus(localizer provisioningLocalizer, status *serial.StatusResult, prefix string) string {
@@ -391,8 +409,14 @@ func (t *TUI) configureWiFi() {
 		return
 	}
 	password := t.readLine(t.localizer.Text("form.password") + ": ")
-	t.sendAndPrint("SSID=" + ssid)
-	t.sendSilent("PASS=" + password)
+	if err := t.sendAndPrint("SSID="+ssid, "wifi: SSID staged – send PASS=<password> to save"); err != nil {
+		t.printErrorBox("status", []string{err.Error()})
+		return
+	}
+	if err := t.sendSilent("PASS="+password, "wifi: credentials saved – rebooting"); err != nil {
+		t.printErrorBox("status", []string{err.Error()})
+		return
+	}
 	t.printSuccessBox("status", []string{t.localizer.Text("tui.credentials_saved")})
 }
 
@@ -514,7 +538,10 @@ func (t *TUI) clearCredentials() {
 		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
-	t.sendAndPrint("CLEAR")
+	if err := t.sendAndPrint("CLEAR", "wifi: credentials cleared – rebooting"); err != nil {
+		t.printErrorBox("status", []string{err.Error()})
+		return
+	}
 	t.printSuccessBox("status", []string{t.localizer.Text("tui.credentials_cleared")})
 }
 
