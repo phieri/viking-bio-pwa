@@ -515,7 +515,7 @@ func (t *TUI) clearCredentials() {
 		return
 	}
 	t.sendAndPrint("CLEAR")
-	t.printStatusBox("status", []string{t.localizer.Text("tui.credentials_cleared")})
+	t.printSuccessBox("status", []string{t.localizer.Text("tui.credentials_cleared")})
 }
 
 // Run starts the interactive TUI loop.
