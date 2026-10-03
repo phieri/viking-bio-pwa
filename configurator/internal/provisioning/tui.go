@@ -165,6 +165,10 @@ func formatBoxLine(content string, width int) string {
 }
 
 func renderBox(title string, lines []string, width int) {
+	renderBoxWithStyle(title, lines, width, nil)
+}
+
+func renderBoxWithStyle(title string, lines []string, width int, styleLine func(string) string) {
 	if len(lines) == 0 {
 		return
 	}
@@ -187,7 +191,11 @@ func renderBox(title string, lines []string, width int) {
 		fmt.Println(color("╠"+strings.Repeat("═", width)+"╣", colorCyan))
 	}
 	for _, line := range newlineLines {
-		fmt.Println(color("║", colorCyan) + " " + formatBoxLine(line, width-4) + " " + color("║", colorCyan))
+		content := formatBoxLine(line, width-4)
+		if styleLine != nil {
+			content = styleLine(content)
+		}
+		fmt.Println(color("║", colorCyan) + " " + content + " " + color("║", colorCyan))
 	}
 	fmt.Println(color("╚"+strings.Repeat("═", width)+"╝", colorCyan))
 	fmt.Println()
@@ -195,6 +203,18 @@ func renderBox(title string, lines []string, width int) {
 
 func (t *TUI) printStatusBox(title string, lines []string) {
 	renderBox(title, lines, 62)
+}
+
+func (t *TUI) printSuccessBox(title string, lines []string) {
+	renderBoxWithStyle(title, lines, 62, func(line string) string {
+		return color(line, colorGreen)
+	})
+}
+
+func (t *TUI) printErrorBox(title string, lines []string) {
+	renderBoxWithStyle(title, lines, 62, func(line string) string {
+		return color(line, colorRed)
+	})
 }
 
 func (t *TUI) appendLog(lines ...string) {
@@ -211,7 +231,18 @@ func (t *TUI) printLogBox(title string) {
 	if len(logLines) == 0 {
 		return
 	}
-	renderBox(title, logLines, 62)
+	renderBoxWithStyle(title, logLines, 62, func(line string) string {
+		switch {
+		case strings.HasPrefix(strings.TrimSpace(line), "Error:"):
+			return color(line, colorRed)
+		case strings.HasPrefix(strings.TrimSpace(line), "→"):
+			return color(line, colorCyan)
+		case strings.HasPrefix(strings.TrimSpace(line), "(hidden)"):
+			return color(line, colorYellow)
+		default:
+			return line
+		}
+	})
 }
 
 func (t *TUI) printMenu() {
@@ -319,7 +350,7 @@ func formatTelemetrySnapshot(localizer provisioningLocalizer, flame bool, fan, t
 func (t *TUI) showStatus() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		t.printStatusBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
+		t.printErrorBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
 		return
 	}
 	t.printStatusBox("status", []string{
@@ -362,14 +393,14 @@ func (t *TUI) configureWiFi() {
 	password := t.readLine(t.localizer.Text("form.password") + ": ")
 	t.sendAndPrint("SSID=" + ssid)
 	t.sendSilent("PASS=" + password)
-	t.printStatusBox("status", []string{t.localizer.Text("tui.credentials_saved")})
+	t.printSuccessBox("status", []string{t.localizer.Text("tui.credentials_saved")})
 }
 
 func (t *TUI) setCountry() {
 	cc := t.readLine(t.localizer.Text("tui.country_prompt"))
 	cc = strings.ToUpper(strings.TrimSpace(cc))
 	if len(cc) != 2 {
-		t.printStatusBox("status", []string{t.localizer.Text("tui.invalid_country")})
+		t.printErrorBox("status", []string{t.localizer.Text("tui.invalid_country")})
 		return
 	}
 	t.sendAndPrint("COUNTRY=" + cc)
@@ -396,12 +427,12 @@ func (t *TUI) setWebhook() {
 		return
 	}
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		t.printStatusBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
+		t.printErrorBox("status", []string{t.localizer.Text("tui.invalid_webhook")})
 		return
 	}
 	usedExistingCA, err := configureWebhook(t.bridge, url, discoverWebhookCA)
 	if err != nil {
-		t.printStatusBox("status", []string{err.Error()})
+		t.printErrorBox("status", []string{err.Error()})
 		return
 	}
 	lines := []string{t.localizer.Text("tui.webhook_saved")}
@@ -410,7 +441,7 @@ func (t *TUI) setWebhook() {
 	} else if strings.HasPrefix(url, "https://") {
 		lines = append(lines, t.localizer.Text("tui.webhook_ca_auto_used"))
 	}
-	t.printStatusBox("status", lines)
+	t.printSuccessBox("status", lines)
 }
 
 func (t *TUI) setWebhookCA() {
@@ -424,10 +455,10 @@ func (t *TUI) setWebhookCA() {
 		err = t.bridge.ProvisionWebhookCA(data)
 	}
 	if err != nil {
-		t.printStatusBox("status", []string{err.Error()})
+		t.printErrorBox("status", []string{err.Error()})
 		return
 	}
-	t.printStatusBox("status", []string{t.localizer.Text("tui.webhook_ca_saved")})
+	t.printSuccessBox("status", []string{t.localizer.Text("tui.webhook_ca_saved")})
 }
 
 func (t *TUI) clearWebhookCA() {
@@ -436,10 +467,10 @@ func (t *TUI) clearWebhookCA() {
 		return
 	}
 	if err := t.bridge.ClearWebhookCA(); err != nil {
-		t.printStatusBox("status", []string{err.Error()})
+		t.printErrorBox("status", []string{err.Error()})
 		return
 	}
-	t.printStatusBox("status", []string{t.localizer.Text("tui.webhook_ca_cleared")})
+	t.printSuccessBox("status", []string{t.localizer.Text("tui.webhook_ca_cleared")})
 }
 
 func randomDeviceKey() (string, error) {
@@ -453,28 +484,28 @@ func randomDeviceKey() (string, error) {
 func (t *TUI) provisionDeviceKey() {
 	status, err := t.bridge.GetStatus()
 	if err != nil {
-		t.printStatusBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
+		t.printErrorBox("status", []string{t.localizer.Text("error.reading_status", err.Error())})
 		return
 	}
 	if status.DeviceID == "" {
-		t.printStatusBox("status", []string{t.localizer.Text("error.device_id_missing")})
+		t.printErrorBox("status", []string{t.localizer.Text("error.device_id_missing")})
 		return
 	}
 	key, err := randomDeviceKey()
 	if err != nil {
-		t.printStatusBox("status", []string{t.localizer.Text("error.generating_key", err.Error())})
+		t.printErrorBox("status", []string{t.localizer.Text("error.generating_key", err.Error())})
 		return
 	}
 	if err := t.bridge.SendConfirmedCommand("DEVICEKEY="+key, "telemetry: device key saved – reboot to apply"); err != nil {
-		t.printStatusBox("status", []string{err.Error()})
+		t.printErrorBox("status", []string{err.Error()})
 		return
 	}
 	t.appendLog("→ DEVICEKEY=*** (confirmed)")
 	if err := t.store.ProvisionDevice(status.DeviceID, key); err != nil {
-		t.printStatusBox("status", []string{t.localizer.Text("error.storing_key", err.Error())})
+		t.printErrorBox("status", []string{t.localizer.Text("error.storing_key", err.Error())})
 		return
 	}
-	t.printStatusBox("status", []string{t.localizer.Text("tui.telemetry_provisioned", status.DeviceID)})
+	t.printSuccessBox("status", []string{t.localizer.Text("tui.telemetry_provisioned", status.DeviceID)})
 }
 
 func (t *TUI) clearCredentials() {
@@ -521,10 +552,10 @@ func (t *TUI) Run() {
 		case "10":
 			t.clearWebhookCA()
 		case "0", "q", "quit", "exit":
-			t.printStatusBox("status", []string{t.localizer.Text("tui.bye")})
+			t.printSuccessBox("status", []string{t.localizer.Text("tui.bye")})
 			return
 		default:
-			t.printStatusBox("status", []string{t.localizer.Text("error.unknown_option")})
+			t.printErrorBox("status", []string{t.localizer.Text("error.unknown_option")})
 		}
 	}
 }
