@@ -1,61 +1,63 @@
 :root {
   color-scheme: light dark;
-  --bg: #06130f;
-  --bg-end: #091b17;
-  --hero-glow: rgba(79, 149, 110, 0.28);
-  --topbar: rgba(6, 19, 15, 0.7);
-  --topbar-border: rgba(138, 225, 176, 0.16);
-  --panel: rgba(10, 26, 21, 0.78);
-  --panel-border: rgba(157, 224, 186, 0.24);
-  --window-start: rgba(12, 20, 18, 0.96);
-  --window-end: rgba(17, 35, 29, 0.96);
-  --window-border: rgba(157, 224, 186, 0.18);
+  --bg: #0b1220;
+  --bg-end: #111c2e;
+  --hero-glow: rgba(96, 165, 250, 0.2);
+  --topbar: rgba(11, 18, 32, 0.76);
+  --topbar-border: rgba(148, 163, 184, 0.16);
+  --panel: rgba(17, 28, 46, 0.82);
+  --panel-border: rgba(148, 163, 184, 0.2);
+  --window-start: rgba(15, 23, 42, 0.96);
+  --window-end: rgba(30, 41, 59, 0.96);
+  --window-border: rgba(148, 163, 184, 0.18);
   --card: rgba(255, 255, 255, 0.03);
-  --card-border: rgba(157, 224, 186, 0.12);
-  --status-border: rgba(157, 224, 186, 0.08);
-  --metric: rgba(93, 180, 132, 0.12);
-  --metric-border: rgba(93, 180, 132, 0.25);
-  --tile: rgba(12, 22, 18, 0.8);
-  --tile-border: rgba(157, 224, 186, 0.14);
-  --step: rgba(11, 31, 24, 0.92);
-  --footer-border: rgba(157, 224, 186, 0.15);
-  --secondary-button: rgba(14, 28, 24, 0.75);
-  --text: #ebf7f0;
-  --muted: #cfe4d5;
-  --brand: #8ae1b0;
-  --brand-strong: #60d498;
-  --button-text: #062d1f;
+  --card-border: rgba(148, 163, 184, 0.12);
+  --status-border: rgba(148, 163, 184, 0.1);
+  --metric: rgba(96, 165, 250, 0.13);
+  --metric-border: rgba(96, 165, 250, 0.28);
+  --tile: rgba(17, 28, 46, 0.82);
+  --tile-border: rgba(148, 163, 184, 0.15);
+  --step: rgba(17, 28, 46, 0.92);
+  --footer-border: rgba(148, 163, 184, 0.16);
+  --secondary-button: rgba(30, 41, 59, 0.75);
+  --text: #f1f5f9;
+  --muted: #cbd5e1;
+  --brand: #93c5fd;
+  --brand-strong: #60a5fa;
+  --brand-rgb: 96, 165, 250;
+  --button-text: #0b1220;
   --shadow: rgba(0, 0, 0, 0.28);
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f6faf7;
-    --bg-end: #e9f3ec;
-    --hero-glow: rgba(79, 149, 110, 0.16);
-    --topbar: rgba(246, 250, 247, 0.88);
-    --topbar-border: rgba(24, 105, 67, 0.16);
-    --panel: rgba(255, 255, 255, 0.82);
-    --panel-border: rgba(24, 105, 67, 0.2);
+    --bg: #f8fafc;
+    --bg-end: #eef2f7;
+    --hero-glow: rgba(37, 99, 235, 0.12);
+    --topbar: rgba(248, 250, 252, 0.9);
+    --topbar-border: rgba(51, 65, 85, 0.14);
+    --panel: rgba(255, 255, 255, 0.86);
+    --panel-border: rgba(51, 65, 85, 0.16);
     --window-start: rgba(255, 255, 255, 0.98);
-    --window-end: rgba(236, 246, 239, 0.98);
-    --window-border: rgba(24, 105, 67, 0.16);
+    --window-end: rgba(241, 245, 249, 0.98);
+    --window-border: rgba(51, 65, 85, 0.14);
     --card: rgba(255, 255, 255, 0.72);
-    --card-border: rgba(24, 105, 67, 0.14);
-    --status-border: rgba(24, 105, 67, 0.12);
-    --metric: rgba(41, 153, 93, 0.1);
-    --metric-border: rgba(41, 153, 93, 0.24);
+    --card-border: rgba(51, 65, 85, 0.12);
+    --status-border: rgba(51, 65, 85, 0.12);
+    --metric: rgba(37, 99, 235, 0.08);
+    --metric-border: rgba(37, 99, 235, 0.2);
     --tile: rgba(255, 255, 255, 0.82);
-    --tile-border: rgba(24, 105, 67, 0.14);
+    --tile-border: rgba(51, 65, 85, 0.14);
     --step: rgba(255, 255, 255, 0.78);
-    --footer-border: rgba(24, 105, 67, 0.16);
+    --footer-border: rgba(51, 65, 85, 0.16);
     --secondary-button: rgba(255, 255, 255, 0.78);
-    --text: #183324;
-    --muted: #4b6253;
-    --brand: #19764b;
-    --brand-strong: #0f623c;
+    --text: #172033;
+    --muted: #526176;
+    --brand: #2563eb;
+    --brand-strong: #1d4ed8;
+    --brand-rgb: 37, 99, 235;
     --button-text: #ffffff;
-    --shadow: rgba(25, 66, 43, 0.12);
+    --shadow: rgba(15, 23, 42, 0.12);
   }
 }
 
@@ -127,7 +129,7 @@ main {
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%);
   color: var(--button-text);
   font-size: 1.15rem;
-  box-shadow: 0 14px 28px rgba(30, 122, 85, 0.38);
+  box-shadow: 0 14px 28px rgba(var(--brand-rgb), 0.28);
 }
 
 .nav-links,
@@ -149,7 +151,7 @@ main {
 .nav-links a:hover,
 .lang-switcher a:hover,
 .lang-switcher a.is-active {
-  background: rgba(138, 225, 176, 0.12);
+  background: rgba(var(--brand-rgb), 0.12);
   color: var(--text);
 }
 
@@ -173,8 +175,8 @@ main {
   margin-bottom: 1rem;
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
-  background: rgba(138, 225, 176, 0.1);
-  border: 1px solid rgba(138, 225, 176, 0.2);
+  background: rgba(var(--brand-rgb), 0.1);
+  border: 1px solid rgba(var(--brand-rgb), 0.22);
   color: var(--brand);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -219,11 +221,11 @@ h1 {
 .button.primary {
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 100%);
   color: var(--button-text);
-  box-shadow: 0 18px 40px rgba(41, 153, 93, 0.38);
+  box-shadow: 0 18px 40px rgba(var(--brand-rgb), 0.24);
 }
 
 .button.secondary {
-  border-color: rgba(138, 225, 176, 0.2);
+  border-color: rgba(var(--brand-rgb), 0.22);
   background: var(--secondary-button);
   color: var(--text);
 }
