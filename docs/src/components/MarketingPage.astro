@@ -36,26 +36,31 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="light" />
     <meta name="description" content={details.metaDescription} />
+    <meta name="theme-color" content="#F4F1E8" />
     <link rel="canonical" href={new URL(`${base}${lang}/`, Astro.site || 'https://phieri.github.io').href} />
     <title>{details.title}</title>
     <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <a class="skip-link" href="#main-content">{details.skipToContent}</a>
     <header class="topbar">
       <div class="topbar-inner">
         <a class="brand" href={base} aria-label={details.brandAria}>
           <span class="brand-mark">V</span>
           <span>{details.footerBrand}</span>
         </a>
-        <nav class="nav-links" aria-label="Main navigation">
+        <nav class="nav-links" aria-label={details.mainNavigationLabel}>
           {details.nav.map((label, index) => <a href={`#${sectionIds[index]}`}>{label}</a>)}
         </nav>
       </div>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
       <section class="hero" id="overview">
         <div class="hero-grid">
           <div>
@@ -67,7 +72,7 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
               <a class="button secondary" href="https://github.com/phieri/viking-bio-pwa" target="_blank" rel="noreferrer">{details.ctaSource}</a>
             </div>
           </div>
-          <div class="showcase" aria-label="Configurator and hardware overview">
+          <div class="showcase" role="group" aria-label={details.showcaseAriaLabel}>
             <div class="showcase-window">
               <div class="window-header">
                 <span class="dot"></span>
@@ -126,9 +131,14 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
           <h2>{details.architectureTitle}</h2>
           <p class="lead">{details.architectureBody}</p>
         </div>
-        <div class="architecture-grid">
-          {architectureSteps.map((step) => <div class="architecture-step">{step}</div>)}
-        </div>
+        <ol class="architecture-grid">
+          {architectureSteps.map((step, index) => (
+            <li class="architecture-step">
+              <span class="architecture-step-number" aria-hidden="true">{index + 1}</span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section class="section" id="project">
@@ -150,7 +160,7 @@ const navLinks = supportedLanguages.map(({ code, label }) => ({ code, label, hre
     <footer class="footer">
       <div class="footer-inner">
         <span>{details.footerBrand}</span>
-        <nav class="lang-switcher footer-lang-switcher" aria-label="Language switcher">
+        <nav class="lang-switcher footer-lang-switcher" aria-label={details.languageSwitcherLabel}>
           {navLinks.map(({ code, label, href }) => (
             <a href={href} class:list={[code === lang && 'is-active']} aria-current={code === lang ? 'page' : undefined}>{label}</a>
           ))}
