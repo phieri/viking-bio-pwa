@@ -13,36 +13,31 @@
   --color-surface-dark: var(--color-forest);
   --color-surface-accent: var(--color-moss);
   --color-surface-information: var(--color-amber);
+  --color-text-on-accent: var(--color-forest);
   --color-border: rgba(18, 59, 53, 0.17);
   --color-focus: var(--color-forest);
   --color-shadow: rgba(18, 59, 53, 0.12);
+  --color-moss-rgb: 79, 178, 134;
 
   --bg: var(--color-background);
-  --bg-end: var(--color-background);
-  --hero-glow: rgba(79, 178, 134, 0.16);
+  --hero-glow: rgba(var(--color-moss-rgb), 0.16);
   --topbar: rgba(244, 241, 232, 0.94);
   --topbar-border: var(--color-border);
-  --panel: rgba(79, 178, 134, 0.08);
+  --panel: rgba(var(--color-moss-rgb), 0.08);
   --panel-border: var(--color-border);
-  --window-start: var(--color-forest);
-  --window-end: var(--color-forest);
   --window-border: rgba(244, 241, 232, 0.22);
   --card: rgba(244, 241, 232, 0.07);
   --card-border: rgba(244, 241, 232, 0.2);
   --status-border: rgba(244, 241, 232, 0.16);
   --metric: var(--color-surface-information);
   --metric-border: rgba(18, 59, 53, 0.2);
-  --tile: rgba(79, 178, 134, 0.08);
+  --tile: rgba(var(--color-moss-rgb), 0.08);
   --tile-border: var(--color-border);
   --step: var(--color-linen);
   --footer-border: var(--color-border);
   --secondary-button: var(--color-linen);
   --text: var(--color-text);
   --muted: var(--color-text-muted);
-  --brand: var(--color-moss);
-  --brand-strong: var(--color-moss);
-  --brand-rgb: 79, 178, 134;
-  --button-text: var(--color-forest);
   --muted-on-dark: rgba(244, 241, 232, 0.82);
   --shadow: var(--color-shadow);
 }
@@ -59,7 +54,7 @@ body {
   font-family: Inter, "Segoe UI", sans-serif;
   background:
     radial-gradient(circle at top, var(--hero-glow), transparent 40%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-end) 100%);
+    var(--bg);
   color: var(--text);
   line-height: 1.6;
 }
@@ -138,10 +133,10 @@ section[id] { scroll-margin-top: 5rem; }
   border-radius: 0.8rem;
   display: grid;
   place-items: center;
-  background: var(--color-moss);
-  color: var(--button-text);
+  background: var(--color-surface-accent);
+  color: var(--color-text-on-accent);
   font-size: 1.15rem;
-  box-shadow: 0 14px 28px rgba(var(--brand-rgb), 0.28);
+  box-shadow: 0 14px 28px rgba(var(--color-moss-rgb), 0.28);
 }
 
 .nav-links,
@@ -163,7 +158,7 @@ section[id] { scroll-margin-top: 5rem; }
 .nav-links a:hover,
 .lang-switcher a:hover,
 .lang-switcher a.is-active {
-  background: rgba(var(--brand-rgb), 0.12);
+  background: rgba(var(--color-moss-rgb), 0.12);
   color: var(--text);
 }
 
@@ -187,8 +182,8 @@ section[id] { scroll-margin-top: 5rem; }
   margin-bottom: 1rem;
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
-  background: rgba(var(--brand-rgb), 0.1);
-  border: 1px solid rgba(var(--brand-rgb), 0.22);
+  background: rgba(var(--color-moss-rgb), 0.1);
+  border: 1px solid rgba(var(--color-moss-rgb), 0.22);
   color: var(--color-forest);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -233,13 +228,13 @@ h1 {
 }
 
 .button.primary {
-  background: var(--color-moss);
-  color: var(--button-text);
-  box-shadow: 0 18px 40px rgba(var(--brand-rgb), 0.24);
+  background: var(--color-surface-accent);
+  color: var(--color-text-on-accent);
+  box-shadow: 0 18px 40px rgba(var(--color-moss-rgb), 0.24);
 }
 
 .button.secondary {
-  border-color: rgba(var(--brand-rgb), 0.22);
+  border-color: rgba(var(--color-moss-rgb), 0.22);
   background: var(--secondary-button);
   color: var(--text);
 }
@@ -253,7 +248,7 @@ h1 {
 }
 
 .showcase-window {
-  background: linear-gradient(180deg, var(--window-start), var(--window-end));
+  background: var(--color-surface-dark);
   color: var(--color-text-on-dark);
   border-radius: 1.1rem;
   border: 1px solid var(--window-border);
@@ -271,7 +266,7 @@ h1 {
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 50%;
-  background: var(--color-moss);
+  background: var(--color-surface-accent);
 }
 
 .device-grid {
@@ -398,8 +393,8 @@ h1 {
   height: 1.75rem;
   place-items: center;
   border-radius: 50%;
-  background: var(--color-moss);
-  color: var(--color-forest);
+  background: var(--color-surface-accent);
+  color: var(--color-text-on-accent);
   font-size: 0.8rem;
   font-weight: 600;
 }
