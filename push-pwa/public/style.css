@@ -121,6 +121,7 @@ h1 {
   height: 1rem;
 }
 
+.sender-input,
 .priority-select,
 .subscription-yaml {
   width: 100%;
@@ -150,6 +151,11 @@ button {
 
 button:hover { transform: translateY(-1px); }
 button:active { transform: translateY(0); }
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
 
 .primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-strong));
