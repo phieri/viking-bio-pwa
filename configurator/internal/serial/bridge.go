@@ -157,6 +157,13 @@ func (b *Bridge) Disconnect() {
 
 // SendCommand sends a command and collects lines until silence or total timeout.
 // timeoutMs[0] overrides the default 4000 ms total timeout.
+func appendPartialResponse(lines []string, partial []byte) []string {
+	if line := strings.TrimRight(string(partial), "\r"); line != "" {
+		return append(lines, line)
+	}
+	return lines
+}
+
 func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -211,7 +218,7 @@ func (b *Bridge) SendCommand(cmd string, timeoutMs ...int) ([]string, error) {
 			// No lines yet; keep waiting until total deadline
 		}
 	}
-	return lines, nil
+	return appendPartialResponse(lines, partial), nil
 }
 
 // SendConfirmedCommand requires the Pico's success response, not just a successful USB write.

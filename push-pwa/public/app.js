@@ -56,6 +56,7 @@ const MESSAGES = {
     generatedYaml: 'Client subscription generated. Paste it into subscriptions.yaml.',
     sentCount: 'Sent {count} message(s).',
     copiedYaml: 'Subscription YAML copied to clipboard.',
+    copyManually: 'Clipboard access failed. The YAML is selected; copy it manually.',
     generateBeforeCopy: 'Generate a client YAML snippet before copying it.',
     useSafariInstall: 'Use the Share button in Safari, then choose “Add to Home Screen”.',
     installPromptMissing: 'The browser has not surfaced an install prompt yet.',
@@ -80,6 +81,7 @@ const MESSAGES = {
     priorityLabel: 'Prioritet för testvarning', priorityLow: 'låg', priorityNormal: 'normal', priorityHigh: 'hög', sendTest: 'Skicka testvarning',
     yamlHelp: 'Generera ett YAML-utdrag för en klientprenumeration och klistra in det manuellt i prenumerationsfilen.', generateYaml: 'Generera klient-YAML', copyYaml: 'Kopiera YAML', yamlAria: 'YAML-utdrag för prenumeration',
     waitingHeartbeat: 'Väntar på enhetens heartbeat.', waitingRssi: 'Väntar på RSSI-data.', waitingLfs: 'Väntar på LittleFS-hälsa.', waitingSubscription: 'Väntar på prenumerationsdata.',
+    copyManually: 'Det gick inte att använda urklipp. YAML-texten är markerad; kopiera den manuellt.',
     offlineTitle: 'Viking Bio-enhet offline', offlineBody: '{device} verkar vara offline.', lastContact: 'Senaste enhetskontakt: {label}',
     rssiUnavailable: 'RSSI: otillgänglig', rssiValue: 'RSSI: {value} dBm', lfsUnavailable: 'LittleFS: otillgängligt', lfsHealthTrue: 'LittleFS: frisk', lfsHealthFalse: 'LittleFS: degraderat', unknownTime: 'Okänd tid',
     noHeartbeatYet: 'Ingen enhets-heartbeat har tagits emot ännu.', bridgeDevice: 'Bryggenhet', heartbeatUnavailable: 'Heartbeat-status är otillgänglig.',
@@ -97,6 +99,7 @@ const MESSAGES = {
     priorityLabel: 'Prioritet for testvarsel', priorityLow: 'lav', priorityNormal: 'normal', priorityHigh: 'høy', sendTest: 'Send testvarsel',
     yamlHelp: 'Generer ett YAML-utdrag for et klientabonnement og lim det manuelt inn i abonnementsfilen.', generateYaml: 'Generer klient-YAML', copyYaml: 'Kopier YAML', yamlAria: 'YAML-utdrag for abonnement',
     waitingHeartbeat: 'Venter på enhetens heartbeat.', waitingRssi: 'Venter på RSSI-data.', waitingLfs: 'Venter på LittleFS-helse.', waitingSubscription: 'Venter på abonnementsdata.',
+    copyManually: 'Kunne ikke bruke utklippstavlen. YAML-teksten er valgt; kopier den manuelt.',
     offlineTitle: 'Viking Bio-enhet frakoblet', offlineBody: '{device} ser ut til å være frakoblet.', lastContact: 'Siste enhetskontakt: {label}',
     rssiUnavailable: 'RSSI: utilgjengelig', rssiValue: 'RSSI: {value} dBm', lfsUnavailable: 'LittleFS: utilgjengelig', lfsHealthTrue: 'LittleFS: frisk', lfsHealthFalse: 'LittleFS: degradert', unknownTime: 'Ukjent tid',
     noHeartbeatYet: 'Ingen enhets-heartbeat er mottatt ennå.', bridgeDevice: 'Broenhet', heartbeatUnavailable: 'Heartbeat-status er utilgjengelig.',
@@ -114,6 +117,7 @@ const MESSAGES = {
     priorityLabel: 'Testihälytyksen prioriteetti', priorityLow: 'matala', priorityNormal: 'normaali', priorityHigh: 'korkea', sendTest: 'Lähetä testihälytys',
     yamlHelp: 'Luo yksi YAML-katkelma asiakastilausta varten ja liitä se käsin tilaustiedostoon.', generateYaml: 'Luo asiakas-YAML', copyYaml: 'Kopioi YAML', yamlAria: 'Tilauksen YAML-katkelma',
     waitingHeartbeat: 'Odotetaan laitteen heartbeatia.', waitingRssi: 'Odotetaan RSSI-tietoja.', waitingLfs: 'Odotetaan LittleFS:n tilaa.', waitingSubscription: 'Odotetaan tilaustietoja.',
+    copyManually: 'Leikepöydän käyttö epäonnistui. YAML-teksti on valittuna; kopioi se käsin.',
     offlineTitle: 'Viking Bio -laite ei ole verkossa', offlineBody: '{device} näyttää olevan poissa verkosta.', lastContact: 'Viimeisin laiteyhteys: {label}',
     rssiUnavailable: 'RSSI: ei saatavilla', rssiValue: 'RSSI: {value} dBm', lfsUnavailable: 'LittleFS: ei saatavilla', lfsHealthTrue: 'LittleFS: kunnossa', lfsHealthFalse: 'LittleFS: heikentynyt', unknownTime: 'Tuntematon aika',
     noHeartbeatYet: 'Laitteen heartbeatia ei ole vielä vastaanotettu.', bridgeDevice: 'Siltalaite', heartbeatUnavailable: 'Heartbeat-tila ei ole saatavilla.',
@@ -131,6 +135,7 @@ const MESSAGES = {
     priorityLabel: 'Prioritet for testadvarsel', priorityLow: 'lav', priorityNormal: 'normal', priorityHigh: 'høj', sendTest: 'Send testadvarsel',
     yamlHelp: 'Generér ét YAML-uddrag til et klientabonnement og indsæt det manuelt i abonnementsfilen.', generateYaml: 'Generér klient-YAML', copyYaml: 'Kopiér YAML', yamlAria: 'YAML-uddrag for abonnement',
     waitingHeartbeat: 'Venter på enhedens heartbeat.', waitingRssi: 'Venter på RSSI-data.', waitingLfs: 'Venter på LittleFS-sundhed.', waitingSubscription: 'Venter på abonnementsdata.',
+    copyManually: 'Udklipsholderen kunne ikke bruges. YAML-teksten er markeret; kopiér den manuelt.',
     offlineTitle: 'Viking Bio-enhed offline', offlineBody: '{device} ser ud til at være offline.', lastContact: 'Seneste enhedskontakt: {label}',
     rssiUnavailable: 'RSSI: utilgængelig', rssiValue: 'RSSI: {value} dBm', lfsUnavailable: 'LittleFS: utilgængelig', lfsHealthTrue: 'LittleFS: sund', lfsHealthFalse: 'LittleFS: forringet', unknownTime: 'Ukendt tidspunkt',
     noHeartbeatYet: 'Der er endnu ikke modtaget heartbeat fra enheden.', bridgeDevice: 'Broenhed', heartbeatUnavailable: 'Heartbeat-status er utilgængelig.',
@@ -148,6 +153,7 @@ const MESSAGES = {
     priorityLabel: 'Forgangur prófunarviðvörunar', priorityLow: 'lágt', priorityNormal: 'venjulegt', priorityHigh: 'hátt', sendTest: 'Senda prófunarviðvörun',
     yamlHelp: 'Búðu til eitt YAML-brot fyrir áskrift viðskiptavinar og límdu það handvirkt inn í áskriftarskrána.', generateYaml: 'Búa til YAML fyrir viðskiptavin', copyYaml: 'Afrita YAML', yamlAria: 'YAML-brot fyrir áskrift',
     waitingHeartbeat: 'Bíð eftir heartbeat frá tæki.', waitingRssi: 'Bíð eftir RSSI-gögnum.', waitingLfs: 'Bíð eftir LittleFS-heilsu.', waitingSubscription: 'Bíð eftir áskriftargögnum.',
+    copyManually: 'Ekki tókst að nota klippispjaldið. YAML-textinn er valinn; afritaðu hann handvirkt.',
     offlineTitle: 'Viking Bio-tæki ótengt', offlineBody: '{device} virðist vera ótengt.', lastContact: 'Síðasta samband við tæki: {label}',
     rssiUnavailable: 'RSSI: ekki tiltækt', rssiValue: 'RSSI: {value} dBm', lfsUnavailable: 'LittleFS: ekki tiltækt', lfsHealthTrue: 'LittleFS: í lagi', lfsHealthFalse: 'LittleFS: skert', unknownTime: 'Óþekktur tími',
     noHeartbeatYet: 'Heartbeat frá tæki hefur ekki borist enn.', bridgeDevice: 'Brúartæki', heartbeatUnavailable: 'Heartbeat-staða er ekki tiltæk.',
@@ -640,8 +646,14 @@ copyButton.addEventListener('click', async () => {
     return;
   }
 
-  await navigator.clipboard.writeText(subscriptionYaml.value);
-  setStatus(t('copiedYaml'), 'success');
+  try {
+    await navigator.clipboard.writeText(subscriptionYaml.value);
+    setStatus(t('copiedYaml'), 'success');
+  } catch {
+    subscriptionYaml.focus();
+    subscriptionYaml.select();
+    setStatus(t('copyManually'), 'error');
+  }
 });
 
 languageSelect.addEventListener('change', async () => {

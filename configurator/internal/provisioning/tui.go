@@ -18,6 +18,7 @@ import (
 	"github.com/phieri/viking-bio-pwa/configurator/internal/server"
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 	appversion "github.com/phieri/viking-bio-pwa/configurator/internal/version"
+	"golang.org/x/term"
 )
 
 const (
@@ -136,6 +137,20 @@ func (t *TUI) readLine(prompt string) string {
 		return strings.TrimSpace(t.scanner.Text())
 	}
 	return ""
+}
+
+func (t *TUI) readPassword(prompt string) (string, error) {
+	fmt.Print(prompt)
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		if t.scanner.Scan() {
+			return strings.TrimSpace(t.scanner.Text()), nil
+		}
+		return "", t.scanner.Err()
+	}
+
+	password, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Println()
+	return string(password), err
 }
 
 func formatHeaderLine(content string) string {
@@ -408,7 +423,11 @@ func (t *TUI) configureWiFi() {
 		t.printStatusBox("status", []string{t.localizer.Text("tui.cancelled")})
 		return
 	}
-	password := t.readLine(t.localizer.Text("form.password") + ": ")
+	password, err := t.readPassword(t.localizer.Text("form.password") + ": ")
+	if err != nil {
+		t.printErrorBox("status", []string{err.Error()})
+		return
+	}
 	if err := t.sendAndPrint("SSID="+ssid, "wifi: SSID staged – send PASS=<password> to save"); err != nil {
 		t.printErrorBox("status", []string{err.Error()})
 		return

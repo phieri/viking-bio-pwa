@@ -64,6 +64,18 @@ func TestConfirmedResponse(t *testing.T) {
 	}
 }
 
+func TestAppendPartialResponse(t *testing.T) {
+	t.Parallel()
+
+	lines := appendPartialResponse([]string{"first response"}, []byte("final response\r"))
+	if len(lines) != 2 || lines[1] != "final response" {
+		t.Fatalf("trailing response was not retained: %#v", lines)
+	}
+	if got := appendPartialResponse(lines, []byte("\r")); len(got) != 2 {
+		t.Fatalf("empty trailing response should be ignored: %#v", got)
+	}
+}
+
 func TestParseStatusHandlesRuntimeFields(t *testing.T) {
 	t.Parallel()
 

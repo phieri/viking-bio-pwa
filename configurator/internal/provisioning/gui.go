@@ -455,12 +455,13 @@ func RunGUI(bridge *serial.Bridge, store *storage.Store, telemetryState ...*serv
 		btnClear,
 	)
 
+	provisioningContent := container.NewVScroll(container.NewVBox(buttons, widget.NewSeparator(), logScroll))
 	content := container.NewBorder(
 		container.NewVBox(titleLabel, versionLabel, languageLabel),
 		container.NewHBox(layout.NewSpacer(), btnClose),
 		nil,
 		nil,
-		container.NewVBox(buttons, widget.NewSeparator(), logScroll),
+		provisioningContent,
 	)
 	provisioningWindow.SetContent(content)
 

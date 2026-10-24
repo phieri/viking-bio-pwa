@@ -52,6 +52,7 @@ volatile uint32_t event_flags = 0;
 #define USB_PORT_PREFIX "PORT="
 #define USB_DEVICE_KEY_PREFIX "DEVICEKEY="
 #define USB_WEBHOOK_PREFIX "WEBHOOK="
+#define USB_HELP_COMMAND "HELP"
 #define USB_CA_BEGIN_PREFIX "CABEGIN="
 #define USB_CA_CHUNK_PREFIX "CACHUNK="
 #define USB_STATUS_COMMAND "STATUS"
@@ -135,19 +136,26 @@ typedef struct {
 } usb_command_entry_t;
 
 static void print_usb_help(void) {
-	printf("  SSID=<ssid>      – set WiFi SSID\n");
-	printf("  PASS=<pass>      – set password and save\n");
+	printf("USB serial commands (send one command per line):\n");
+	printf("  SSID=<ssid>      – set WiFi SSID (max %d characters)\n", WIFI_SSID_MAX_LEN);
+	printf("  PASS=<pass>      – set password and save (max %d characters)\n", WIFI_PASS_MAX_LEN);
 	printf("  COUNTRY=<CC>     – set Wi-Fi country (e.g. SE, US)\n");
-	printf("  SERVER=<ip>      – set configurator server IP/hostname\n");
+	printf("  SERVER=<ip>      – set configurator server IP/hostname (max %d characters)\n",
+		   WIFI_SERVER_IP_MAX_LEN);
 	printf("  PORT=<port>      – set configurator server port (default %d)\n", WIFI_SERVER_PORT_DEFAULT);
-	printf("  DEVICEKEY=<key>  – set telemetry device key\n");
-	printf("  WEBHOOK=<url>    – set bridge notification webhook\n");
+	printf("  DEVICEKEY=<key>  – set telemetry device key (max %d characters)\n",
+		   WIFI_DEVICE_KEY_MAX_LEN);
+	printf("  WEBHOOK=<url>    – set bridge notification webhook (max %d characters)\n",
+		   WIFI_WEBHOOK_URL_MAX_LEN);
 	printf("  CABEGIN=<bytes>  – begin DER CA transfer (1–4096 bytes)\n");
 	printf("  CACHUNK=<hex>    – append up to 64 bytes of DER\n");
 	printf("  CACOMMIT         – validate and save CA (reboot to apply)\n");
 	printf("  CACLEAR          – remove CA (reboot to apply)\n");
 	printf("  STATUS           – show status\n");
+	printf("  HELP             – show this command list\n");
 	printf("  CLEAR            – erase stored credentials\n");
+	printf("Set WiFi by sending SSID first, then PASS. Use PASS= for an open network.\n");
+	printf("After changing saved settings, reboot the Pico to apply them.\n");
 }
 
 static void load_current_server_config(char *ip, size_t ip_size, uint16_t *port) {
@@ -368,6 +376,12 @@ static bool handle_status_command(const char *arg) {
 	return false;
 }
 
+static bool handle_help_command(const char *arg) {
+	(void)arg;
+	print_usb_help();
+	return false;
+}
+
 static bool handle_clear_command(const char *arg) {
 	(void)arg;
 	wifi_config_clear();
@@ -388,6 +402,7 @@ static const usb_command_entry_t s_usb_commands[] = {
 	{"CACOMMIT", true, handle_ca_commit_command},
 	{"CACLEAR", true, handle_ca_clear_command},
 	{USB_STATUS_COMMAND, true, handle_status_command},
+	{USB_HELP_COMMAND, true, handle_help_command},
 	{USB_CLEAR_COMMAND, true, handle_clear_command},
 };
 
@@ -627,6 +642,7 @@ static bool start_wifi_services(const char *ssid, const char *password, bool hav
 	if (!have_creds) {
 		printf("\nWiFi not configured. Configure via USB serial:\n");
 		printf("  SSID=<ssid> then PASS=<password>\n\n");
+		printf("Send HELP for the full USB command list.\n");
 		return false;
 	}
 	if (!wifi_connect(ssid, password)) {
