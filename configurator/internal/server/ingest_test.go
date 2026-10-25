@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,6 +17,15 @@ import (
 	"github.com/phieri/viking-bio-pwa/configurator/internal/storage"
 )
 
+type ingestTestConn struct {
+	net.Conn
+	remote net.Addr
+}
+
+func (c ingestTestConn) RemoteAddr() net.Addr {
+	return c.remote
+}
+
 func newIngestTestServer(t *testing.T) (*tcpIngestServer, *storage.Store) {
 	t.Helper()
 	dir := t.TempDir()
@@ -25,6 +35,43 @@ func newIngestTestServer(t *testing.T) (*tcpIngestServer, *storage.Store) {
 	}
 	handler := NewHandlers(&config.Config{IngestTCPPort: 9000})
 	return newTCPIngestServer(&config.Config{IngestTCPPort: 9000}, store, handler), store
+}
+
+func TestIngestConnectionLimit(t *testing.T) {
+	ingest, _ := newIngestTestServer(t)
+	clients := make([]net.Conn, 0, maxConcurrentIngestConnections)
+	defer func() {
+		for _, conn := range clients {
+			_ = conn.Close()
+		}
+	}()
+
+	for i := 0; i < maxConcurrentIngestConnections; i++ {
+		client, server := net.Pipe()
+		conn := ingestTestConn{
+			Conn:   server,
+			remote: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 12345},
+		}
+		if !ingest.tryStartConn(conn) {
+			_ = client.Close()
+			t.Fatalf("connection %d was rejected below the limit", i+1)
+		}
+		clients = append(clients, client)
+	}
+
+	client, server := net.Pipe()
+	if ingest.tryStartConn(ingestTestConn{
+		Conn:   server,
+		remote: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 12346},
+	}) {
+		_ = client.Close()
+		t.Fatal("connection above the limit was accepted")
+	}
+	_ = client.SetReadDeadline(time.Now().Add(time.Second))
+	if _, err := client.Read(make([]byte, 1)); err == nil {
+		t.Fatal("expected excess connection to be closed")
+	}
+	_ = client.Close()
 }
 
 func signPayload(t *testing.T, secret string, payload ingestcodec.Payload) ingestcodec.Payload {

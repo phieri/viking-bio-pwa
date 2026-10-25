@@ -169,7 +169,8 @@ port and sends length-prefixed JSON frames:
 The configurator verifies the per-device HMAC signature, persists `last_seq` for
 anti-replay protection, forwards accepted messages asynchronously into the
 normal state/update/notification pipeline, and writes overflow traffic to
-`<DATA_DIR>/ingest-fallback.log`.
+`<DATA_DIR>/ingest-fallback.log`. At most 64 ingest connections are handled
+concurrently; connections accepted while that limit is full are closed.
 
 > **Note:** the default Pico server port for telemetry is now `9000` to match
 > `INGEST_TCP_PORT`. The legacy HTTP webhook and older service port (`3000`) have
