@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	ingestQueueSize         = 64
-	ingestFailureWindow     = time.Minute
-	ingestBlocklistDuration = 5 * time.Minute
-	ingestFailureThreshold  = 5
-	ingestReadTimeout       = 2 * time.Minute
+	ingestQueueSize                  = 64
+	maxConcurrentIngestConnections   = 64
+	ingestFailureWindow              = time.Minute
+	ingestBlocklistDuration          = 5 * time.Minute
+	ingestFailureThreshold           = 5
+	ingestReadTimeout                = 2 * time.Minute
 )
 
 func telemetryDataToMachineDataBody(d ingestcodec.TelemetryData) machineDataBody {
@@ -183,18 +184,20 @@ func isAllowedRemoteAddr(remote string) bool {
 }
 
 type tcpIngestServer struct {
-	cfg      *config.Config
-	store    *storage.Store
-	pipeline *telemetryPipeline
-	failures *failureTracker
+	cfg                *config.Config
+	store              *storage.Store
+	pipeline           *telemetryPipeline
+	failures           *failureTracker
+	activeConnections  chan struct{}
 }
 
 func newTCPIngestServer(cfg *config.Config, store *storage.Store, handler *Handlers) *tcpIngestServer {
 	return &tcpIngestServer{
-		cfg:      cfg,
-		store:    store,
-		pipeline: newTelemetryPipeline(handler),
-		failures: newFailureTracker(),
+		cfg:               cfg,
+		store:             store,
+		pipeline:          newTelemetryPipeline(handler),
+		failures:          newFailureTracker(),
+		activeConnections: make(chan struct{}, maxConcurrentIngestConnections),
 	}
 }
 
@@ -242,7 +245,29 @@ func (s *tcpIngestServer) Start(ctx context.Context) error {
 			}
 			return fmt.Errorf("accept ingest connection: %w", err)
 		}
-		go s.handleConn(conn)
+		if !s.tryStartConn(conn) {
+			log.Printf("ingest: connection limit reached; rejecting %s", conn.RemoteAddr())
+		}
+	}
+}
+
+func (s *tcpIngestServer) tryStartConn(conn net.Conn) bool {
+	if s == nil || conn == nil {
+		if conn != nil {
+			_ = conn.Close()
+		}
+		return false
+	}
+	select {
+	case s.activeConnections <- struct{}{}:
+		go func() {
+			defer func() { <-s.activeConnections }()
+			s.handleConn(conn)
+		}()
+		return true
+	default:
+		_ = conn.Close()
+		return false
 	}
 }
 
