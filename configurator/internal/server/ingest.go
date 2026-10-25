@@ -20,12 +20,12 @@ import (
 )
 
 const (
-	ingestQueueSize                  = 64
-	maxConcurrentIngestConnections   = 64
-	ingestFailureWindow              = time.Minute
-	ingestBlocklistDuration          = 5 * time.Minute
-	ingestFailureThreshold           = 5
-	ingestReadTimeout                = 2 * time.Minute
+	ingestQueueSize                = 64
+	maxConcurrentIngestConnections = 64
+	ingestFailureWindow            = time.Minute
+	ingestBlocklistDuration        = 5 * time.Minute
+	ingestFailureThreshold         = 5
+	ingestReadTimeout              = 2 * time.Minute
 )
 
 func telemetryDataToMachineDataBody(d ingestcodec.TelemetryData) machineDataBody {
@@ -184,11 +184,11 @@ func isAllowedRemoteAddr(remote string) bool {
 }
 
 type tcpIngestServer struct {
-	cfg                *config.Config
-	store              *storage.Store
-	pipeline           *telemetryPipeline
-	failures           *failureTracker
-	activeConnections  chan struct{}
+	cfg               *config.Config
+	store             *storage.Store
+	pipeline          *telemetryPipeline
+	failures          *failureTracker
+	activeConnections chan struct{}
 }
 
 func newTCPIngestServer(cfg *config.Config, store *storage.Store, handler *Handlers) *tcpIngestServer {
