@@ -147,6 +147,28 @@ static void commit_heartbeat_summary(uint64_t now_ms, bool flame_on) {
 	s_last_flame_state = flame_on;
 }
 
+void http_webhook_get_diagnostics(http_webhook_diagnostics_t *out) {
+	if (out == NULL) {
+		return;
+	}
+	int rssi = INT_MIN;
+	out->has_rssi = read_wifi_rssi(&rssi);
+	out->rssi_dbm = out->has_rssi ? rssi : 0;
+	out->lfs_ok = lfs_hal_is_healthy();
+	uint64_t now_ms = to_ms_since_boot(get_absolute_time());
+	uint64_t flame_on_ms = s_flame_on_ms_since_last_heartbeat;
+	if (s_last_flame_state_known && s_last_flame_state) {
+		flame_on_ms += now_ms - s_last_flame_transition_ms;
+	}
+	uint64_t window_ms = (s_last_heartbeat_ms > 0ULL) ? (now_ms - s_last_heartbeat_ms)
+													  : WEBHOOK_HEARTBEAT_INTERVAL_MS;
+	if (window_ms == 0ULL) {
+		window_ms = WEBHOOK_HEARTBEAT_INTERVAL_MS;
+	}
+	out->flame_on_ms = flame_on_ms;
+	out->window_ms = window_ms;
+}
+
 static bool queue_heartbeat(void) {
 	vikingbio_data_t snapshot = {0};
 	vikingbio_get_current_data(&snapshot);

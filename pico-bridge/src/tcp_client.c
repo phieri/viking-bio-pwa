@@ -12,6 +12,7 @@
 #include "lwip/ip_addr.h"
 #include "lwip/tcp.h"
 
+#include "http_webhook.h"
 #include "tcp_client.h"
 #include "wifi_config.h"
 
@@ -61,7 +62,6 @@ static void schedule_retry(void);
 static void refresh_timeout(void);
 [[nodiscard]] static bool server_target_ready(void);
 [[nodiscard]] static bool device_identity_ready(void);
-[[nodiscard]] static bool queue_ready_for_flush(void);
 
 [[nodiscard]] static bool queue_push(const uint8_t *data, size_t len) {
 	if (len == 0 || len > TELEMETRY_FRAME_MAX) {
@@ -113,10 +113,6 @@ static void refresh_timeout(void) {
 	return s_device_key[0] != '\0' && s_device_id[0] != '\0';
 }
 
-[[nodiscard]] static bool queue_ready_for_flush(void) {
-	return s_queue_count > 0 && server_target_ready() && s_device_key[0] != '\0';
-}
-
 [[nodiscard]] static bool build_data_json(const vikingbio_data_t *data, char *out, size_t out_len) {
 	int written = snprintf(out, out_len,
 						   "{\"flame\":%s,\"fan\":%d,\"temp\":%d,\"err\":%d,\"valid\":%s}",
@@ -153,8 +149,22 @@ static uint64_t next_sequence(void) {
 	return true;
 }
 
-[[nodiscard]] static bool build_frame(const vikingbio_data_t *data, uint8_t *frame, size_t *frame_len) {
-	char data_json[TELEMETRY_DATA_JSON_MAX];
+[[nodiscard]] static bool build_diagnostics_json(const http_webhook_diagnostics_t *diag, char *out,
+												 size_t out_len) {
+	char rssi[16] = "null";
+	if (diag->has_rssi) {
+		snprintf(rssi, sizeof(rssi), "%d", diag->rssi_dbm);
+	}
+	int written = snprintf(out, out_len,
+						   "{\"rssi\":%s,\"lfs_ok\":%s,\"flame_on_ms\":%llu,\"window_ms\":%llu}",
+						   rssi, diag->lfs_ok ? "true" : "false",
+						   (unsigned long long)diag->flame_on_ms,
+						   (unsigned long long)diag->window_ms);
+	return written > 0 && written < (int)out_len;
+}
+
+[[nodiscard]] static bool build_frame(const char *body_key, const char *data_json, uint8_t *frame,
+									  size_t *frame_len) {
 	char canonical[TELEMETRY_CANONICAL_MAX];
 	char signature[TELEMETRY_SIGNATURE_MAX];
 	char payload[TELEMETRY_PAYLOAD_MAX];
@@ -163,10 +173,6 @@ static uint64_t next_sequence(void) {
 	// monotonic boot-relative timestamp and rely on the persisted sequence number
 	// for replay protection and ordering on the configurator.
 	uint64_t ts = to_ms_since_boot(get_absolute_time());
-
-	if (!build_data_json(data, data_json, sizeof(data_json))) {
-		return false;
-	}
 
 	int canonical_len = snprintf(canonical, sizeof(canonical), "%s\n%llu\n%llu\n%s", s_device_id,
 								 (unsigned long long)seq, (unsigned long long)ts, data_json);
@@ -179,9 +185,9 @@ static uint64_t next_sequence(void) {
 	}
 
 	int payload_len = snprintf(payload, sizeof(payload),
-							  "{\"device\":\"%s\",\"seq\":%llu,\"ts\":%llu,\"data\":%s,\"sig\":\"%s\"}",
+							  "{\"device\":\"%s\",\"seq\":%llu,\"ts\":%llu,\"%s\":%s,\"sig\":\"%s\"}",
 							  s_device_id, (unsigned long long)seq, (unsigned long long)ts,
-							  data_json, signature);
+							  body_key, data_json, signature);
 	if (payload_len <= 0 || payload_len >= (int)sizeof(payload)) {
 		return false;
 	}
@@ -357,7 +363,9 @@ void tcp_client_send_data(const vikingbio_data_t *data) {
 		return;
 	}
 
-	if (!build_frame(data, frame, &frame_len)) {
+	char data_json[TELEMETRY_DATA_JSON_MAX];
+	if (!build_data_json(data, data_json, sizeof(data_json)) ||
+		!build_frame("data", data_json, frame, &frame_len)) {
 		printf("tcp_client: failed to build telemetry frame\n");
 		return;
 	}
@@ -365,7 +373,23 @@ void tcp_client_send_data(const vikingbio_data_t *data) {
 		printf("tcp_client: failed to queue telemetry frame\n");
 		return;
 	}
+}
 
+bool tcp_client_send_diagnostics(const http_webhook_diagnostics_t *diag) {
+	uint8_t frame[TELEMETRY_FRAME_MAX];
+	size_t frame_len = 0;
+	char diag_json[TELEMETRY_DATA_JSON_MAX];
+
+	// Diagnostics are only meaningful live; never queue them while disconnected.
+	if (diag == NULL || s_state != TCP_STATE_CONNECTED || !device_identity_ready()) {
+		return false;
+	}
+	if (!build_diagnostics_json(diag, diag_json, sizeof(diag_json)) ||
+		!build_frame("diag", diag_json, frame, &frame_len)) {
+		printf("tcp_client: failed to build diagnostics frame\n");
+		return false;
+	}
+	return queue_push(frame, frame_len);
 }
 
 void tcp_client_poll(void) {
@@ -380,7 +404,7 @@ void tcp_client_poll(void) {
 		s_state = TCP_STATE_IDLE;
 	}
 
-	if (!queue_ready_for_flush()) {
+	if (!server_target_ready() || s_device_key[0] == '\0') {
 		return;
 	}
 

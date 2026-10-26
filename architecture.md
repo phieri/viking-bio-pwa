@@ -9,6 +9,7 @@ The active system has a strict process and language boundary:
 - `configurator/` is the Go configurator runtime and local API host.
 - `push-pwa/` is the browser push notification frontend used to register subscriptions and deliver alerts to operators.
 - The firmware and the configurator communicate over a signed framed TCP ingest channel.
+- The bridge opens the ingest connection as soon as Wi‑Fi and the server/key are configured (without waiting for serial data) and sends a signed `diag` frame (RSSI, LittleFS health, flame-on time, window) every 60 seconds; the configurator logs it.
 
 There is no cgo, no FFI, and no shared-memory boundary between the firmware and the configurator.
 

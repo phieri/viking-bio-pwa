@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -115,6 +116,29 @@ func TestVerifyTelemetrySignature(t *testing.T) {
 	payload.Seq++
 	if err := ingestcodec.VerifySignature("super-secret", payload); err == nil {
 		t.Fatal("expected signature verification to fail after payload mutation")
+	}
+}
+
+func TestVerifyDiagnosticsSignature(t *testing.T) {
+	t.Parallel()
+
+	rssi := -61
+	payload := signPayload(t, "super-secret", ingestcodec.Payload{
+		Device: "pico-1234",
+		Seq:    2,
+		TS:     time.Now().Unix(),
+		Diag:   &ingestcodec.DiagnosticsData{RSSI: &rssi, LFSOK: true, FlameOnMS: 1000, WindowMS: 5000},
+	})
+	if err := ingestcodec.VerifySignature("super-secret", payload); err != nil {
+		t.Fatalf("VerifySignature: %v", err)
+	}
+	canonical, err := ingestcodec.CanonicalTelemetryString(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("pico-1234\n2\n%d\n{\"rssi\":-61,\"lfs_ok\":true,\"flame_on_ms\":1000,\"window_ms\":5000}", payload.TS)
+	if canonical != want {
+		t.Fatalf("canonical = %q, want %q", canonical, want)
 	}
 }
 

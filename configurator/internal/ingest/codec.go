@@ -23,12 +23,23 @@ type TelemetryData struct {
 	Valid bool    `json:"valid"`
 }
 
+// DiagnosticsData carries the same bridge health summary as the daily heartbeat.
+type DiagnosticsData struct {
+	RSSI      *int   `json:"rssi"`
+	LFSOK     bool   `json:"lfs_ok"`
+	FlameOnMS uint64 `json:"flame_on_ms"`
+	WindowMS  uint64 `json:"window_ms"`
+}
+
+// Payload is a signed frame carrying either telemetry (Data) or, when Diag is
+// set, periodic bridge diagnostics.
 type Payload struct {
-	Device string        `json:"device"`
-	Seq    uint64        `json:"seq"`
-	TS     int64         `json:"ts"`
-	Data   TelemetryData `json:"data"`
-	Sig    string        `json:"sig"`
+	Device string           `json:"device"`
+	Seq    uint64           `json:"seq"`
+	TS     int64            `json:"ts"`
+	Data   TelemetryData    `json:"data"`
+	Diag   *DiagnosticsData `json:"diag,omitempty"`
+	Sig    string           `json:"sig"`
 }
 
 func ReadFrame(r io.Reader) (Payload, error) {
@@ -55,7 +66,11 @@ func ReadFrame(r io.Reader) (Payload, error) {
 }
 
 func CanonicalTelemetryString(payload Payload) (string, error) {
-	dataJSON, err := json.Marshal(payload.Data)
+	var body any = payload.Data
+	if payload.Diag != nil {
+		body = payload.Diag
+	}
+	dataJSON, err := json.Marshal(body)
 	if err != nil {
 		return "", fmt.Errorf("marshal telemetry data: %w", err)
 	}

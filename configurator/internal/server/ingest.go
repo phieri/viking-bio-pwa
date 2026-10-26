@@ -71,6 +71,16 @@ func (p *telemetryPipeline) run() {
 		if p.handler == nil {
 			continue
 		}
+		if env.Payload.Diag != nil {
+			d := env.Payload.Diag
+			rssi := "n/a"
+			if d.RSSI != nil {
+				rssi = fmt.Sprintf("%d dBm", *d.RSSI)
+			}
+			log.Printf("ingest: diagnostics device=%s rssi=%s lfs_ok=%t flame_on_ms=%d window_ms=%d",
+				env.Payload.Device, rssi, d.LFSOK, d.FlameOnMS, d.WindowMS)
+			continue
+		}
 		p.handler.processMachineData(telemetryDataToMachineDataBody(env.Payload.Data), "ingest", env.ReceivedAt)
 	}
 }
