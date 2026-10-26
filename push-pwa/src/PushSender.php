@@ -133,6 +133,7 @@ final class PushSender
             static fn (string $language, array $subscription): array => PushTranslations::cleaningReminder($language),
             '/icons/broom.svg',
             [
+                'type' => 'weekly_cleaning_reminder',
                 'tag' => 'cleaningReminder',
                 'url' => self::uiUrl(),
                 'timestamp' => $sentAt,

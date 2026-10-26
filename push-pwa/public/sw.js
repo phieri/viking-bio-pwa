@@ -125,7 +125,7 @@ self.addEventListener('push', (event) => {
     data: { url: normaliseNotificationTarget(payload.url || payload.uiUrl || '/') },
   };
 
-  if (urgency === 'low') {
+  if (payload.type === 'weekly_cleaning_reminder' && urgency === 'low') {
     options.tag = 'cleaningReminder';
   } else if (payload.type === 'error') {
     options.tag = 'errorAlarm';
