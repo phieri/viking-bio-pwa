@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "http_webhook.h"
 #include "vikingbio.h"
 
 // Retry delay after a connection failure (ms)
@@ -26,6 +27,13 @@ void tcp_client_init(const char *host, uint16_t port, const char *device_key);
  * @param data  Pointer to current burner data
  */
 void tcp_client_send_data(const vikingbio_data_t *data);
+
+/**
+ * Queue a signed diagnostics frame (same data as the daily heartbeat) on the persistent
+ * connection. Dropped when the connection is not currently established.
+ * @return true if the frame was queued
+ */
+bool tcp_client_send_diagnostics(const http_webhook_diagnostics_t *diag);
 
 /**
  * Poll the TCP telemetry client state machine.

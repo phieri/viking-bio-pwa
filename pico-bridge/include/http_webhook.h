@@ -4,8 +4,24 @@
 #define HTTP_WEBHOOK_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "vikingbio.h"
+
+/** Bridge health summary shared by the daily webhook heartbeat and TCP diagnostics. */
+typedef struct {
+	bool has_rssi;
+	int rssi_dbm;
+	bool lfs_ok;
+	uint64_t flame_on_ms;
+	uint64_t window_ms;
+} http_webhook_diagnostics_t;
+
+/**
+ * Collect the heartbeat diagnostics without resetting the heartbeat window. May block on
+ * CYW43 events; call outside the lwIP lock.
+ */
+void http_webhook_get_diagnostics(http_webhook_diagnostics_t *out);
 
 /**
  * Initialize the outbound webhook client using the saved WEBHOOK= URL from storage.

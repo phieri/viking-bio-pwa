@@ -27,6 +27,7 @@ volatile uint32_t event_flags = 0;
 
 // Broadcast interval: 2 seconds
 #define BROADCAST_INTERVAL_MS 2000
+#define DIAGNOSTICS_INTERVAL_MS 60000
 
 // Watchdog timeout: 8 seconds
 #define WATCHDOG_TIMEOUT_MS 8000
@@ -64,6 +65,7 @@ static absolute_time_t s_serial_blink_end;
 static bool s_led_blink_on = false;
 static bool s_status_led_available = false;
 static bool s_last_webhook_flame = false;
+static absolute_time_t s_next_diagnostics;
 static uint8_t s_last_webhook_error = 0;
 static uint32_t s_wifi_retry_delay_ms = WIFI_RETRY_INITIAL_MS;
 static absolute_time_t s_wifi_retry_deadline = {0};
@@ -754,6 +756,13 @@ static void handle_broadcast_event(bool wifi_up, bool flame_on) {
 		tcp_client_poll();
 		cyw43_arch_lwip_end();
 		http_webhook_poll();
+		if (tcp_client_is_active() && time_reached(s_next_diagnostics)) {
+			http_webhook_diagnostics_t diag;
+			http_webhook_get_diagnostics(&diag);
+			if (tcp_client_send_diagnostics(&diag)) {
+				s_next_diagnostics = make_timeout_time_ms(DIAGNOSTICS_INTERVAL_MS);
+			}
+		}
 	}
 }
 
