@@ -132,7 +132,7 @@ $result = $sender->sendTranslated(
     static fn (string $language, array $subscription): array => PushTranslations::webhookAlert($language, $type, $detail, $device, $errorCode, $temperature, $lfsHealth, $summary),
     $icon,
     [
-        'tag' => 'viking-bio-' . $type,
+        ...($type === 'error' ? ['tag' => 'errorAlarm'] : []),
         'url' => PushSender::uiUrl(),
         'timestamp' => (int) floor(microtime(true) * 1000),
         'device' => $device,

@@ -122,9 +122,14 @@ self.addEventListener('push', (event) => {
     body: payload.body || t('defaultBody'),
     icon: payload.icon || '/icon.svg',
     badge: payload.icon || '/icon.svg',
-    tag: urgency === 'low' ? 'cleaningReminder' : (payload.tag || 'viking-bio-alert'),
     data: { url: normaliseNotificationTarget(payload.url || payload.uiUrl || '/') },
   };
+
+  if (payload.type === 'weekly_cleaning_reminder' && urgency === 'low') {
+    options.tag = 'cleaningReminder';
+  } else if (payload.type === 'error') {
+    options.tag = 'errorAlarm';
+  }
 
   if (urgency === 'high') {
     options.vibrate = [100, 50, 100];
