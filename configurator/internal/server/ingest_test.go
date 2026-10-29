@@ -264,3 +264,21 @@ func TestProcessPayloadReturnsErrorWhenFallbackAppendFails(t *testing.T) {
 		t.Fatal("expected fallback append error to be returned")
 	}
 }
+
+func TestFailureTrackerBlocksAfterRepeatedFailuresAcrossConnections(t *testing.T) {
+	tr := newFailureTracker()
+	now := time.Now()
+	remote := "[::1]:1234"
+	for i := 0; i < ingestFailureThreshold; i++ {
+		if tr.blocked(remote, now) {
+			t.Fatalf("blocked too early at failure %d", i)
+		}
+		tr.recordFailure(remote, now)
+	}
+	if !tr.blocked(remote, now) {
+		t.Fatal("expected client to be blocked after threshold failures")
+	}
+	if tr.blocked(remote, now.Add(ingestBlocklistDuration+time.Second)) {
+		t.Fatal("expected block to expire")
+	}
+}
