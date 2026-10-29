@@ -5,6 +5,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -120,13 +121,14 @@ func (t *failureTracker) blocked(remote string, now time.Time) bool {
 	if !ok {
 		return false
 	}
-	if now.After(state.blockedUntil) {
-		state.blockedUntil = time.Time{}
-		state.count = 0
-		t.entries[host] = state
+	if state.blockedUntil.IsZero() {
 		return false
 	}
-	return !state.blockedUntil.IsZero()
+	if now.After(state.blockedUntil) {
+		delete(t.entries, host)
+		return false
+	}
+	return true
 }
 
 func (t *failureTracker) recordFailure(remote string, now time.Time) bool {
@@ -308,9 +310,6 @@ func (s *tcpIngestServer) handleConn(conn net.Conn) {
 		}
 		payload, err := ingestcodec.ReadFrame(conn)
 		if err != nil {
-			if err == io.EOF {
-				return
-			}
 			if isConnectionClose(err) {
 				return
 			}
@@ -326,7 +325,12 @@ func (s *tcpIngestServer) handleConn(conn net.Conn) {
 }
 
 func isConnectionClose(err error) bool {
-	return err == io.EOF || err == net.ErrClosed
+	if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	// An idle connection timing out is not a protocol failure.
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
 }
 
 func (s *tcpIngestServer) rejectRemote(remote string, subject string, err error) {

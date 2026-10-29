@@ -20,10 +20,13 @@ type DeviceRecord struct {
 }
 
 func (s *Store) loadDevices() {
-	if s == nil || s.devicesPath == "" {
+	if s == nil {
 		return
 	}
 	s.devices = make(map[string]DeviceRecord)
+	if s.devicesPath == "" {
+		return
+	}
 	data, err := os.ReadFile(s.devicesPath)
 	if os.IsNotExist(err) {
 		return
@@ -44,7 +47,9 @@ func (s *Store) loadDevices() {
 		log.Printf("storage: failed to parse devices: %v", err)
 		return
 	}
-	s.devices = devices
+	if devices != nil {
+		s.devices = devices
+	}
 	log.Printf("storage: loaded %d provisioned device(s)", len(s.devices))
 }
 
@@ -110,10 +115,12 @@ func (s *Store) AcceptSequence(device string, seq uint64) error {
 	if seq <= record.LastSeq {
 		return fmt.Errorf("replayed or out-of-order sequence")
 	}
+	previous := record
 	record.LastSeq = seq
 	record.UpdatedAt = time.Now().Unix()
 	s.devices[device] = record
 	if err := s.saveDevicesLocked(); err != nil {
+		s.devices[device] = previous
 		return fmt.Errorf("save devices: %w", err)
 	}
 	return nil
