@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -47,10 +48,8 @@ func wifiRegionLabel(localizer provisioningLocalizer, countryCode string) string
 	if countryCode == "" {
 		return localizer.regionLabel("XX")
 	}
-	for _, code := range supportedWiFiRegionCodes {
-		if code == countryCode {
-			return localizer.regionLabel(code)
-		}
+	if slices.Contains(supportedWiFiRegionCodes, countryCode) {
+		return localizer.regionLabel(countryCode)
 	}
 	return localizer.regionLabel("XX")
 }

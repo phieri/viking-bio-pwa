@@ -9,7 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -80,8 +80,7 @@ func selectAutoPort(portNames []string) (string, error) {
 	if len(clean) == 1 {
 		return clean[0], nil
 	}
-	sorted := append([]string(nil), clean...)
-	sort.Strings(sorted)
+	sorted := slices.Sorted(slices.Values(clean))
 	return "", fmt.Errorf("multiple serial ports found (%s); set PICO_SERIAL_PORT", strings.Join(sorted, ", "))
 }
 

@@ -5,7 +5,9 @@ package storage
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,7 +30,7 @@ func (s *Store) loadDevices() {
 		return
 	}
 	data, err := os.ReadFile(s.devicesPath)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return
 	}
 	if err != nil {

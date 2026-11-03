@@ -3,6 +3,8 @@
 package storage
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +54,7 @@ func ensureConfigTemplate(path string) error {
 		if info.Mode().IsRegular() && info.Size() > 0 {
 			return nil
 		}
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 

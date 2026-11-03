@@ -67,11 +67,10 @@ func webhookURLFitsBridge(rawURL string) bool {
 		return false
 	}
 
-	schemeEnd := strings.Index(rawURL, "://")
-	if schemeEnd < 0 {
+	_, authorityAndPath, ok := strings.Cut(rawURL, "://")
+	if !ok {
 		return false
 	}
-	authorityAndPath := rawURL[schemeEnd+3:]
 	pathStart := strings.IndexByte(authorityAndPath, '/')
 	if pathStart < 0 {
 		return !strings.ContainsAny(authorityAndPath, "?#")

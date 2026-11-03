@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,7 +60,7 @@ func resolvePort(explicit string) (string, error) {
 	for _, port := range ports {
 		names = append(names, port.Name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return "", fmt.Errorf("multiple serial ports found (%s); set PICO_SERIAL_PORT",
 		strings.Join(names, ", "))
 }
