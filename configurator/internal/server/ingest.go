@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -179,20 +180,15 @@ func isAllowedRemoteAddr(remote string) bool {
 	if host == "" {
 		return false
 	}
-	if i := strings.Index(host, "%"); i >= 0 {
-		host = host[:i]
-	}
+	host, _, _ = strings.Cut(host, "%")
 	addr, err := netip.ParseAddr(host)
 	if err != nil {
 		return false
 	}
 	addr = addr.Unmap()
-	for _, prefix := range allowedIngestRemotePrefixes {
-		if prefix.Contains(addr) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(allowedIngestRemotePrefixes, func(prefix netip.Prefix) bool {
+		return prefix.Contains(addr)
+	})
 }
 
 type tcpIngestServer struct {
